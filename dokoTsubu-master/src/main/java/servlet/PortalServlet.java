@@ -75,6 +75,7 @@ public class PortalServlet extends HttpServlet {
     } else if (page.startsWith("attendance/")) {
       req.setAttribute("rows", portal.attendance(user, month));
       req.setAttribute("adjustments", portal.attendanceAdjustments(user));
+      if ("attendance/manage".equals(page)) req.setAttribute("people", portal.users(user));
     } else if ("notifications".equals(page)) {
       req.setAttribute("rows", portal.notifications(user));
       if (user.isHr()) req.setAttribute("mailRows", portal.mailOutbox(user));
@@ -134,6 +135,8 @@ public class PortalServlet extends HttpServlet {
         case "clock" -> portal.clock(user, "in".equals(req.getParameter("direction")), req.getParameter("lat"), req.getParameter("lng"), value(req, "locationStatus", "UNKNOWN"));
         case "finalizeAttendance" -> portal.finalizeAttendance(user, Long.parseLong(req.getParameter("id")), Boolean.parseBoolean(req.getParameter("finalized")));
         case "finalizeAttendanceMonth" -> portal.finalizeAttendanceMonth(user, parseMonth(req.getParameter("month")), Boolean.parseBoolean(req.getParameter("finalized")));
+        case "finalizeAttendanceEmployeeMonth" -> portal.finalizeAttendanceEmployeeMonth(user, Long.parseLong(req.getParameter("userId")),
+            parseMonth(req.getParameter("month")), Boolean.parseBoolean(req.getParameter("finalized")));
         case "requestAttendanceAdjustment" -> portal.requestAttendanceAdjustment(user, Long.parseLong(req.getParameter("attendanceId")),
             LocalDateTime.parse(req.getParameter("requestedIn")), LocalDateTime.parse(req.getParameter("requestedOut")), req.getParameter("reason"));
         case "decideAttendanceAdjustment" -> portal.decideAttendanceAdjustment(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));

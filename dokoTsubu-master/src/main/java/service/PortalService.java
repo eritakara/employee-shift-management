@@ -287,6 +287,9 @@ public class PortalService {
   public void clock(User user, boolean clockIn, String lat, String lng, String locationStatus) {
     if (settings.bool("LOCATION_REQUIRED", false) && !"ACQUIRED".equals(locationStatus)) throw new IllegalArgumentException("位置情報を取得できないため打刻できません。");
     LocalDate workDate = LocalDate.now();
+    if (!Sql.query("SELECT id FROM attendance WHERE user_id=? AND work_date=? AND finalized=TRUE", user.getId(), workDate).isEmpty()) {
+      throw new IllegalArgumentException("確定済み勤怠は変更できません。店長へ確定解除を依頼してください。");
+    }
     if (clockIn) {
       Sql.update("MERGE INTO attendance(user_id,work_date,clock_in,in_lat,in_lng,location_status,status) KEY(user_id,work_date) VALUES(?,?,CURRENT_TIMESTAMP,?,?,?,'OPEN')",
           user.getId(), workDate, number(lat), number(lng), locationStatus);
@@ -304,6 +307,7 @@ public class PortalService {
   public void finalizeAttendance(User actor, long attendanceId, boolean finalized) {
     requireManager(actor);
     Map<String, Object> row = Sql.one("SELECT a.id,u.branch_id,u.department_id FROM attendance a JOIN users u ON u.id=a.user_id WHERE a.id=?", attendanceId);
+    if (row.isEmpty()) throw new IllegalArgumentException("勤怠データが見つかりません。");
     assertScope(actor, ((Number) row.get("branch_id")).longValue(), ((Number) row.get("department_id")).longValue());
     Sql.update("UPDATE attendance SET finalized=? WHERE id=?", finalized, attendanceId);
     AuditService.record(actor.getId(), finalized ? "FINALIZE_ATTENDANCE" : "REOPEN_ATTENDANCE", "ATTENDANCE", String.valueOf(attendanceId), null, String.valueOf(finalized));
@@ -316,6 +320,17 @@ public class PortalService {
         : new Object[]{finalized, month.atDay(1), month.atEndOfMonth(), actor.getBranchId(), actor.getDepartmentId()};
     Sql.update("UPDATE attendance SET finalized=? WHERE work_date BETWEEN ? AND ?" + filter, args);
     AuditService.record(actor.getId(), finalized ? "FINALIZE_ATTENDANCE_MONTH" : "REOPEN_ATTENDANCE_MONTH", "ATTENDANCE_MONTH", month.toString(), null, String.valueOf(finalized));
+  }
+
+  public void finalizeAttendanceEmployeeMonth(User actor, long userId, YearMonth month, boolean finalized) {
+    requireManager(actor);
+    Map<String, Object> target = Sql.one("SELECT branch_id,department_id FROM users WHERE id=?", userId);
+    if (target.isEmpty()) throw new IllegalArgumentException("従業員が見つかりません。");
+    assertScope(actor, ((Number) target.get("branch_id")).longValue(), ((Number) target.get("department_id")).longValue());
+    Sql.update("UPDATE attendance SET finalized=? WHERE user_id=? AND work_date BETWEEN ? AND ?",
+        finalized, userId, month.atDay(1), month.atEndOfMonth());
+    AuditService.record(actor.getId(), finalized ? "FINALIZE_ATTENDANCE_EMPLOYEE_MONTH" : "REOPEN_ATTENDANCE_EMPLOYEE_MONTH",
+        "ATTENDANCE_EMPLOYEE_MONTH", userId + ":" + month, null, String.valueOf(finalized));
   }
 
   public List<Map<String, Object>> attendanceAdjustments(User viewer) {
@@ -343,6 +358,9 @@ public class PortalService {
     Map<String, Object> row = Sql.one("SELECT r.*,u.branch_id,u.department_id FROM attendance_adjustments r JOIN users u ON u.id=r.requested_by WHERE r.id=?", requestId);
     if (row.isEmpty() || !"PENDING".equals(row.get("status"))) throw new IllegalArgumentException("未処理の申請が見つかりません。");
     assertScope(actor, ((Number) row.get("branch_id")).longValue(), ((Number) row.get("department_id")).longValue());
+    if (approve && Boolean.TRUE.equals(Sql.one("SELECT finalized FROM attendance WHERE id=?", row.get("attendance_id")).get("finalized"))) {
+      throw new IllegalArgumentException("確定済み勤怠は、確定解除してから修正してください。");
+    }
     if (approve) Sql.update("UPDATE attendance SET clock_in=?,clock_out=?,status=CASE WHEN ? IS NOT NULL AND ? IS NOT NULL THEN 'COMPLETE' ELSE 'OPEN' END WHERE id=?",
         row.get("requested_in"), row.get("requested_out"), row.get("requested_in"), row.get("requested_out"), row.get("attendance_id"));
     Sql.update("UPDATE attendance_adjustments SET status=?,decided_by=?,decided_at=CURRENT_TIMESTAMP WHERE id=?",

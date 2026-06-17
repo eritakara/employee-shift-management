@@ -110,6 +110,10 @@ public class PortalServlet extends HttpServlet {
           nullableLong(req.getParameter("actorId")), req.getParameter("operation"), nullableLong(req.getParameter("targetUserId"))));
       req.setAttribute("people", portal.users(user));
       req.setAttribute("auditActions", portal.auditActions(user));
+    } else if ("exports".equals(page)) {
+      req.setAttribute("branches", portal.master("branches"));
+      req.setAttribute("departments", portal.master("departments"));
+      req.setAttribute("people", portal.users(user));
     }
     req.getRequestDispatcher("/WEB-INF/jsp/app.jsp").forward(req, res);
   }

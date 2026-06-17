@@ -1,0 +1,59 @@
+# ShiftFlow
+
+シフト、有休、勤怠を管理するJava Webアプリケーションです。Jakarta Servlet、JSP、H2、Tomcat 10で動作します。
+
+## 必要環境
+
+- Java 21以上
+- Apache Tomcat 10.1
+- PowerShell
+
+既定ではTomcatを `C:\tomcat\10` から使用します。
+
+## ビルドとテスト
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+powershell -ExecutionPolicy Bypass -File .\test.ps1
+```
+
+成果物は `target\shiftflow.war` です。
+
+## ローカル起動
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run-dev.ps1
+```
+
+起動後に `http://localhost:8080/shiftflow/` を開きます。停止時は次を実行します。
+
+```powershell
+$env:CATALINA_HOME='C:\tomcat\10'
+$env:CATALINA_BASE=(Resolve-Path '.tomcat').Path
+& 'C:\tomcat\10\bin\shutdown.bat'
+```
+
+## デモアカウント
+
+| 役割 | メールアドレス | パスワード |
+|---|---|---|
+| 人事担当者 | `hr@example.com` | `Password1!` |
+| 店長 | `manager@example.com` | `Password1!` |
+| 従業員 | `employee@example.com` | `Password1!` |
+
+初回起動時に、営業所、部署、勤務区分とデモアカウントが自動登録されます。DBはTomcat開発環境の `.tomcat\data` に保存されます。
+
+## 主な構成
+
+- `src/main/java/config`: DB初期化、起動処理
+- `src/main/java/dao`: DBアクセス
+- `src/main/java/filter`: セッション認証
+- `src/main/java/model`: ユーザーモデル
+- `src/main/java/service`: シフト、有休、勤怠、通知などの業務処理
+- `src/main/java/servlet`: 認証、画面、出力のコントローラー
+- `src/main/webapp`: JSP、CSS、JavaScript、H2ドライバー
+- `src/test/java`: 外部テストライブラリを使わないスモークテスト
+
+## メール
+
+招待、パスワード再設定、申請通知メールは `mail_outbox` に送信待ちとして登録されます。実運用前に利用するメールサービスを決め、送信処理へ接続してください。ローカル環境では再設定画面への確認用リンクを画面に表示します。

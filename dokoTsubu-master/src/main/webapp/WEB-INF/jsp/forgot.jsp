@@ -1,0 +1,5 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>パスワード再設定 | ShiftFlow</title><link rel="stylesheet" href="<%=request.getContextPath()%>/assets/app.css"></head>
+<body class="auth-page"><main class="auth-shell"><section class="auth-brand"><span class="brand-mark">SF</span><div><strong>ShiftFlow</strong><small>シフト・有休管理</small></div></section><section class="auth-panel"><p class="eyebrow">ACCOUNT RECOVERY</p><h1>パスワード再設定</h1>
+<%if(Boolean.TRUE.equals(request.getAttribute("sent"))){%><div class="alert">登録済みの場合、再設定メールを送信しました。</div><%if(request.getAttribute("devLink")!=null){%><p class="note">ローカル確認用: <a href="<%=request.getAttribute("devLink")%>">再設定画面を開く</a></p><%}%><p><a href="<%=request.getContextPath()%>/index.jsp">ログインへ戻る</a></p><%}else{%><form method="post" class="stack-form"><label>メールアドレス<input type="email" name="email" required></label><button class="primary wide">再設定メールを送る</button></form><%}%>
+</section></main></body></html>

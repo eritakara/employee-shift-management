@@ -1,0 +1,183 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ page import="java.util.*,java.time.*,model.User" %>
+<%!
+  private String e(Object value) {
+    if (value == null) return "";
+    return String.valueOf(value).replace("&", "&amp;").replace("<", "&lt;")
+        .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
+  }
+  private String status(Object value) { return value == null ? "" : String.valueOf(value).toLowerCase(); }
+  private boolean pageIs(String page, String prefix) { return page.equals(prefix) || page.startsWith(prefix + "/"); }
+%>
+<%
+User user = (User) session.getAttribute("loginUser");
+String pageKey = (String) request.getAttribute("page");
+String pageTitle = (String) request.getAttribute("pageTitle");
+YearMonth month = (YearMonth) request.getAttribute("month");
+List<Map<String,Object>> rows = (List<Map<String,Object>>) request.getAttribute("rows");
+if (rows == null) rows = Collections.emptyList();
+List<Map<String,Object>> people = (List<Map<String,Object>>) request.getAttribute("people");
+if (people == null) people = Collections.emptyList();
+List<Map<String,Object>> workTypes = (List<Map<String,Object>>) request.getAttribute("workTypes");
+boolean manager = user.isManager() || user.isHr();
+boolean en = "en".equals(user.getLocale());
+String ctx = request.getContextPath();
+%>
+<!DOCTYPE html>
+<html lang="<%= en ? "en" : "ja" %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= e(pageTitle) %> | ShiftFlow</title>
+  <link rel="stylesheet" href="<%= ctx %>/assets/app.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" aria-label="メインナビゲーション">
+    <a class="brand" href="<%= ctx %>/app/dashboard"><span class="brand-mark">SF</span><span><strong>ShiftFlow</strong><small><%= en ? "Workforce portal" : "シフト・有休管理" %></small></span></a>
+    <nav>
+      <p class="nav-label"><%= en ? "Overview" : "概要" %></p>
+      <a class="nav-link <%= pageKey.equals("dashboard") ? "active" : "" %>" href="<%=ctx%>/app/dashboard">▦ <%= en ? "Dashboard" : "ダッシュボード" %></a>
+      <a class="nav-link <%= pageKey.equals("notifications") ? "active" : "" %>" href="<%=ctx%>/app/notifications">● <%= en ? "Notifications" : "通知" %></a>
+      <p class="nav-label"><%= en ? "Schedule" : "シフト" %></p>
+      <a class="nav-link <%= pageKey.equals("shifts/mine") ? "active" : "" %>" href="<%=ctx%>/app/shifts/mine">□ <%= en ? "My schedule" : "自分のシフト" %></a>
+      <a class="nav-link <%= pageKey.equals("shifts/request") ? "active" : "" %>" href="<%=ctx%>/app/shifts/request">＋ <%= en ? "Submit request" : "希望シフト提出" %></a>
+      <a class="nav-link <%= pageKey.equals("shifts/team") ? "active" : "" %>" href="<%=ctx%>/app/shifts/team">▤ <%= en ? "Team schedule" : "月間シフト表" %></a>
+      <a class="nav-link <%= pageKey.equals("shifts/change") ? "active" : "" %>" href="<%=ctx%>/app/shifts/change">↻ <%= en ? "Change request" : "変更・休み申請" %></a>
+      <% if (manager) { %>
+      <a class="nav-link <%= pageKey.equals("shifts/manage") ? "active" : "" %>" href="<%=ctx%>/app/shifts/manage">☷ <%= en ? "Schedule editor" : "シフト調整" %></a>
+      <a class="nav-link <%= pageKey.equals("shifts/confirm") ? "active" : "" %>" href="<%=ctx%>/app/shifts/confirm">✓ <%= en ? "Confirm schedule" : "シフト確定" %></a>
+      <% } %>
+      <p class="nav-label"><%= en ? "Leave" : "有休" %></p>
+      <a class="nav-link <%= pageKey.equals("leave/balance") ? "active" : "" %>" href="<%=ctx%>/app/leave/balance">◷ <%= en ? "Balance" : "残数・履歴" %></a>
+      <a class="nav-link <%= pageKey.equals("leave/request") ? "active" : "" %>" href="<%=ctx%>/app/leave/request">＋ <%= en ? "Leave request" : "有休申請" %></a>
+      <a class="nav-link <%= pageKey.equals("leave/history") ? "active" : "" %>" href="<%=ctx%>/app/leave/history">▤ <%= en ? "Request history" : "申請履歴" %></a>
+      <% if (manager) { %><a class="nav-link <%= pageKey.equals("leave/approvals") ? "active" : "" %>" href="<%=ctx%>/app/leave/approvals">✓ <%= en ? "Approvals" : "承認" %></a><% } %>
+      <p class="nav-label"><%= en ? "Attendance" : "勤怠" %></p>
+      <a class="nav-link <%= pageKey.equals("attendance/clock") ? "active" : "" %>" href="<%=ctx%>/app/attendance/clock">◉ <%= en ? "Time clock" : "出退勤打刻" %></a>
+      <a class="nav-link <%= pageKey.equals("attendance/mine") ? "active" : "" %>" href="<%=ctx%>/app/attendance/mine">▤ <%= en ? "My attendance" : "自分の勤怠" %></a>
+      <a class="nav-link <%= pageKey.equals("attendance/adjust") ? "active" : "" %>" href="<%=ctx%>/app/attendance/adjust">↻ <%= en ? "Correction" : "打刻修正" %></a>
+      <% if (manager) { %><a class="nav-link <%= pageKey.equals("attendance/manage") ? "active" : "" %>" href="<%=ctx%>/app/attendance/manage">✓ <%= en ? "Monthly close" : "月次確定" %></a><% } %>
+      <% if (user.isHr()) { %>
+      <p class="nav-label"><%= en ? "Administration" : "管理" %></p>
+      <a class="nav-link <%= pageIs(pageKey,"employees") ? "active" : "" %>" href="<%=ctx%>/app/employees">♙ <%= en ? "Employees" : "従業員" %></a>
+      <a class="nav-link <%= pageIs(pageKey,"masters") ? "active" : "" %>" href="<%=ctx%>/app/masters/branches">⚙ <%= en ? "Master data" : "マスタ管理" %></a>
+      <a class="nav-link <%= pageKey.equals("exports") ? "active" : "" %>" href="<%=ctx%>/app/exports">⇩ <%= en ? "Exports" : "データ出力" %></a>
+      <a class="nav-link <%= pageKey.equals("audit") ? "active" : "" %>" href="<%=ctx%>/app/audit">≡ <%= en ? "Audit log" : "操作履歴" %></a>
+      <% } %>
+    </nav>
+  </aside>
+  <div class="main-column">
+    <header class="topbar">
+      <div class="actions"><button type="button" class="menu-button" data-menu aria-label="メニュー">☰</button><h1><%= e(pageTitle) %></h1></div>
+      <div class="topbar-meta">
+        <a class="button" href="<%=ctx%>/app/notifications" aria-label="通知">●</a>
+        <div class="user-chip"><strong><%=e(user.getName())%></strong><small><%=e(user.getBranchName())%> / <%=e(user.getDepartmentName())%></small></div>
+        <a class="button" href="<%=ctx%>/app/account" aria-label="アカウント設定">⚙</a>
+        <a class="button" href="<%=ctx%>/logout"><%= en ? "Sign out" : "ログアウト" %></a>
+      </div>
+    </header>
+    <main class="content">
+      <% if (request.getAttribute("flash") != null) { %><div class="alert"><%=e(request.getAttribute("flash"))%></div><% } %>
+      <% if (request.getAttribute("error") != null) { %><div class="alert danger"><%=e(request.getAttribute("error"))%></div><% } %>
+
+      <% if (pageKey.equals("dashboard")) {
+        Map<String,Object> stats = (Map<String,Object>) request.getAttribute("stats");
+        List<Map<String,Object>> chart = (List<Map<String,Object>>) request.getAttribute("chart"); %>
+        <div class="metric-grid">
+          <div class="metric"><span class="label">今日の勤務者</span><strong><%=e(stats.get("todayWorkers"))%><small>名</small></strong></div>
+          <div class="metric"><span class="label">未承認申請</span><strong><%=e(stats.get("pending"))%><small>件</small></strong></div>
+          <div class="metric"><span class="label">有休残日数</span><strong><%=e(stats.get("leave"))%><small>日</small></strong></div>
+          <div class="metric"><span class="label">人員不足</span><strong><%=e(stats.get("shortage"))%><small>区分</small></strong></div>
+          <div class="metric"><span class="label">今月の実勤務</span><strong><%=String.format("%.1f",stats.get("monthHours"))%><small>時間</small></strong></div>
+        </div>
+        <div class="dashboard-grid">
+          <section class="section"><div class="section-header"><h2>勤務時間・残業時間の推移</h2><span class="muted">直近6か月</span></div>
+            <% if (chart.isEmpty()) { %><div class="empty">集計できる勤怠データがありません。</div><% } else { %>
+            <div class="chart"><% for (Map<String,Object> item : chart) {
+              double hours = ((Number)item.get("total_hours")).doubleValue(); double overtime = ((Number)item.get("overtime_hours")).doubleValue(); %>
+              <div class="chart-column"><span class="bar" style="height:<%=Math.min(100,hours/2)%>%" title="勤務 <%=hours%>時間"></span><span class="bar overtime" style="height:<%=Math.min(100,overtime*2)%>%" title="残業 <%=overtime%>時間"></span><small><%=e(item.get("month_label"))%></small></div>
+            <% } %></div><% } %>
+          </section>
+          <section class="section"><div class="section-header"><h2>今月の予定</h2><a href="<%=ctx%>/app/shifts/mine">すべて見る</a></div>
+            <% if (rows.isEmpty()) { %><div class="empty">シフトはまだありません。</div><% } else { int shown=0; for (Map<String,Object> row:rows) { if(shown++>=7) break; %>
+              <p><strong><%=e(row.get("work_date"))%></strong>　<%=e(row.get("work_type"))%> <span class="status <%=status(row.get("status"))%>"><%=e(row.get("status"))%></span></p>
+            <% }} %>
+          </section>
+        </div>
+
+      <% } else if (pageKey.startsWith("shifts/")) { %>
+        <div class="toolbar no-print">
+          <form method="get"><label>対象月<input type="month" name="month" value="<%=month%>"></label><button type="submit">表示</button></form>
+          <div class="actions"><a class="button" href="<%=ctx%>/app/shifts/print?month=<%=month%>">印刷表示</a><% if(manager){ %><a class="button primary" href="<%=ctx%>/app/shifts/manage?month=<%=month%>">調整する</a><% } %></div>
+        </div>
+        <% if (pageKey.equals("shifts/request") || pageKey.equals("shifts/manage") || pageKey.equals("shifts/change")) { %>
+        <section class="section no-print"><div class="section-header"><h2><%=pageKey.equals("shifts/change")?"変更・休みを申請":"勤務区分を登録"%></h2></div>
+          <form method="post" class="form-grid">
+            <input type="hidden" name="action" value="<%=pageKey.equals("shifts/change")?"requestShiftChange":"saveShift"%>"><input type="hidden" name="returnPage" value="<%=pageKey%>">
+            <% if(manager){ %><label>従業員<select name="userId" required><% for(Map<String,Object> person:people){ %><option value="<%=person.get("id")%>"><%=e(person.get("employee_number"))%> <%=e(person.get("name"))%></option><% } %></select></label><% } %>
+            <label>日付<input type="date" name="date" required></label>
+            <label>勤務区分<select name="workType" required><% for(Map<String,Object> wt:workTypes){ %><option value="<%=wt.get("code")%>"><%=e(en?wt.get("name_en"):wt.get("name_ja"))%></option><% } %></select></label>
+            <% if(manager){ %><label>状態<select name="status"><option value="DRAFT">下書き</option><option value="SUBMITTED">提出済み</option><option value="CONFIRMED">確定</option></select></label><% } %>
+            <label class="span-2">備考・理由<input type="text" name="<%=pageKey.equals("shifts/change")?"reason":"note"%>" maxlength="1000" <%=pageKey.equals("shifts/change")?"required":""%>></label>
+            <div class="span-all"><button class="primary" type="submit"><%=pageKey.equals("shifts/change")?"申請する":"保存する"%></button></div>
+          </form>
+        </section><% } %>
+        <% if (pageKey.equals("shifts/confirm") || pageKey.equals("shifts/manage")) { List<Map<String,Object>> warnings=(List<Map<String,Object>>)request.getAttribute("warnings"); %><section class="section no-print"><h2>確定前チェック</h2><%if(warnings==null||warnings.isEmpty()){%><p class="alert">警告はありません。</p><%}else{%><div class="table-wrap"><table><thead><tr><th>種類</th><th>日付</th><th>内容</th><th>必要</th><th>実績</th></tr></thead><tbody><%for(Map<String,Object>w:warnings){%><tr><td class="warning-text"><%=e(w.get("warning"))%></td><td><%=e(w.get("work_date"))%></td><td><%=e(w.get("detail"))%></td><td><%=e(w.get("required"))%></td><td><%=e(w.get("actual"))%></td></tr><%}%></tbody></table></div><%}%><%if(pageKey.equals("shifts/confirm")){%><form method="post" style="margin-top:16px"><input type="hidden" name="action" value="confirmShifts"><input type="hidden" name="returnPage" value="shifts/confirm"><input type="hidden" name="month" value="<%=month%>"><button class="primary" type="submit">警告を確認して確定</button></form><%}%></section><% } %>
+        <% if(pageKey.equals("shifts/history") || pageKey.equals("shifts/change") || pageKey.equals("shifts/manage")){ List<Map<String,Object>> requests=(List<Map<String,Object>>)request.getAttribute("requests"); %><section class="section"><div class="section-header"><h2>変更・休み申請</h2><span class="muted"><%=requests.size()%>件</span></div><div class="table-wrap"><table><thead><tr><th>日付</th><th>申請者</th><th>変更前</th><th>変更後</th><th>理由</th><th>緊急</th><th>状態</th><%if(manager){%><th>操作</th><%}%></tr></thead><tbody><%for(Map<String,Object>r:requests){%><tr><td><%=e(r.get("work_date"))%></td><td><%=e(r.get("name"))%></td><td><%=e(r.get("current_type"))%></td><td><%=e(r.get("requested_name"))%></td><td><%=e(r.get("reason"))%></td><td><%=Boolean.TRUE.equals(r.get("urgent"))?"緊急":"-"%></td><td><span class="status <%=status(r.get("status"))%>"><%=e(r.get("status"))%></span></td><%if(manager){%><td><%if("PENDING".equals(r.get("status"))){%><form method="post"><input type="hidden" name="action" value="decideShiftChange"><input type="hidden" name="returnPage" value="<%=pageKey%>"><input type="hidden" name="id" value="<%=r.get("id")%>"><button class="primary" name="decision" value="approve">承認</button><button class="danger-button" name="decision" value="reject">却下</button></form><%}%></td><%}%></tr><%}%><%if(requests.isEmpty()){%><tr><td colspan="8" class="empty">申請はありません。</td></tr><%}%></tbody></table></div></section><%}%>
+        <section class="section"><div class="section-header"><h2><%=month%> 月間シフト</h2><span class="muted"><%=rows.size()%>件</span></div>
+          <div class="table-wrap"><table><thead><tr><th>日付</th><th>社員番号</th><th>氏名</th><th>勤務区分</th><th>状態</th><th>備考</th></tr></thead><tbody>
+          <% for(Map<String,Object> row:rows){ %><tr><td><%=e(row.get("work_date"))%></td><td><%=e(row.get("employee_number"))%></td><td><%=e(row.get("name"))%></td><td><%=e(row.get("work_type"))%></td><td><span class="status <%=status(row.get("status"))%>"><%=e(row.get("status"))%></span></td><td><%=e(row.get("note"))%></td></tr><% } %>
+          <% if(rows.isEmpty()){%><tr><td colspan="6" class="empty">対象月のシフトはありません。</td></tr><%}%></tbody></table></div>
+        </section>
+
+      <% } else if (pageKey.startsWith("leave/")) {
+        Map<String,Object> balance=(Map<String,Object>)request.getAttribute("balance"); %>
+        <div class="metric-grid"><div class="metric"><span class="label">有休残日数</span><strong><%=e(balance.get("days_remaining"))%><small>日</small></strong></div><div class="metric"><span class="label">時間有休残</span><strong><%=e(balance.get("hourly_remaining"))%><small>時間</small></strong></div></div>
+        <% if(pageKey.equals("leave/request")){ %><section class="section"><h2>有休を申請</h2><form method="post" class="form-grid"><input type="hidden" name="action" value="requestLeave"><input type="hidden" name="returnPage" value="leave/history"><label>取得日<input type="date" name="date" required></label><label>取得単位<select name="unit"><option value="FULL">1日</option><option value="AM">午前休</option><option value="PM">午後休</option><option value="HOURLY">時間単位</option></select></label><label>時間数<input type="number" name="hours" min="1" max="8" placeholder="時間単位の場合"></label><label class="span-all">理由<textarea name="reason" required maxlength="1000"></textarea></label><div class="span-all"><button class="primary" type="submit">申請する</button></div></form></section><% } %>
+        <section class="section"><div class="section-header"><h2>有休申請</h2><span class="muted"><%=rows.size()%>件</span></div><div class="table-wrap"><table><thead><tr><th>取得日</th><th>申請者</th><th>単位</th><th>時間</th><th>理由</th><th>状態</th><%if(pageKey.equals("leave/approvals")){%><th>操作</th><%}%></tr></thead><tbody>
+          <%for(Map<String,Object> row:rows){%><tr><td><%=e(row.get("leave_date"))%></td><td><%=e(row.get("name"))%></td><td><%=e(row.get("leave_unit"))%></td><td><%=e(row.get("hours"))%></td><td><%=e(row.get("reason"))%></td><td><span class="status <%=status(row.get("status"))%>"><%=e(row.get("status"))%></span></td><%if(pageKey.equals("leave/approvals")){%><td><%if("PENDING".equals(row.get("status"))){%><div class="actions"><form method="post"><input type="hidden" name="action" value="decideLeave"><input type="hidden" name="returnPage" value="leave/approvals"><input type="hidden" name="id" value="<%=row.get("id")%>"><button class="primary" name="decision" value="approve">承認</button><button class="danger-button" name="decision" value="reject">却下</button></form></div><%}%></td><%}%></tr><%}%>
+          <%if(rows.isEmpty()){%><tr><td colspan="7" class="empty">申請はありません。</td></tr><%}%></tbody></table></div></section>
+
+      <% } else if(pageKey.startsWith("attendance/")){ %>
+        <%if(pageKey.equals("attendance/clock")){%><section class="section clock-panel"><p class="muted"><%=LocalDate.now()%></p><div class="clock-time" data-clock>--:--:--</div><p>打刻時に端末の位置情報を記録します。場所による打刻制限はありません。</p><div class="clock-actions"><form method="post" data-clock-form><input type="hidden" name="action" value="clock"><input type="hidden" name="returnPage" value="attendance/clock"><input type="hidden" name="direction" value="in"><input type="hidden" name="lat"><input type="hidden" name="lng"><input type="hidden" name="locationStatus"><button class="primary" type="submit">出勤</button></form><form method="post" data-clock-form><input type="hidden" name="action" value="clock"><input type="hidden" name="returnPage" value="attendance/clock"><input type="hidden" name="direction" value="out"><input type="hidden" name="lat"><input type="hidden" name="lng"><input type="hidden" name="locationStatus"><button type="submit">退勤</button></form></div></section><%}%>
+        <%if(pageKey.equals("attendance/adjust")){%><section class="section"><h2>打刻修正を申請</h2><form method="post" class="form-grid"><input type="hidden" name="action" value="requestAttendanceAdjustment"><input type="hidden" name="returnPage" value="attendance/history"><label>対象勤怠<select name="attendanceId"><%for(Map<String,Object>r:rows){%><option value="<%=r.get("id")%>"><%=e(r.get("work_date"))%> <%=e(r.get("clock_in"))%> - <%=e(r.get("clock_out"))%></option><%}%></select></label><label>修正後の出勤<input type="datetime-local" name="requestedIn" required></label><label>修正後の退勤<input type="datetime-local" name="requestedOut" required></label><label class="span-all">理由<textarea name="reason" required></textarea></label><div class="span-all"><button class="primary">申請する</button></div></form></section><%}%>
+        <%if(pageKey.equals("attendance/adjust")||pageKey.equals("attendance/history")||pageKey.equals("attendance/manage")){List<Map<String,Object>> adjustments=(List<Map<String,Object>>)request.getAttribute("adjustments");%><section class="section"><div class="section-header"><h2>打刻修正申請</h2><span class="muted"><%=adjustments.size()%>件</span></div><div class="table-wrap"><table><thead><tr><th>勤務日</th><th>申請者</th><th>現在の出勤</th><th>修正後の出勤</th><th>現在の退勤</th><th>修正後の退勤</th><th>理由</th><th>状態</th><%if(manager){%><th>操作</th><%}%></tr></thead><tbody><%for(Map<String,Object>a:adjustments){%><tr><td><%=e(a.get("work_date"))%></td><td><%=e(a.get("name"))%></td><td><%=e(a.get("current_in"))%></td><td><%=e(a.get("requested_in"))%></td><td><%=e(a.get("current_out"))%></td><td><%=e(a.get("requested_out"))%></td><td><%=e(a.get("reason"))%></td><td><span class="status <%=status(a.get("status"))%>"><%=e(a.get("status"))%></span></td><%if(manager){%><td><%if("PENDING".equals(a.get("status"))){%><form method="post"><input type="hidden" name="action" value="decideAttendanceAdjustment"><input type="hidden" name="returnPage" value="<%=pageKey%>"><input type="hidden" name="id" value="<%=a.get("id")%>"><button class="primary" name="decision" value="approve">承認</button><button class="danger-button" name="decision" value="reject">却下</button></form><%}%></td><%}%></tr><%}%><%if(adjustments.isEmpty()){%><tr><td colspan="9" class="empty">修正申請はありません。</td></tr><%}%></tbody></table></div></section><%}%>
+        <div class="toolbar"><form method="get"><label>対象月<input type="month" name="month" value="<%=month%>"></label><button>表示</button></form></div>
+        <section class="section"><div class="section-header"><h2>勤怠実績</h2><span class="muted"><%=rows.size()%>件</span></div><div class="table-wrap"><table><thead><tr><th>日付</th><th>氏名</th><th>勤務</th><th>出勤</th><th>退勤</th><th>遅刻</th><th>早退</th><th>残業</th><th>位置情報</th><%if(pageKey.equals("attendance/manage")){%><th>確定</th><%}%></tr></thead><tbody>
+          <%for(Map<String,Object> row:rows){%><tr><td><%=e(row.get("work_date"))%></td><td><%=e(row.get("name"))%></td><td><%=e(row.get("work_type_code"))%></td><td><%=e(row.get("clock_in"))%></td><td><%=e(row.get("clock_out"))%></td><td><%=Boolean.TRUE.equals(row.get("late"))?"遅刻":"-"%></td><td><%=Boolean.TRUE.equals(row.get("early"))?"早退":"-"%></td><td><%=e(row.get("overtime_minutes"))%>分</td><td><%=e(row.get("location_status"))%></td><%if(pageKey.equals("attendance/manage")){%><td><form method="post"><input type="hidden" name="action" value="finalizeAttendance"><input type="hidden" name="returnPage" value="attendance/manage"><input type="hidden" name="id" value="<%=row.get("id")%>"><input type="hidden" name="finalized" value="<%=!Boolean.TRUE.equals(row.get("finalized"))%>"><button><%=Boolean.TRUE.equals(row.get("finalized"))?"解除":"確定"%></button></form></td><%}%></tr><%}%>
+          <%if(rows.isEmpty()){%><tr><td colspan="10" class="empty">勤怠データはありません。</td></tr><%}%></tbody></table></div></section>
+
+      <% } else if(pageKey.equals("notifications")){ %>
+        <div class="toolbar"><span></span><form method="post"><input type="hidden" name="action" value="markNotificationsRead"><input type="hidden" name="returnPage" value="notifications"><button>すべて既読にする</button></form></div><section class="section"><%for(Map<String,Object> row:rows){%><article class="notification <%=Boolean.TRUE.equals(row.get("is_read"))?"":"unread"%>"><div><h3><%=e(row.get("title"))%></h3><p><%=e(row.get("message"))%></p></div><div><small><%=e(row.get("created_at"))%></small><%if(row.get("target_url")!=null){%><p><a href="<%=ctx+e(row.get("target_url"))%>">詳細</a></p><%}%></div></article><%}%><%if(rows.isEmpty()){%><div class="empty">通知はありません。</div><%}%></section>
+
+      <% } else if(pageKey.equals("employees")||pageKey.equals("employees/edit")){ %>
+        <%if(pageKey.equals("employees/edit")){ List<Map<String,Object>> branches=(List<Map<String,Object>>)request.getAttribute("branches"); List<Map<String,Object>> departments=(List<Map<String,Object>>)request.getAttribute("departments"); List<Map<String,Object>> employment=(List<Map<String,Object>>)request.getAttribute("employment"); Map<String,Object> selected=(Map<String,Object>)request.getAttribute("selectedEmployee"); boolean editing=selected!=null;%><section class="section"><h2><%=editing?"従業員を編集":"従業員を登録"%></h2><form method="post" class="form-grid"><input type="hidden" name="action" value="<%=editing?"updateEmployee":"addEmployee"%>"><input type="hidden" name="returnPage" value="employees"><%if(editing){%><input type="hidden" name="id" value="<%=selected.get("id")%>"><%}%><label>社員番号<input name="employeeNumber" required value="<%=editing?e(selected.get("employee_number")):""%>"></label><label>氏名<input name="name" required value="<%=editing?e(selected.get("name")):""%>"></label><label>メールアドレス<input name="email" type="email" required value="<%=editing?e(selected.get("email")):""%>"></label><label>入社日<input name="hireDate" type="date" required value="<%=editing?e(selected.get("hire_date")):""%>"></label><label>営業所<select name="branchId"><%for(Map<String,Object> r:branches){%><option value="<%=r.get("id")%>" <%=editing&&String.valueOf(r.get("id")).equals(String.valueOf(selected.get("branch_id")))?"selected":""%>><%=e(r.get("name"))%></option><%}%></select></label><label>部署<select name="departmentId"><%for(Map<String,Object> r:departments){%><option value="<%=r.get("id")%>" <%=editing&&String.valueOf(r.get("id")).equals(String.valueOf(selected.get("department_id")))?"selected":""%>><%=e(r.get("name"))%></option><%}%></select></label><label>雇用形態<select name="employmentId"><%for(Map<String,Object> r:employment){%><option value="<%=r.get("id")%>" <%=editing&&String.valueOf(r.get("id")).equals(String.valueOf(selected.get("employment_type_id")))?"selected":""%>><%=e(r.get("name"))%></option><%}%></select></label><label>役割<select name="role"><option value="EMPLOYEE" <%=editing&&"EMPLOYEE".equals(selected.get("role"))?"selected":""%>>従業員</option><option value="MANAGER" <%=editing&&"MANAGER".equals(selected.get("role"))?"selected":""%>>店長</option><option value="HR" <%=editing&&"HR".equals(selected.get("role"))?"selected":""%>>人事担当者</option></select></label><%if(editing){%><label>状態<select name="active"><option value="true" <%=Boolean.TRUE.equals(selected.get("active"))?"selected":""%>>有効</option><option value="false" <%=Boolean.FALSE.equals(selected.get("active"))?"selected":""%>>無効</option></select></label><%}%><div class="span-all"><button class="primary"><%=editing?"更新する":"登録して招待"%></button></div></form></section><%}%>
+        <div class="toolbar"><span></span><a class="button primary" href="<%=ctx%>/app/employees/edit">従業員を登録</a></div><section class="section"><div class="table-wrap"><table><thead><tr><th>社員番号</th><th>氏名</th><th>メール</th><th>営業所</th><th>部署</th><th>雇用形態</th><th>役割</th><th>状態</th><th>操作</th></tr></thead><tbody><%for(Map<String,Object> row:rows){%><tr><td><%=e(row.get("employee_number"))%></td><td><%=e(row.get("name"))%></td><td><%=e(row.get("email"))%></td><td><%=e(row.get("branch"))%></td><td><%=e(row.get("department"))%></td><td><%=e(row.get("employment"))%></td><td><%=e(row.get("role"))%></td><td><%=Boolean.TRUE.equals(row.get("active"))?"有効":"無効"%></td><td><a class="button" href="<%=ctx%>/app/employees/edit?id=<%=row.get("id")%>">編集</a></td></tr><%}%></tbody></table></div></section>
+
+      <% } else if(pageKey.equals("qualifications")){ %>
+        <section class="section"><h2>資格を登録</h2><form method="post" class="inline-form"><input type="hidden" name="action" value="addQualification"><input type="hidden" name="returnPage" value="qualifications"><label>従業員<select name="userId"><%for(Map<String,Object> p:people){%><option value="<%=p.get("id")%>"><%=e(p.get("name"))%></option><%}%></select></label><label>資格名<input name="name" required></label><label>有効期限<input type="date" name="expiresOn"></label><button class="primary">登録</button></form></section><section class="section"><div class="table-wrap"><table><thead><tr><th>社員番号</th><th>氏名</th><th>資格名</th><th>有効期限</th></tr></thead><tbody><%for(Map<String,Object> row:rows){%><tr><td><%=e(row.get("employee_number"))%></td><td><%=e(row.get("employee_name"))%></td><td><%=e(row.get("qualification_name"))%></td><td><%=e(row.get("expires_on"))%></td></tr><%}%></tbody></table></div></section>
+
+      <% } else if(pageKey.equals("delegations")){ %>
+        <section class="section"><h2>代理店長を設定</h2><form method="post" class="inline-form"><input type="hidden" name="action" value="addDelegation"><input type="hidden" name="returnPage" value="delegations"><label>代理者<select name="delegateId"><%for(Map<String,Object> p:people){ if(((Number)p.get("id")).longValue()!=user.getId()){%><option value="<%=p.get("id")%>"><%=e(p.get("name"))%></option><%}}%></select></label><label>開始日<input type="date" name="startsOn" required></label><label>終了日<input type="date" name="endsOn" required></label><button class="primary">設定</button></form></section><section class="section"><div class="table-wrap"><table><thead><tr><th>店長</th><th>代理者</th><th>開始日</th><th>終了日</th><th>状態</th></tr></thead><tbody><%for(Map<String,Object> row:rows){%><tr><td><%=e(row.get("manager_name"))%></td><td><%=e(row.get("delegate_name"))%></td><td><%=e(row.get("starts_on"))%></td><td><%=e(row.get("ends_on"))%></td><td><%=Boolean.TRUE.equals(row.get("active"))?"有効":"無効"%></td></tr><%}%></tbody></table></div></section>
+
+      <% } else if(pageKey.startsWith("masters/")){ String masterType=(String)request.getAttribute("masterType"); %>
+        <div class="toolbar"><div class="actions"><a class="button" href="<%=ctx%>/app/masters/branches">営業所</a><a class="button" href="<%=ctx%>/app/masters/departments">部署</a><a class="button" href="<%=ctx%>/app/masters/work-types">勤務区分・休憩</a><a class="button" href="<%=ctx%>/app/masters/staffing">必要人数</a><a class="button" href="<%=ctx%>/app/masters/catalogs">雇用形態</a></div></div>
+        <%if(!"work_types".equals(masterType)){%><section class="section"><h2>項目を追加</h2><form method="post" class="inline-form"><input type="hidden" name="action" value="addMaster"><input type="hidden" name="returnPage" value="<%=pageKey%>"><input type="hidden" name="type" value="<%=masterType%>"><label>名称<input name="name" required></label><button class="primary">追加</button></form></section><%}%>
+        <section class="section"><div class="table-wrap"><table><thead><tr><%if("work_types".equals(masterType)){%><th>コード</th><th>日本語名</th><th>英語名</th><th>開始</th><th>終了</th><th>休憩</th><th>必要人数</th><th>状態</th><th>操作</th><%}else{%><th>ID</th><th>名称</th><th>状態</th><th>操作</th><%}%></tr></thead><tbody><%for(Map<String,Object> row:rows){%><tr><%if("work_types".equals(masterType)){%><form method="post"><td><%=e(row.get("code"))%><input type="hidden" name="code" value="<%=e(row.get("code"))%>"><input type="hidden" name="action" value="updateWorkType"><input type="hidden" name="returnPage" value="<%=pageKey%>"></td><td><input name="nameJa" value="<%=e(row.get("name_ja"))%>" required></td><td><input name="nameEn" value="<%=e(row.get("name_en"))%>" required></td><td><input type="time" name="start" value="<%=e(row.get("start_time"))%>"></td><td><input type="time" name="end" value="<%=e(row.get("end_time"))%>"></td><td><input type="number" name="breakMinutes" min="0" value="<%=e(row.get("break_minutes"))%>"></td><td><input type="number" name="requiredStaff" min="0" value="<%=e(row.get("required_staff"))%>"></td><td><select name="active"><option value="true" <%=Boolean.TRUE.equals(row.get("active"))?"selected":""%>>有効</option><option value="false" <%=Boolean.FALSE.equals(row.get("active"))?"selected":""%>>無効</option></select></td><td><button>更新</button></td></form><%}else{%><td><%=e(row.get("id"))%></td><td><%=e(row.get("name"))%></td><td><%=Boolean.TRUE.equals(row.get("active"))?"有効":"無効"%></td><td><form method="post"><input type="hidden" name="action" value="toggleMaster"><input type="hidden" name="returnPage" value="<%=pageKey%>"><input type="hidden" name="type" value="<%=masterType%>"><input type="hidden" name="id" value="<%=row.get("id")%>"><input type="hidden" name="active" value="<%=!Boolean.TRUE.equals(row.get("active"))%>"><button><%=Boolean.TRUE.equals(row.get("active"))?"無効化":"有効化"%></button></form></td><%}%></tr><%}%></tbody></table></div></section>
+
+      <% } else if(pageKey.equals("exports")){ %>
+        <section class="section"><h2>データ出力</h2><form action="<%=ctx%>/export" method="get" class="form-grid"><label>対象データ<select name="type"><option value="shifts">シフト表</option><option value="attendance">勤怠実績</option><option value="leave">有休取得状況</option></select></label><label>対象月<input type="month" name="month" value="<%=month%>"></label><label>形式<select name="format"><option value="csv">CSV</option><option value="xls">Excel</option></select></label><div class="span-all"><button class="primary">出力する</button></div></form></section>
+
+      <% } else if(pageKey.equals("audit")){ %>
+        <section class="section"><div class="section-header"><h2>操作履歴</h2><span class="muted">最新300件</span></div><div class="table-wrap"><table><thead><tr><th>日時</th><th>実行者</th><th>操作</th><th>対象</th><th>対象ID</th><th>変更前</th><th>変更後</th></tr></thead><tbody><%for(Map<String,Object> row:rows){%><tr><td><%=e(row.get("created_at"))%></td><td><%=e(row.get("actor_name"))%></td><td><%=e(row.get("action"))%></td><td><%=e(row.get("target_type"))%></td><td><%=e(row.get("target_id"))%></td><td><%=e(row.get("before_value"))%></td><td><%=e(row.get("after_value"))%></td></tr><%}%></tbody></table></div></section>
+
+      <% } else if(pageKey.equals("account")){ %>
+        <section class="section"><h2>表示と言語</h2><form action="<%=ctx%>/account" method="post" class="form-grid"><label>表示言語<select name="locale"><option value="ja" <%=en?"":"selected"%>>日本語</option><option value="en" <%=en?"selected":""%>>English</option></select></label><label class="span-2">新しいパスワード<input type="password" name="password" minlength="10" placeholder="変更する場合のみ入力"></label><div class="span-all"><button class="primary">設定を保存</button></div></form><p class="note">社員番号: <%=e(user.getEmployeeNumber())%> / メール: <%=e(user.getEmail())%> / 所属: <%=e(user.getBranchName())%> <%=e(user.getDepartmentName())%></p></section>
+      <% } %>
+    </main>
+  </div>
+</div>
+<script src="<%=ctx%>/assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.documentElement.lang === 'en') translatePage();
+  const menu = document.querySelector('[data-menu]');
+  if (menu) menu.addEventListener('click', () => document.body.classList.toggle('nav-open'));
+
+  const clock = document.querySelector('[data-clock]');
+  if (clock) {
+    const update = () => clock.textContent = new Intl.DateTimeFormat(document.documentElement.lang || 'ja', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    }).format(new Date());
+    update(); setInterval(update, 1000);
+  }
+
+  document.querySelectorAll('[data-clock-form]').forEach(form => {
+    form.addEventListener('submit', event => {
+      if (form.dataset.ready === 'true') return;
+      event.preventDefault();
+      const finish = (status, position) => {
+        form.querySelector('[name=locationStatus]').value = status;
+        if (position) {
+          form.querySelector('[name=lat]').value = position.coords.latitude;
+          form.querySelector('[name=lng]').value = position.coords.longitude;
+        }
+        form.dataset.ready = 'true'; form.submit();
+      };
+      if (!navigator.geolocation) return finish('UNAVAILABLE');
+      navigator.geolocation.getCurrentPosition(p => finish('ACQUIRED', p), () => finish('DENIED'), {
+        enableHighAccuracy: true, timeout: 8000, maximumAge: 0
+      });
+    });
+  });
+});
+
+function translatePage() {
+  const dictionary = {
+    'ダッシュボード':'Dashboard','通知':'Notifications','アカウント設定':'Account settings',
+    '自分のシフト':'My schedule','希望シフト提出':'Submit schedule','月間シフト表':'Team schedule',
+    'シフト変更・休み申請':'Schedule change request','シフト申請履歴':'Schedule request history',
+    'シフト調整':'Schedule editor','シフト確定確認':'Schedule confirmation','月間シフト印刷':'Print schedule',
+    '有休残数・取得履歴':'Leave balance and history','有休申請':'Leave request','有休申請履歴':'Leave request history','有休承認':'Leave approvals',
+    '出勤・退勤打刻':'Time clock','自分の勤怠':'My attendance','打刻修正申請':'Attendance correction',
+    '打刻修正履歴':'Correction history','勤怠確認・月次確定':'Monthly attendance close','全社勤怠確認':'Company attendance',
+    '従業員一覧':'Employees','従業員登録・編集':'Employee details','資格情報管理':'Qualifications','代理店長設定':'Manager delegation',
+    '営業所管理':'Branch offices','部署管理':'Departments','勤務区分・休憩時間管理':'Work types and breaks',
+    '必要人数管理':'Staffing requirements','雇用形態・資格名称管理':'Employment and qualification types','データ出力':'Data export','操作履歴':'Audit log',
+    '今日の勤務者':'Working today','未承認申請':'Pending approvals','有休残日数':'Leave balance','人員不足':'Staff shortage','今月の実勤務':'Hours this month',
+    '勤務時間・残業時間の推移':'Work and overtime trend','直近6か月':'Last 6 months','今月の予定':'This month','すべて見る':'View all',
+    '対象月':'Month','表示':'Show','印刷表示':'Print view','調整する':'Edit schedule','勤務区分を登録':'Add work type','変更・休みを申請':'Request a change',
+    '従業員':'Employee','日付':'Date','勤務区分':'Work type','状態':'Status','備考・理由':'Note or reason','保存する':'Save','申請する':'Submit',
+    '確定前チェック':'Pre-confirmation checks','警告はありません。':'No warnings.','種類':'Type','内容':'Details','必要':'Required','実績':'Actual','警告を確認して確定':'Confirm after reviewing warnings',
+    '変更・休み申請':'Change and leave requests','申請者':'Requester','変更前':'Before','変更後':'After','理由':'Reason','緊急':'Urgent','操作':'Actions','承認':'Approve','却下':'Reject',
+    '社員番号':'Employee no.','氏名':'Name','備考':'Note','対象月のシフトはありません。':'No schedules for this month.',
+    '時間有休残':'Hourly leave remaining','有休を申請':'Request leave','取得日':'Leave date','取得単位':'Leave unit','時間数':'Hours','有休申請がありません。':'No leave requests.',
+    '打刻時に端末の位置情報を記録します。場所による打刻制限はありません。':'Your device location is recorded when clocking. Location does not restrict clocking.',
+    '出勤':'Clock in','退勤':'Clock out','打刻修正を申請':'Request correction','対象勤怠':'Attendance record','修正後の出勤':'Corrected clock-in','修正後の退勤':'Corrected clock-out',
+    '勤怠実績':'Attendance records','勤務':'Shift','遅刻':'Late','早退':'Early','残業':'Overtime','位置情報':'Location','確定':'Finalize','解除':'Reopen','勤怠データはありません。':'No attendance records.',
+    'すべて既読にする':'Mark all as read','通知はありません。':'No notifications.','詳細':'Details',
+    '従業員を登録':'Add employee','メールアドレス':'Email','入社日':'Hire date','営業所':'Branch','部署':'Department','雇用形態':'Employment type','役割':'Role','登録して招待':'Register and invite',
+    '資格を登録':'Add qualification','資格名':'Qualification','有効期限':'Expiry date','登録':'Add','代理者':'Delegate','開始日':'Start date','終了日':'End date','設定':'Set',
+    '項目を追加':'Add item','名称':'Name','追加':'Add','コード':'Code','日本語名':'Japanese name','英語名':'English name','開始':'Start','終了':'End','休憩':'Break','必要人数':'Required staff',
+    '対象データ':'Data','形式':'Format','出力する':'Export','日時':'Date and time','実行者':'Actor','対象':'Target','対象ID':'Target ID','変更前':'Before','変更後':'After','最新300件':'Latest 300',
+    '表示と言語':'Display and language','表示言語':'Language','新しいパスワード':'New password','設定を保存':'Save settings','有効':'Active','無効':'Inactive','提出済み':'Submitted','下書き':'Draft',
+    '日勤':'Day','夜勤':'Night','休み':'Off','有休':'Paid leave','午前休':'AM leave','午後休':'PM leave','1日':'Full day','時間単位':'Hourly'
+  };
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(node => {
+    const raw = node.nodeValue;
+    const trimmed = raw.trim();
+    if (!trimmed || !dictionary[trimmed]) return;
+    node.nodeValue = raw.replace(trimmed, dictionary[trimmed]);
+  });
+  document.querySelectorAll('[placeholder]').forEach(element => {
+    const value = element.getAttribute('placeholder');
+    if (dictionary[value]) element.setAttribute('placeholder', dictionary[value]);
+  });
+}

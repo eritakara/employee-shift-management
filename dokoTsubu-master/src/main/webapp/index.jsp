@@ -1,0 +1,38 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<% if (session.getAttribute("loginUser") != null) { response.sendRedirect("app/dashboard"); return; } %>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShiftFlow | ログイン</title>
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body class="auth-page">
+<main class="auth-shell">
+  <section class="auth-brand">
+    <span class="brand-mark">SF</span>
+    <div><strong>ShiftFlow</strong><small>シフト・有休管理</small></div>
+  </section>
+  <section class="auth-panel">
+    <p class="eyebrow">WORKFORCE PORTAL</p>
+    <h1>おかえりなさい</h1>
+    <p class="muted">勤務予定と申請状況を、ひとつの場所で。</p>
+    <% if (request.getAttribute("error") != null) { %>
+      <div class="alert danger"><%= request.getAttribute("error") %></div>
+    <% } %>
+    <form action="login" method="post" class="stack-form">
+      <label>メールアドレス<input type="email" name="email" autocomplete="username" required value="employee@example.com"></label>
+      <label>パスワード<input type="password" name="password" autocomplete="current-password" required value="Password1!"></label>
+      <button class="primary wide" type="submit">ログイン</button>
+    </form>
+    <p><a href="forgot">パスワードをお忘れですか？</a></p>
+    <details class="demo-accounts">
+      <summary>デモアカウント</summary>
+      <p>人事: hr@example.com</p><p>店長: manager@example.com</p><p>従業員: employee@example.com</p>
+      <p>共通パスワード: Password1!</p>
+    </details>
+  </section>
+</main>
+</body>
+</html>

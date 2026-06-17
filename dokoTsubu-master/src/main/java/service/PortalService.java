@@ -134,14 +134,44 @@ public class PortalService {
     Map<String, Object> row = Sql.one("SELECT r.*,u.branch_id,u.department_id FROM shift_change_requests r JOIN users u ON u.id=r.user_id WHERE r.id=?", requestId);
     if (row.isEmpty() || !"PENDING".equals(row.get("status"))) throw new IllegalArgumentException("未処理の申請が見つかりません。");
     assertScope(actor, ((Number) row.get("branch_id")).longValue(), ((Number) row.get("department_id")).longValue());
-    if (approve) saveShift(actor, ((Number) row.get("user_id")).longValue(), toDate(row.get("work_date")),
-        String.valueOf(row.get("requested_work_type")), "CONFIRMED", "変更申請 #" + requestId);
+    List<Map<String, Object>> recheckWarnings = List.of();
+    if (approve) {
+      LocalDate workDate = toDate(row.get("work_date"));
+      saveShift(actor, ((Number) row.get("user_id")).longValue(), workDate,
+          String.valueOf(row.get("requested_work_type")), "CONFIRMED", "変更申請 #" + requestId);
+      recheckWarnings = shiftWarningsForDate(actor, workDate);
+      if (!recheckWarnings.isEmpty()) {
+        notify(actor.getId(), "SHIFT_RECHECK", "シフト変更後の警告",
+            workDate + "の変更反映後に" + recheckWarnings.size() + "件の警告があります。必要人数と勤務間隔を確認してください。",
+            "/app/shifts/manage?month=" + YearMonth.from(workDate));
+      }
+    }
     Sql.update("UPDATE shift_change_requests SET status=?,decided_by=?,decided_at=CURRENT_TIMESTAMP WHERE id=?",
         approve ? "APPROVED" : "REJECTED", actor.getId(), requestId);
     notify(((Number) row.get("user_id")).longValue(), "SHIFT_CHANGE_DECISION",
         approve ? "シフト変更が承認されました" : "シフト変更が却下されました",
         row.get("work_date") + "の申請結果を確認してください。", "/app/shifts/history");
-    AuditService.record(actor.getId(), approve ? "APPROVE_SHIFT_CHANGE" : "REJECT_SHIFT_CHANGE", "SHIFT_CHANGE", String.valueOf(requestId), "PENDING", approve ? "APPROVED" : "REJECTED");
+    AuditService.record(actor.getId(), approve ? "APPROVE_SHIFT_CHANGE" : "REJECT_SHIFT_CHANGE", "SHIFT_CHANGE", String.valueOf(requestId), "PENDING",
+        approve ? "APPROVED warnings=" + recheckWarnings.size() : "REJECTED");
+  }
+
+  public List<Map<String, Object>> shiftWarningsForDate(User viewer, LocalDate date) {
+    String userScope = viewer.isHr() ? "" : " AND u.branch_id=? AND u.department_id=?";
+    Object[] scopeArgs = viewer.isHr() ? new Object[]{} : new Object[]{viewer.getBranchId(), viewer.getDepartmentId()};
+    String scopedUserJoin = "LEFT JOIN users u ON u.id=s.user_id" + (viewer.isHr() ? "" : " AND u.branch_id=? AND u.department_id=?");
+    String actualCount = viewer.isHr() ? "COUNT(s.id)" : "COUNT(u.id)";
+    List<Map<String, Object>> result = new java.util.ArrayList<>();
+    result.addAll(Sql.query("SELECT 'STAFF_SHORTAGE' warning,? work_date,wt.name_ja detail,wt.required_staff required," + actualCount + " actual "
+        + "FROM work_types wt LEFT JOIN shifts s ON s.work_type_code=wt.code AND s.work_date=? "
+        + scopedUserJoin + " WHERE wt.active=TRUE AND wt.required_staff>0"
+        + " GROUP BY wt.name_ja,wt.required_staff HAVING " + actualCount + "<wt.required_staff",
+        join(new Object[]{date, date}, scopeArgs)));
+    result.addAll(Sql.query("SELECT 'NIGHT_REST' warning,s2.work_date,u.name detail,0 required,0 actual "
+        + "FROM shifts s1 JOIN shifts s2 ON s2.user_id=s1.user_id AND s2.work_date=DATEADD('DAY',1,s1.work_date) "
+        + "JOIN users u ON u.id=s1.user_id WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('OFF','LEAVE') "
+        + "AND (s1.work_date=? OR s2.work_date=?)" + userScope,
+        join(new Object[]{date, date}, scopeArgs)));
+    return result;
   }
 
   public List<Map<String, Object>> shiftWarnings(User viewer, YearMonth month) {

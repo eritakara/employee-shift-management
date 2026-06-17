@@ -33,6 +33,8 @@ public class SmokeTest {
     long changeId = ((Number) portal.shiftChangeRequests(manager).get(0).get("id")).longValue();
     portal.decideShiftChange(manager, changeId, true);
     check("OFF".equals(portal.shifts(employee, YearMonth.from(tomorrow)).get(0).get("work_type_code")), "shift approval");
+    check(!portal.shiftWarningsForDate(manager, tomorrow).isEmpty(), "shift warning recheck");
+    check(!Sql.query("SELECT id FROM notifications WHERE user_id=? AND type='SHIFT_RECHECK'", manager.getId()).isEmpty(), "shift recheck notification");
 
     portal.requestLeave(employee, tomorrow.plusDays(1), "FULL", null, "family matter");
     long leaveId = ((Number) portal.leaveRequests(manager).get(0).get("id")).longValue();

@@ -15,6 +15,7 @@ public class PortalService {
   private final LeaveLedgerService leaveLedger = new LeaveLedgerService();
   private final SettingsService settings = new SettingsService();
   private final ShiftSubmissionPolicy shiftSubmissionPolicy = new ShiftSubmissionPolicy();
+  private final AttendanceCalculator attendanceCalculator = new AttendanceCalculator();
   public Map<String, Object> dashboard(User user) {
     String scope = scope(user, "u");
     Object[] args = scopeArgs(user);
@@ -39,9 +40,9 @@ public class PortalService {
     Object[] args = user.isHr() ? new Object[]{} : user.isManager()
         ? new Object[]{user.getBranchId(), user.getDepartmentId()} : new Object[]{user.getId()};
     return Sql.query("SELECT FORMATDATETIME(a.work_date,'yyyy-MM') AS month_label,"
-        + "ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL THEN DATEDIFF('MINUTE',a.clock_in,a.clock_out)/60.0 ELSE 0 END),1) AS total_hours,"
-        + "ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-480)/60.0 ELSE 0 END),1) AS overtime_hours "
-        + "FROM attendance a JOIN users u ON u.id=a.user_id WHERE a.work_date>=DATEADD('MONTH',-5,CURRENT_DATE)" + filter
+        + "ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-COALESCE(wt.break_minutes,0))/60.0 ELSE 0 END),1) AS total_hours,"
+        + "ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL AND wt.start_time IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-CASE WHEN wt.crosses_midnight THEN 1440+DATEDIFF('MINUTE',wt.start_time,wt.end_time) ELSE DATEDIFF('MINUTE',wt.start_time,wt.end_time) END)/60.0 ELSE 0 END),1) AS overtime_hours "
+        + "FROM attendance a JOIN users u ON u.id=a.user_id LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.work_date>=DATEADD('MONTH',-5,CURRENT_DATE)" + filter
         + " GROUP BY FORMATDATETIME(a.work_date,'yyyy-MM') ORDER BY month_label", args);
   }
 
@@ -275,13 +276,18 @@ public class PortalService {
     String filter = viewer.isHr() ? "" : viewer.isManager() ? " AND u.branch_id=? AND u.department_id=?" : " AND a.user_id=?";
     Object[] scope = viewer.isHr() ? new Object[]{} : viewer.isManager()
         ? new Object[]{viewer.getBranchId(), viewer.getDepartmentId()} : new Object[]{viewer.getId()};
-    return Sql.query("SELECT a.*,u.name,u.employee_number,s.work_type_code,"
-        + "CASE WHEN a.clock_in IS NOT NULL AND s.work_type_code='DAY' AND CAST(a.clock_in AS TIME)>TIME '08:00:00' THEN TRUE ELSE FALSE END late,"
-        + "CASE WHEN a.clock_out IS NOT NULL AND s.work_type_code='DAY' AND CAST(a.clock_out AS TIME)<TIME '17:00:00' THEN TRUE ELSE FALSE END early,"
-        + "CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-CASE WHEN s.work_type_code='NIGHT' THEN 780 ELSE 480 END) ELSE 0 END overtime_minutes "
-        + "FROM attendance a JOIN users u ON u.id=a.user_id LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date "
+    List<Map<String, Object>> rows = Sql.query("SELECT a.*,u.name,u.employee_number,s.work_type_code,wt.start_time,wt.end_time,wt.crosses_midnight,wt.break_minutes "
+        + "FROM attendance a JOIN users u ON u.id=a.user_id LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date LEFT JOIN work_types wt ON wt.code=s.work_type_code "
         + "WHERE a.work_date BETWEEN ? AND ?" + filter + " ORDER BY a.work_date DESC,u.name",
         join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scope));
+    for (Map<String, Object> row : rows) {
+      Object breakValue = row.get("break_minutes");
+      AttendanceCalculator.Result result = attendanceCalculator.calculate(toDate(row.get("work_date")), toDateTime(row.get("clock_in")), toDateTime(row.get("clock_out")),
+          new AttendanceCalculator.Schedule(toTime(row.get("start_time")), toTime(row.get("end_time")), Boolean.TRUE.equals(row.get("crosses_midnight")), breakValue instanceof Number number ? number.intValue() : 0));
+      row.put("worked_minutes", result.workedMinutes()); row.put("overtime_minutes", result.overtimeMinutes());
+      row.put("late", result.late()); row.put("early", result.early());
+    }
+    return rows;
   }
 
   public void clock(User user, boolean clockIn, String lat, String lng, String locationStatus) {
@@ -548,7 +554,7 @@ public class PortalService {
   private Object value(String sql, Object... args) { return Sql.one(sql, args).getOrDefault("metric_value", 0); }
 
   private double monthHours(User user) {
-    Map<String, Object> row = Sql.one("SELECT COALESCE(SUM(CASE WHEN clock_in IS NOT NULL AND clock_out IS NOT NULL THEN DATEDIFF('MINUTE',clock_in,clock_out) ELSE 0 END),0) AS metric_value FROM attendance WHERE user_id=? AND work_date BETWEEN ? AND ?",
+    Map<String, Object> row = Sql.one("SELECT COALESCE(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-COALESCE(wt.break_minutes,0)) ELSE 0 END),0) AS metric_value FROM attendance a LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.user_id=? AND a.work_date BETWEEN ? AND ?",
         user.getId(), YearMonth.now().atDay(1), YearMonth.now().atEndOfMonth());
     return ((Number) row.getOrDefault("metric_value", 0)).doubleValue() / 60.0;
   }
@@ -603,5 +609,19 @@ public class PortalService {
     if (value instanceof LocalDate date) return date;
     if (value instanceof java.sql.Date date) return date.toLocalDate();
     return LocalDate.parse(String.valueOf(value));
+  }
+
+  private LocalDateTime toDateTime(Object value) {
+    if (value == null) return null;
+    if (value instanceof LocalDateTime dateTime) return dateTime;
+    if (value instanceof java.sql.Timestamp timestamp) return timestamp.toLocalDateTime();
+    return LocalDateTime.parse(String.valueOf(value).replace(' ', 'T'));
+  }
+
+  private java.time.LocalTime toTime(Object value) {
+    if (value == null) return null;
+    if (value instanceof java.time.LocalTime time) return time;
+    if (value instanceof java.sql.Time time) return time.toLocalTime();
+    return java.time.LocalTime.parse(String.valueOf(value));
   }
 }

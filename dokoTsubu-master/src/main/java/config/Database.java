@@ -77,6 +77,7 @@ public final class Database {
       statement.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS weekly_work_hours DECIMAL(5,2) NOT NULL DEFAULT 40");
       statement.execute("ALTER TABLE leave_consumptions ADD COLUMN IF NOT EXISTS restored BOOLEAN NOT NULL DEFAULT FALSE");
       statement.execute("ALTER TABLE qualifications ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE");
+      statement.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS target_user_id BIGINT");
     }
   }
 

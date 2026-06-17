@@ -106,7 +106,10 @@ public class PortalServlet extends HttpServlet {
         req.setAttribute("appSettings", settings.all(user));
       }
     } else if ("audit".equals(page)) {
-      req.setAttribute("rows", portal.audit(user));
+      req.setAttribute("rows", portal.audit(user, localDate(req.getParameter("from")), localDate(req.getParameter("to")),
+          nullableLong(req.getParameter("actorId")), req.getParameter("operation"), nullableLong(req.getParameter("targetUserId"))));
+      req.setAttribute("people", portal.users(user));
+      req.setAttribute("auditActions", portal.auditActions(user));
     }
     req.getRequestDispatcher("/WEB-INF/jsp/app.jsp").forward(req, res);
   }
@@ -200,6 +203,12 @@ public class PortalServlet extends HttpServlet {
   }
   private Integer integer(String value) {
     try { return value == null || value.isBlank() ? null : Integer.valueOf(value); } catch (Exception e) { return null; }
+  }
+  private Long nullableLong(String value) {
+    try { return value == null || value.isBlank() ? null : Long.valueOf(value); } catch (Exception e) { return null; }
+  }
+  private LocalDate localDate(String value) {
+    try { return value == null || value.isBlank() ? null : LocalDate.parse(value); } catch (Exception e) { return null; }
   }
   private Object takeFlash(HttpServletRequest req, String key) {
     Object value = req.getSession().getAttribute(key); req.getSession().removeAttribute(key); return value;

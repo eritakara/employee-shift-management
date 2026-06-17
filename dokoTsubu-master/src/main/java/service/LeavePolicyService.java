@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.util.List;
 import java.util.Map;
+import model.User;
 
 public class LeavePolicyService {
   private static final int[] FULL_TIME = {10, 11, 12, 14, 16, 18, 20};
@@ -29,6 +30,53 @@ public class LeavePolicyService {
         ((Number) row.get("hours_per_day")).intValue(),
         ((Number) row.get("expiry_months")).intValue(),
         ((Number) row.get("mandatory_days")).intValue());
+  }
+
+  public List<Map<String, Object>> rules(User user) {
+    requireHr(user);
+    return Sql.query("SELECT * FROM leave_rule_config ORDER BY effective_from DESC,id DESC");
+  }
+
+  public void addRule(User user, LocalDate effectiveFrom, BigDecimal attendanceThreshold,
+      int hourlyLimitDays, int hoursPerDay, int expiryMonths, int mandatoryDays) {
+    requireHr(user);
+    validateRule(effectiveFrom, attendanceThreshold, hourlyLimitDays, hoursPerDay, expiryMonths, mandatoryDays);
+    if (!Sql.query("SELECT id FROM leave_rule_config WHERE effective_from=?", effectiveFrom).isEmpty()) {
+      throw new IllegalArgumentException("同じ施行日のルールが既にあります。");
+    }
+    long id = Sql.insert("INSERT INTO leave_rule_config(effective_from,attendance_threshold,hourly_limit_days,hours_per_day,expiry_months,mandatory_days) VALUES(?,?,?,?,?,?)",
+        effectiveFrom, attendanceThreshold, hourlyLimitDays, hoursPerDay, expiryMonths, mandatoryDays);
+    AuditService.record(user.getId(), "CREATE_LEAVE_RULE", "LEAVE_RULE", String.valueOf(id), null,
+        effectiveFrom + ":" + attendanceThreshold + ":" + hourlyLimitDays + ":" + hoursPerDay + ":" + expiryMonths + ":" + mandatoryDays);
+  }
+
+  public void updateRule(User user, long id, LocalDate effectiveFrom, BigDecimal attendanceThreshold,
+      int hourlyLimitDays, int hoursPerDay, int expiryMonths, int mandatoryDays, boolean active) {
+    requireHr(user);
+    validateRule(effectiveFrom, attendanceThreshold, hourlyLimitDays, hoursPerDay, expiryMonths, mandatoryDays);
+    Map<String, Object> before = Sql.one("SELECT * FROM leave_rule_config WHERE id=?", id);
+    if (before.isEmpty()) throw new IllegalArgumentException("有休付与ルールが見つかりません。");
+    if (!Sql.query("SELECT id FROM leave_rule_config WHERE effective_from=? AND id<>?", effectiveFrom, id).isEmpty()) {
+      throw new IllegalArgumentException("同じ施行日のルールが既にあります。");
+    }
+    Sql.update("UPDATE leave_rule_config SET effective_from=?,attendance_threshold=?,hourly_limit_days=?,hours_per_day=?,expiry_months=?,mandatory_days=?,active=? WHERE id=?",
+        effectiveFrom, attendanceThreshold, hourlyLimitDays, hoursPerDay, expiryMonths, mandatoryDays, active, id);
+    AuditService.record(user.getId(), "UPDATE_LEAVE_RULE", "LEAVE_RULE", String.valueOf(id), before.toString(),
+        effectiveFrom + ":" + attendanceThreshold + ":" + hourlyLimitDays + ":" + hoursPerDay + ":" + expiryMonths + ":" + mandatoryDays + ":" + active);
+  }
+
+  private void validateRule(LocalDate effectiveFrom, BigDecimal threshold, int hourlyLimitDays,
+      int hoursPerDay, int expiryMonths, int mandatoryDays) {
+    if (effectiveFrom == null) throw new IllegalArgumentException("施行日を入力してください。");
+    if (threshold == null || threshold.compareTo(BigDecimal.ZERO) < 0 || threshold.compareTo(BigDecimal.ONE) > 0) throw new IllegalArgumentException("出勤率基準は0から1で入力してください。");
+    if (hourlyLimitDays < 0 || hourlyLimitDays > 5) throw new IllegalArgumentException("時間単位上限は0日から5日で入力してください。");
+    if (hoursPerDay < 1 || hoursPerDay > 24) throw new IllegalArgumentException("1日の時間数は1から24で入力してください。");
+    if (expiryMonths < 1 || expiryMonths > 120) throw new IllegalArgumentException("有効期間は1か月から120か月で入力してください。");
+    if (mandatoryDays < 0 || mandatoryDays > 20) throw new IllegalArgumentException("取得義務日数は0日から20日で入力してください。");
+  }
+
+  private void requireHr(User user) {
+    if (user == null || !user.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
   }
 
   public int statutoryGrantDays(int weeklyDays, BigDecimal weeklyHours, int grantSequence) {

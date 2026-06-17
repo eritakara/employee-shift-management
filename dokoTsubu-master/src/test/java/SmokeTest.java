@@ -35,6 +35,9 @@ public class SmokeTest {
     check("OFF".equals(portal.shifts(employee, YearMonth.from(tomorrow)).get(0).get("work_type_code")), "shift approval");
     check(!portal.shiftWarningsForDate(manager, tomorrow).isEmpty(), "shift warning recheck");
     check(!Sql.query("SELECT id FROM notifications WHERE user_id=? AND type='SHIFT_RECHECK'", manager.getId()).isEmpty(), "shift recheck notification");
+    portal.confirmMonth(manager, YearMonth.from(tomorrow), "テスト環境の人員不足を確認済み");
+    check(!Sql.query("SELECT id FROM notifications WHERE user_id=? AND type='SHIFT_CONFIRMED'", employee.getId()).isEmpty(), "shift confirmation notification");
+    check(!Sql.query("SELECT id FROM mail_outbox WHERE recipient=? AND subject='シフト確定'", employee.getEmail()).isEmpty(), "shift confirmation mail queued");
 
     portal.requestLeave(employee, tomorrow.plusDays(1), "FULL", null, "family matter");
     long leaveId = ((Number) portal.leaveRequests(manager).get(0).get("id")).longValue();

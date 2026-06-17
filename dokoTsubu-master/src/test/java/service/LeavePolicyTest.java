@@ -76,6 +76,15 @@ public class LeavePolicyTest {
     User manager = new UserDAO().authenticate("manager@example.com", "Password1!");
     expectFailure(() -> new PortalService().saveShift(manager, employeeId, today.plusDays(20), "LEAVE", "DRAFT", "insufficient"),
         "shift leave balance shortage");
+    User hr = new UserDAO().authenticate("hr@example.com", "Password1!");
+    LocalDate futureRuleDate = today.plusYears(1);
+    policy.addRule(hr, futureRuleDate, new BigDecimal("0.850"), 4, 7, 18, 5);
+    LeavePolicyService.Rule futureRule = policy.currentRule(futureRuleDate);
+    check(futureRule.attendanceThreshold().compareTo(new BigDecimal("0.850")) == 0 && futureRule.hoursPerDay() == 7, "effective leave rule");
+    long ruleId = ((Number) Sql.one("SELECT id FROM leave_rule_config WHERE effective_from=?", futureRuleDate).get("id")).longValue();
+    policy.updateRule(hr, ruleId, futureRuleDate, new BigDecimal("0.900"), 5, 8, 24, 5, true);
+    check(policy.currentRule(futureRuleDate).attendanceThreshold().compareTo(new BigDecimal("0.900")) == 0, "updated leave rule");
+    expectFailure(() -> policy.addRule(hr, futureRuleDate.plusDays(1), new BigDecimal("1.100"), 5, 8, 24, 5), "invalid attendance threshold");
     System.out.println("LeavePolicyTest: all checks passed");
   }
 

@@ -19,6 +19,7 @@ public class PortalServlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
   private final PortalService portal = new PortalService();
   private final service.SettingsService settings = new service.SettingsService();
+  private final service.LeavePolicyService leavePolicy = new service.LeavePolicyService();
 
   private static final Map<String, String> TITLES = new LinkedHashMap<>();
   static {
@@ -104,6 +105,7 @@ public class PortalServlet extends HttpServlet {
       if (page.endsWith("catalogs")) {
         req.setAttribute("qualificationTypes", portal.master("qualifications"));
         req.setAttribute("appSettings", settings.all(user));
+        req.setAttribute("leaveRules", leavePolicy.rules(user));
       }
     } else if ("audit".equals(page)) {
       req.setAttribute("rows", portal.audit(user, localDate(req.getParameter("from")), localDate(req.getParameter("to")),
@@ -170,6 +172,13 @@ public class PortalServlet extends HttpServlet {
         case "updateWorkType" -> portal.updateWorkType(user, req.getParameter("code"), req.getParameter("nameJa"), req.getParameter("nameEn"), req.getParameter("start"), req.getParameter("end"),
             Integer.parseInt(req.getParameter("breakMinutes")), Integer.parseInt(req.getParameter("requiredStaff")), Boolean.parseBoolean(req.getParameter("active")));
         case "updateSetting" -> settings.update(user, req.getParameter("key"), req.getParameter("value"));
+        case "addLeaveRule" -> leavePolicy.addRule(user, LocalDate.parse(req.getParameter("effectiveFrom")),
+            new java.math.BigDecimal(req.getParameter("attendanceThreshold")), Integer.parseInt(req.getParameter("hourlyLimitDays")),
+            Integer.parseInt(req.getParameter("hoursPerDay")), Integer.parseInt(req.getParameter("expiryMonths")), Integer.parseInt(req.getParameter("mandatoryDays")));
+        case "updateLeaveRule" -> leavePolicy.updateRule(user, Long.parseLong(req.getParameter("id")), LocalDate.parse(req.getParameter("effectiveFrom")),
+            new java.math.BigDecimal(req.getParameter("attendanceThreshold")), Integer.parseInt(req.getParameter("hourlyLimitDays")),
+            Integer.parseInt(req.getParameter("hoursPerDay")), Integer.parseInt(req.getParameter("expiryMonths")), Integer.parseInt(req.getParameter("mandatoryDays")),
+            Boolean.parseBoolean(req.getParameter("active")));
         default -> throw new IllegalArgumentException("操作が指定されていません。");
       }
       req.getSession().setAttribute("flash", "保存しました。");

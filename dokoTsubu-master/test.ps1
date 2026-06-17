@@ -18,3 +18,5 @@ if ($LASTEXITCODE -ne 0) { throw "Tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Mail tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.LeavePolicyTest
 if ($LASTEXITCODE -ne 0) { throw "Leave policy tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.ShiftSubmissionPolicyTest
+if ($LASTEXITCODE -ne 0) { throw "Shift submission policy tests failed" }

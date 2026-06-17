@@ -111,7 +111,8 @@ String ctx = request.getContextPath();
           <form method="get"><label>対象月<input type="month" name="month" value="<%=month%>"></label><button type="submit">表示</button></form>
           <div class="actions"><a class="button" href="<%=ctx%>/app/shifts/print?month=<%=month%>">印刷表示</a><% if(manager){ %><a class="button primary" href="<%=ctx%>/app/shifts/manage?month=<%=month%>">調整する</a><% } %></div>
         </div>
-        <% if (pageKey.equals("shifts/request") || pageKey.equals("shifts/manage") || pageKey.equals("shifts/change")) { %>
+        <% if (pageKey.equals("shifts/request") || pageKey.equals("shifts/manage") || pageKey.equals("shifts/change")) { Map<String,Object> submissionWindow=(Map<String,Object>)request.getAttribute("submissionWindow"); boolean submissionOpen=submissionWindow==null||Boolean.TRUE.equals(submissionWindow.get("open")); %>
+        <%if(pageKey.equals("shifts/request")){%><div class="<%=submissionOpen?"alert":"error-banner"%>">対象月: <strong><%=e(submissionWindow.get("target_month"))%></strong> / 提出期限: <strong><%=e(submissionWindow.get("deadline"))%></strong><%=submissionOpen?"":"（受付終了）"%></div><%}%>
         <section class="section no-print"><div class="section-header"><h2><%=pageKey.equals("shifts/change")?"変更・休みを申請":"勤務区分を登録"%></h2></div>
           <form method="post" class="form-grid">
             <input type="hidden" name="action" value="<%=pageKey.equals("shifts/change")?"requestShiftChange":"saveShift"%>"><input type="hidden" name="returnPage" value="<%=pageKey%>">
@@ -120,7 +121,7 @@ String ctx = request.getContextPath();
             <label>勤務区分<select name="workType" required><% for(Map<String,Object> wt:workTypes){ %><option value="<%=wt.get("code")%>"><%=e(en?wt.get("name_en"):wt.get("name_ja"))%></option><% } %></select></label>
             <% if(manager){ %><label>状態<select name="status"><option value="DRAFT">下書き</option><option value="SUBMITTED">提出済み</option><option value="CONFIRMED">確定</option></select></label><% } %>
             <label class="span-2">備考・理由<input type="text" name="<%=pageKey.equals("shifts/change")?"reason":"note"%>" maxlength="1000" <%=pageKey.equals("shifts/change")?"required":""%>></label>
-            <div class="span-all"><button class="primary" type="submit"><%=pageKey.equals("shifts/change")?"申請する":"保存する"%></button></div>
+            <div class="span-all"><button class="primary" type="submit" <%=pageKey.equals("shifts/request")&&!submissionOpen?"disabled":""%>><%=pageKey.equals("shifts/change")?"申請する":"保存する"%></button></div>
           </form>
         </section><% } %>
         <% if (pageKey.equals("shifts/confirm") || pageKey.equals("shifts/manage")) { List<Map<String,Object>> warnings=(List<Map<String,Object>>)request.getAttribute("warnings"); %><section class="section no-print"><h2>確定前チェック</h2><%if(warnings==null||warnings.isEmpty()){%><p class="alert">警告はありません。</p><%}else{%><div class="table-wrap"><table><thead><tr><th>種類</th><th>日付</th><th>内容</th><th>必要</th><th>実績</th></tr></thead><tbody><%for(Map<String,Object>w:warnings){%><tr><td class="warning-text"><%=e(w.get("warning"))%></td><td><%=e(w.get("work_date"))%></td><td><%=e(w.get("detail"))%></td><td><%=e(w.get("required"))%></td><td><%=e(w.get("actual"))%></td></tr><%}%></tbody></table></div><%}%><%if(pageKey.equals("shifts/confirm")){%><form method="post" class="stack-form"><input type="hidden" name="action" value="confirmShifts"><input type="hidden" name="returnPage" value="shifts/confirm"><input type="hidden" name="month" value="<%=month%>"><%if(warnings!=null&&!warnings.isEmpty()){%><label>警告付きで確定する理由<textarea name="warningReason" required maxlength="500"></textarea></label><%}%><button class="primary" type="submit">警告を確認して確定</button></form><%}%></section><% } %>

@@ -50,6 +50,7 @@ public class PortalServlet extends HttpServlet {
     if (!TITLES.containsKey(page)) { res.sendError(404); return; }
     if (!allowed(user, page)) { res.sendError(403); return; }
     YearMonth month = parseMonth(req.getParameter("month"));
+    if ("shifts/request".equals(page) && req.getParameter("month") == null) month = YearMonth.now().plusMonths(1);
     req.setAttribute("page", page);
     req.setAttribute("pageTitle", TITLES.get(page));
     req.setAttribute("month", month);
@@ -66,6 +67,7 @@ public class PortalServlet extends HttpServlet {
       req.setAttribute("people", portal.users(user));
       req.setAttribute("requests", portal.shiftChangeRequests(user));
       if ("shifts/confirm".equals(page) || "shifts/manage".equals(page)) req.setAttribute("warnings", portal.shiftWarnings(user, month));
+      if ("shifts/request".equals(page)) req.setAttribute("submissionWindow", portal.shiftSubmissionWindow());
     } else if (page.startsWith("leave/")) {
       req.setAttribute("rows", portal.leaveRequests(user));
       req.setAttribute("balance", portal.leaveBalance(user.getId()));

@@ -14,6 +14,7 @@ import model.User;
 public class PortalService {
   private final LeaveLedgerService leaveLedger = new LeaveLedgerService();
   private final SettingsService settings = new SettingsService();
+  private final ShiftSubmissionPolicy shiftSubmissionPolicy = new ShiftSubmissionPolicy();
   public Map<String, Object> dashboard(User user) {
     String scope = scope(user, "u");
     Object[] args = scopeArgs(user);
@@ -71,10 +72,18 @@ public class PortalService {
 
   public void submitPreferredShift(User actor, LocalDate date, String type, String note) {
     LocalDate today = LocalDate.now();
-    YearMonth target = YearMonth.from(today.plusMonths(1));
-    if (!YearMonth.from(date).equals(target)) throw new IllegalArgumentException("希望シフトは翌月分だけ提出できます。");
-    if (today.getDayOfMonth() > settings.integer("SHIFT_SUBMISSION_DAY", 15)) throw new IllegalArgumentException("今月の希望シフト提出期限を過ぎています。");
+    shiftSubmissionPolicy.validate(today, date, settings.integer("SHIFT_SUBMISSION_DAY", 15));
     saveShift(actor, actor.getId(), date, type, "SUBMITTED", note);
+  }
+
+  public Map<String, Object> shiftSubmissionWindow() {
+    LocalDate today = LocalDate.now();
+    LocalDate deadline = shiftSubmissionPolicy.deadline(today, settings.integer("SHIFT_SUBMISSION_DAY", 15));
+    Map<String, Object> result = new java.util.LinkedHashMap<>();
+    result.put("target_month", shiftSubmissionPolicy.targetMonth(today));
+    result.put("deadline", deadline);
+    result.put("open", !today.isAfter(deadline));
+    return result;
   }
 
   public void confirmMonth(User actor, YearMonth month, String warningReason) {

@@ -9,6 +9,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import service.ScheduledTasks;
+import service.MailDeliveryService;
 
 @WebListener
 public class AppBootstrap implements ServletContextListener {
@@ -29,6 +30,10 @@ public class AppBootstrap implements ServletContextListener {
       try { new ScheduledTasks().runDaily(); }
       catch (RuntimeException e) { event.getServletContext().log("Daily task failed", e); }
     }, initialDelay, TimeUnit.DAYS.toSeconds(1), TimeUnit.SECONDS);
+    scheduler.scheduleWithFixedDelay(() -> {
+      try { new MailDeliveryService().deliverPending(); }
+      catch (RuntimeException e) { event.getServletContext().log("Mail delivery failed", e); }
+    }, 10, 60, TimeUnit.SECONDS);
   }
 
   @Override

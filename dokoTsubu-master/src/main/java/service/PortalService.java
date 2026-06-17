@@ -12,6 +12,8 @@ import java.util.Map;
 import model.User;
 
 public class PortalService {
+  private final LeaveLedgerService leaveLedger = new LeaveLedgerService();
+  private final SettingsService settings = new SettingsService();
   public Map<String, Object> dashboard(User user) {
     String scope = scope(user, "u");
     Object[] args = scopeArgs(user);
@@ -67,14 +69,33 @@ public class PortalService {
     AuditService.record(actor.getId(), "SAVE_SHIFT", "SHIFT", userId + ":" + date, null, type + "/" + status);
   }
 
-  public void confirmMonth(User actor, YearMonth month) {
+  public void submitPreferredShift(User actor, LocalDate date, String type, String note) {
+    LocalDate today = LocalDate.now();
+    YearMonth target = YearMonth.from(today.plusMonths(1));
+    if (!YearMonth.from(date).equals(target)) throw new IllegalArgumentException("希望シフトは翌月分だけ提出できます。");
+    if (today.getDayOfMonth() > settings.integer("SHIFT_SUBMISSION_DAY", 15)) throw new IllegalArgumentException("今月の希望シフト提出期限を過ぎています。");
+    saveShift(actor, actor.getId(), date, type, "SUBMITTED", note);
+  }
+
+  public void confirmMonth(User actor, YearMonth month, String warningReason) {
     requireManager(actor);
+    List<Map<String, Object>> warnings = shiftWarnings(actor, month);
+    if (!warnings.isEmpty()) {
+      if (!settings.bool("ALLOW_CONFIRM_WITH_WARNINGS", true)) throw new IllegalArgumentException("警告が残っているため確定できません。");
+      if (warningReason == null || warningReason.isBlank()) throw new IllegalArgumentException("警告が残る状態で確定する理由を入力してください。");
+    }
     String filter = actor.isHr() ? "" : " AND user_id IN(SELECT id FROM users WHERE branch_id=? AND department_id=?)";
     Object[] args = actor.isHr() ? new Object[]{month.atDay(1), month.atEndOfMonth()}
         : new Object[]{month.atDay(1), month.atEndOfMonth(), actor.getBranchId(), actor.getDepartmentId()};
     Sql.update("UPDATE shifts SET status='CONFIRMED',updated_by=?,updated_at=CURRENT_TIMESTAMP WHERE work_date BETWEEN ? AND ?" + filter,
         join(new Object[]{actor.getId()}, args));
-    AuditService.record(actor.getId(), "CONFIRM_SHIFTS", "SHIFT_MONTH", month.toString(), null, "CONFIRMED");
+    String userFilter = actor.isHr() ? "" : " AND u.branch_id=? AND u.department_id=?";
+    Object[] userArgs = actor.isHr() ? new Object[]{month.atDay(1), month.atEndOfMonth()}
+        : new Object[]{month.atDay(1), month.atEndOfMonth(), actor.getBranchId(), actor.getDepartmentId()};
+    for (Map<String, Object> target : Sql.query("SELECT DISTINCT u.id FROM users u JOIN shifts s ON s.user_id=u.id WHERE s.work_date BETWEEN ? AND ?" + userFilter, userArgs)) {
+      notify(((Number) target.get("id")).longValue(), "SHIFT_CONFIRMED", "シフト確定", month + "のシフトが確定しました。", "/app/shifts/mine?month=" + month);
+    }
+    AuditService.record(actor.getId(), "CONFIRM_SHIFTS", "SHIFT_MONTH", month.toString(), null, "CONFIRMED reason=" + (warningReason == null ? "" : warningReason));
   }
 
   public List<Map<String, Object>> shiftChangeRequests(User viewer) {
@@ -136,17 +157,28 @@ public class PortalService {
   }
 
   public Map<String, Object> leaveBalance(long userId) {
-    return Sql.one("SELECT days_remaining,hourly_used,40-hourly_used hourly_remaining,last_granted_on FROM leave_balances WHERE user_id=?", userId);
+    return leaveLedger.balance(userId, LocalDate.now());
+  }
+
+  public List<Map<String, Object>> leaveHistory(User viewer) {
+    String filter = viewer.isHr() ? "" : viewer.isManager() ? " AND u.branch_id=? AND u.department_id=?" : " AND h.user_id=?";
+    Object[] args = viewer.isHr() ? new Object[]{} : viewer.isManager()
+        ? new Object[]{viewer.getBranchId(), viewer.getDepartmentId()} : new Object[]{viewer.getId()};
+    return Sql.query("SELECT h.*,u.name,u.employee_number FROM leave_history h JOIN users u ON u.id=h.user_id WHERE 1=1" + filter + " ORDER BY h.event_date DESC,h.id DESC", args);
   }
 
   public void requestLeave(User user, LocalDate date, String unit, Integer hours, String reason) {
     if (reason == null || reason.isBlank()) throw new IllegalArgumentException("理由を入力してください。");
-    BigDecimal days = (BigDecimal) leaveBalance(user.getId()).getOrDefault("days_remaining", BigDecimal.ZERO);
-    double needed = "FULL".equals(unit) ? 1 : ("AM".equals(unit) || "PM".equals(unit)) ? .5 : (hours == null ? 0 : hours / 8.0);
-    if (days.doubleValue() < needed) throw new IllegalArgumentException("有休残数が不足しています。");
+    if (!settings.bool("LEAVE_ALLOW_PAST", false) && date.isBefore(LocalDate.now())) throw new IllegalArgumentException("過去日の有休は申請できません。");
+    if (date.isBefore(LocalDate.now().plusDays(settings.integer("LEAVE_MIN_NOTICE_DAYS", 0)))) throw new IllegalArgumentException("有休申請の事前期限を満たしていません。");
+    Map<String, Object> balance = leaveBalance(user.getId());
+    BigDecimal days = (BigDecimal) balance.getOrDefault("days_remaining", BigDecimal.ZERO);
+    int hoursPerDay = ((Number) balance.getOrDefault("hours_per_day", 8)).intValue();
+    double needed = "FULL".equals(unit) ? 1 : ("AM".equals(unit) || "PM".equals(unit)) ? .5 : (hours == null ? 0 : hours / (double) hoursPerDay);
+    if (days.doubleValue() < needed) throw new IllegalArgumentException("有効期限内の有休残数が不足しています。");
     if ("HOURLY".equals(unit)) {
-      int used = ((Number) leaveBalance(user.getId()).getOrDefault("hourly_used", 0)).intValue();
-      if (hours == null || hours < 1 || used + hours > 40) throw new IllegalArgumentException("時間単位有休の上限を超えています。");
+      int remainingHours = ((Number) balance.getOrDefault("hourly_remaining", 0)).intValue();
+      if (hours == null || hours < 1 || hours > remainingHours) throw new IllegalArgumentException("時間単位有休の年間上限を超えています。");
     }
     long id = Sql.insert("INSERT INTO leave_requests(user_id,leave_date,leave_unit,hours,reason) VALUES(?,?,?,?,?)",
         user.getId(), date, unit, hours, reason.trim());
@@ -161,11 +193,7 @@ public class PortalService {
     assertScope(actor, ((Number) request.get("branch_id")).longValue(), ((Number) request.get("department_id")).longValue());
     if (!"PENDING".equals(request.get("status"))) throw new IllegalArgumentException("処理済みの申請です。");
     if (approve) {
-      double days = "FULL".equals(request.get("leave_unit")) ? 1 : ("HOURLY".equals(request.get("leave_unit"))
-          ? ((Number) request.get("hours")).doubleValue() / 8.0 : .5);
-      int hours = "HOURLY".equals(request.get("leave_unit")) ? ((Number) request.get("hours")).intValue() : 0;
-      Sql.update("UPDATE leave_balances SET days_remaining=days_remaining-?,hourly_used=hourly_used+? WHERE user_id=? AND days_remaining>=?",
-          days, hours, request.get("user_id"), days);
+      leaveLedger.consume(requestId);
     }
     Sql.update("UPDATE leave_requests SET status=?,decided_by=?,decided_at=CURRENT_TIMESTAMP WHERE id=?",
         approve ? "APPROVED" : "REJECTED", actor.getId(), requestId);
@@ -173,6 +201,19 @@ public class PortalService {
     notify(userId, "LEAVE_DECISION", approve ? "有休申請が承認されました" : "有休申請が却下されました",
         request.get("leave_date") + "の申請結果を確認してください。", "/app/leave/history");
     AuditService.record(actor.getId(), approve ? "APPROVE_LEAVE" : "REJECT_LEAVE", "LEAVE_REQUEST", String.valueOf(requestId), "PENDING", approve ? "APPROVED" : "REJECTED");
+  }
+
+  public void cancelLeave(User actor, long requestId) {
+    Map<String, Object> request = Sql.one("SELECT * FROM leave_requests WHERE id=?", requestId);
+    if (request.isEmpty() || ((Number) request.get("user_id")).longValue() != actor.getId()) throw new SecurityException("自分の申請だけ取り消せます。");
+    String currentStatus = String.valueOf(request.get("status"));
+    if (!"PENDING".equals(currentStatus) && !"APPROVED".equals(currentStatus)) throw new IllegalArgumentException("この申請は取り消せません。");
+    LocalDate leaveDate = toDate(request.get("leave_date"));
+    if (!leaveDate.isAfter(LocalDate.now())) throw new IllegalArgumentException("当日・過去日の有休は取り消せません。");
+    if ("APPROVED".equals(currentStatus)) leaveLedger.restore(requestId, LocalDate.now());
+    Sql.update("UPDATE leave_requests SET status='CANCELLED' WHERE id=?", requestId);
+    notifyManagers(actor, "LEAVE_CANCELLED", "有休申請の取消", actor.getName() + "さんが有休申請を取り消しました。", "/app/leave/approvals");
+    AuditService.record(actor.getId(), "CANCEL_LEAVE", "LEAVE_REQUEST", String.valueOf(requestId), currentStatus, "CANCELLED");
   }
 
   public List<Map<String, Object>> attendance(User viewer, YearMonth month) {
@@ -189,6 +230,7 @@ public class PortalService {
   }
 
   public void clock(User user, boolean clockIn, String lat, String lng, String locationStatus) {
+    if (settings.bool("LOCATION_REQUIRED", false) && !"ACQUIRED".equals(locationStatus)) throw new IllegalArgumentException("位置情報を取得できないため打刻できません。");
     LocalDate workDate = LocalDate.now();
     if (clockIn) {
       Sql.update("MERGE INTO attendance(user_id,work_date,clock_in,in_lat,in_lng,location_status,status) KEY(user_id,work_date) VALUES(?,?,CURRENT_TIMESTAMP,?,?,?,'OPEN')",
@@ -210,6 +252,15 @@ public class PortalService {
     assertScope(actor, ((Number) row.get("branch_id")).longValue(), ((Number) row.get("department_id")).longValue());
     Sql.update("UPDATE attendance SET finalized=? WHERE id=?", finalized, attendanceId);
     AuditService.record(actor.getId(), finalized ? "FINALIZE_ATTENDANCE" : "REOPEN_ATTENDANCE", "ATTENDANCE", String.valueOf(attendanceId), null, String.valueOf(finalized));
+  }
+
+  public void finalizeAttendanceMonth(User actor, YearMonth month, boolean finalized) {
+    requireManager(actor);
+    String filter = actor.isHr() ? "" : " AND user_id IN(SELECT id FROM users WHERE branch_id=? AND department_id=?)";
+    Object[] args = actor.isHr() ? new Object[]{finalized, month.atDay(1), month.atEndOfMonth()}
+        : new Object[]{finalized, month.atDay(1), month.atEndOfMonth(), actor.getBranchId(), actor.getDepartmentId()};
+    Sql.update("UPDATE attendance SET finalized=? WHERE work_date BETWEEN ? AND ?" + filter, args);
+    AuditService.record(actor.getId(), finalized ? "FINALIZE_ATTENDANCE_MONTH" : "REOPEN_ATTENDANCE_MONTH", "ATTENDANCE_MONTH", month.toString(), null, String.valueOf(finalized));
   }
 
   public List<Map<String, Object>> attendanceAdjustments(User viewer) {
@@ -250,6 +301,17 @@ public class PortalService {
     return Sql.query("SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC", user.getId());
   }
 
+  public List<Map<String, Object>> mailOutbox(User user) {
+    if (!user.isHr()) throw new SecurityException("人事担当者のみ利用できます。");
+    return Sql.query("SELECT id,recipient,subject,status,attempts,last_error,created_at,sent_at,next_attempt_at FROM mail_outbox ORDER BY created_at DESC LIMIT 300");
+  }
+
+  public void retryMail(User user, long id) {
+    if (!user.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
+    new MailDeliveryService().retry(id);
+    AuditService.record(user.getId(), "RETRY_MAIL", "MAIL_OUTBOX", String.valueOf(id), "FAILED", "QUEUED");
+  }
+
   public void markNotificationsRead(User user) {
     Sql.update("UPDATE notifications SET is_read=TRUE WHERE user_id=?", user.getId());
   }
@@ -257,13 +319,13 @@ public class PortalService {
   public List<Map<String, Object>> master(String type) {
     String table = switch (type) {
       case "branches" -> "branches"; case "departments" -> "departments";
-      case "employment" -> "employment_types"; default -> "work_types";
+      case "employment" -> "employment_types"; case "qualifications" -> "qualification_types"; default -> "work_types";
     };
     return Sql.query("SELECT * FROM " + table + " ORDER BY id");
   }
 
   public List<Map<String, Object>> qualifications(User viewer) {
-    return Sql.query("SELECT q.id,q.user_id,q.name qualification_name,q.expires_on,u.name employee_name,u.employee_number FROM qualifications q JOIN users u ON u.id=q.user_id WHERE 1=1"
+    return Sql.query("SELECT q.id,q.user_id,q.name qualification_name,q.expires_on,q.active,u.name employee_name,u.employee_number FROM qualifications q JOIN users u ON u.id=q.user_id WHERE 1=1"
         + scope(viewer, "u") + " ORDER BY q.expires_on,u.name", scopeArgs(viewer));
   }
 
@@ -280,15 +342,50 @@ public class PortalService {
 
   public void addQualification(User actor, long userId, String name, LocalDate expires) {
     if (!actor.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
-    long id = Sql.insert("INSERT INTO qualifications(user_id,name,expires_on) VALUES(?,?,?)", userId, name, expires);
-    AuditService.record(actor.getId(), "ADD_QUALIFICATION", "QUALIFICATION", String.valueOf(id), null, name);
+    String normalized = validateQualificationType(name, null);
+    long id = Sql.insert("INSERT INTO qualifications(user_id,name,expires_on) VALUES(?,?,?)", userId, normalized, expires);
+    AuditService.record(actor.getId(), "ADD_QUALIFICATION", "QUALIFICATION", String.valueOf(id), null, normalized + ":" + expires);
   }
 
-  public void addDelegation(User actor, long delegateId, LocalDate start, LocalDate end) {
+  public void updateQualification(User actor, long id, String name, LocalDate expires, boolean active) {
+    if (!actor.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
+    Map<String, Object> before = Sql.one("SELECT name,expires_on,active FROM qualifications WHERE id=?", id);
+    if (before.isEmpty()) throw new IllegalArgumentException("資格情報が見つかりません。");
+    String normalized = validateQualificationType(name, String.valueOf(before.get("name")));
+    Sql.update("UPDATE qualifications SET name=?,expires_on=?,active=? WHERE id=?", normalized, expires, active, id);
+    AuditService.record(actor.getId(), "UPDATE_QUALIFICATION", "QUALIFICATION", String.valueOf(id), before.toString(), normalized + ":" + expires + ":" + active);
+  }
+
+  private String validateQualificationType(String name, String currentName) {
+    String normalized = name == null ? "" : name.trim();
+    if (normalized.isEmpty() || (!normalized.equals(currentName) && Sql.one("SELECT id FROM qualification_types WHERE name=? AND active=TRUE", normalized).isEmpty())) {
+      throw new IllegalArgumentException("有効な資格名称を選択してください。");
+    }
+    return normalized;
+  }
+
+  public void addDelegation(User actor, long managerId, long delegateId, LocalDate start, LocalDate end) {
     requireManager(actor);
-    assertCanManage(actor, delegateId);
-    long id = Sql.insert("INSERT INTO delegations(manager_id,delegate_id,starts_on,ends_on) VALUES(?,?,?,?)", actor.getId(), delegateId, start, end);
+    if (end.isBefore(start)) throw new IllegalArgumentException("終了日は開始日以降にしてください。");
+    if (!actor.isHr() && managerId != actor.getId()) throw new SecurityException("担当外のデータです。");
+    Map<String, Object> manager = Sql.one("SELECT role,branch_id,department_id,active FROM users WHERE id=?", managerId);
+    Map<String, Object> delegate = Sql.one("SELECT branch_id,department_id,active FROM users WHERE id=?", delegateId);
+    if (manager.isEmpty() || !"MANAGER".equals(manager.get("role")) || !Boolean.TRUE.equals(manager.get("active"))) throw new IllegalArgumentException("有効な店長を選択してください。");
+    if (delegate.isEmpty() || !Boolean.TRUE.equals(delegate.get("active")) || managerId == delegateId) throw new IllegalArgumentException("有効な代理者を選択してください。");
+    if (!manager.get("branch_id").equals(delegate.get("branch_id")) || !manager.get("department_id").equals(delegate.get("department_id"))) throw new IllegalArgumentException("代理者は店長と同じ営業所・部署から選択してください。");
+    assertScope(actor, ((Number) manager.get("branch_id")).longValue(), ((Number) manager.get("department_id")).longValue());
+    long id = Sql.insert("INSERT INTO delegations(manager_id,delegate_id,starts_on,ends_on) VALUES(?,?,?,?)", managerId, delegateId, start, end);
     AuditService.record(actor.getId(), "ADD_DELEGATION", "DELEGATION", String.valueOf(id), null, delegateId + ":" + start + ":" + end);
+  }
+
+  public void updateDelegation(User actor, long id, LocalDate start, LocalDate end, boolean active) {
+    requireManager(actor);
+    Map<String, Object> row = Sql.one("SELECT d.id,m.branch_id,m.department_id FROM delegations d JOIN users m ON m.id=d.manager_id WHERE d.id=?", id);
+    if (row.isEmpty()) throw new IllegalArgumentException("代理設定が見つかりません。");
+    assertScope(actor, ((Number) row.get("branch_id")).longValue(), ((Number) row.get("department_id")).longValue());
+    if (end.isBefore(start)) throw new IllegalArgumentException("終了日は開始日以降にしてください。");
+    Sql.update("UPDATE delegations SET starts_on=?,ends_on=?,active=? WHERE id=?", start, end, active, id);
+    AuditService.record(actor.getId(), "UPDATE_DELEGATION", "DELEGATION", String.valueOf(id), null, start + ":" + end + ":" + active);
   }
 
   public void addEmployee(User actor, String number, String name, String email, LocalDate hireDate,
@@ -315,16 +412,27 @@ public class PortalService {
 
   public void addMaster(User actor, String type, String name) {
     if (!actor.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
-    String table = switch (type) { case "branches" -> "branches"; case "departments" -> "departments"; case "employment" -> "employment_types"; default -> throw new IllegalArgumentException("マスタ種別が不正です。"); };
+    String table = switch (type) { case "branches" -> "branches"; case "departments" -> "departments"; case "employment" -> "employment_types"; case "qualifications" -> "qualification_types"; default -> throw new IllegalArgumentException("マスタ種別が不正です。"); };
     long id = Sql.insert("INSERT INTO " + table + "(name) VALUES(?)", name);
     AuditService.record(actor.getId(), "CREATE_MASTER", table, String.valueOf(id), null, name);
   }
 
   public void toggleMaster(User actor, String type, long id, boolean active) {
     if (!actor.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
-    String table = switch (type) { case "branches" -> "branches"; case "departments" -> "departments"; case "employment" -> "employment_types"; default -> throw new IllegalArgumentException("マスタ種別が不正です。"); };
+    String table = switch (type) { case "branches" -> "branches"; case "departments" -> "departments"; case "employment" -> "employment_types"; case "qualifications" -> "qualification_types"; default -> throw new IllegalArgumentException("マスタ種別が不正です。"); };
     Sql.update("UPDATE " + table + " SET active=? WHERE id=?", active, id);
     AuditService.record(actor.getId(), "TOGGLE_MASTER", table, String.valueOf(id), null, String.valueOf(active));
+  }
+
+  public void updateMaster(User actor, String type, long id, String name, boolean active) {
+    if (!actor.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
+    String table = switch (type) { case "branches" -> "branches"; case "departments" -> "departments"; case "employment" -> "employment_types"; case "qualifications" -> "qualification_types"; default -> throw new IllegalArgumentException("マスタ種別が不正です。"); };
+    String normalized = name == null ? "" : name.trim();
+    if (normalized.isEmpty()) throw new IllegalArgumentException("名称を入力してください。");
+    Map<String, Object> before = Sql.one("SELECT name,active FROM " + table + " WHERE id=?", id);
+    if (before.isEmpty()) throw new IllegalArgumentException("対象のマスタが見つかりません。");
+    Sql.update("UPDATE " + table + " SET name=?,active=? WHERE id=?", normalized, active, id);
+    AuditService.record(actor.getId(), "UPDATE_MASTER", table, String.valueOf(id), before.toString(), normalized + ":" + active);
   }
 
   public void updateWorkType(User actor, String code, String nameJa, String nameEn,

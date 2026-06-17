@@ -10,7 +10,7 @@ public class ScheduledTasks {
   public void runDaily() {
     LocalDate today = LocalDate.now();
     if (today.getDayOfMonth() == 14) sendShiftReminders(today);
-    grantAnnualLeave(today);
+    new LeavePolicyService().runDaily(today);
     Sql.update("UPDATE account_tokens SET used_at=CURRENT_TIMESTAMP WHERE used_at IS NULL AND expires_at<=CURRENT_TIMESTAMP");
   }
 
@@ -27,25 +27,4 @@ public class ScheduledTasks {
     }
   }
 
-  private void grantAnnualLeave(LocalDate today) {
-    List<Map<String, Object>> users = Sql.query("SELECT u.id,u.hire_date,b.last_granted_on FROM users u JOIN leave_balances b ON b.user_id=u.id WHERE u.active=TRUE");
-    for (Map<String, Object> user : users) {
-      LocalDate hire = toDate(user.get("hire_date"));
-      int months = Period.between(hire.withDayOfMonth(1), today.withDayOfMonth(1)).toTotalMonths() > Integer.MAX_VALUE
-          ? 0 : (int) Period.between(hire.withDayOfMonth(1), today.withDayOfMonth(1)).toTotalMonths();
-      if (months < 6 || (months - 6) % 12 != 0 || today.getDayOfMonth() != Math.min(hire.getDayOfMonth(), today.lengthOfMonth())) continue;
-      LocalDate last = user.get("last_granted_on") == null ? null : toDate(user.get("last_granted_on"));
-      if (last != null && !last.isBefore(today)) continue;
-      int serviceYears = Math.max(0, (months - 6) / 12);
-      int days = switch (serviceYears) { case 0 -> 10; case 1 -> 11; case 2 -> 12; case 3 -> 14; case 4 -> 16; case 5 -> 18; default -> 20; };
-      Sql.update("UPDATE leave_balances SET days_remaining=days_remaining+?,last_granted_on=? WHERE user_id=?", days, today, user.get("id"));
-      AuditService.record(null, "AUTO_GRANT_LEAVE", "USER", String.valueOf(user.get("id")), null, days + " days");
-    }
-  }
-
-  private LocalDate toDate(Object value) {
-    if (value instanceof LocalDate date) return date;
-    if (value instanceof java.sql.Date date) return date.toLocalDate();
-    return LocalDate.parse(String.valueOf(value));
-  }
 }

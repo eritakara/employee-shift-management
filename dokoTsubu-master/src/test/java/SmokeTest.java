@@ -5,8 +5,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.Map;
 import model.User;
 import service.PortalService;
+import service.SettingsService;
 
 public class SmokeTest {
   public static void main(String[] args) throws Exception {
@@ -40,6 +42,29 @@ public class SmokeTest {
     portal.clock(employee, true, "26.2124", "127.6809", "ACQUIRED");
     check(!portal.attendance(employee, YearMonth.now()).isEmpty(), "clock in");
     check(!portal.dashboard(employee).isEmpty(), "dashboard");
+
+    SettingsService settings = new SettingsService();
+    settings.update(hr, "SHIFT_SUBMISSION_DAY", "20");
+    check(settings.integer("SHIFT_SUBMISSION_DAY", 0) == 20, "HR setting update");
+
+    portal.addMaster(hr, "qualifications", "テスト資格");
+    long qualificationTypeId = ((Number) portal.master("qualifications").get(0).get("id")).longValue();
+    portal.updateMaster(hr, "qualifications", qualificationTypeId, "更新資格", false);
+    Map<String, Object> qualificationType = Sql.one("SELECT name,active FROM qualification_types WHERE id=?", qualificationTypeId);
+    check("更新資格".equals(qualificationType.get("name")) && Boolean.FALSE.equals(qualificationType.get("active")), "qualification type update");
+    portal.updateMaster(hr, "qualifications", qualificationTypeId, "更新資格", true);
+    portal.addQualification(hr, employee.getId(), "更新資格", tomorrow.plusYears(1));
+    long qualificationId = ((Number) Sql.one("SELECT MAX(id) id FROM qualifications WHERE user_id=?", employee.getId()).get("id")).longValue();
+    portal.updateQualification(hr, qualificationId, "更新資格", tomorrow.plusYears(2), false);
+    Map<String, Object> qualification = Sql.one("SELECT expires_on,active FROM qualifications WHERE id=?", qualificationId);
+    check(Boolean.FALSE.equals(qualification.get("active")) && tomorrow.plusYears(2).toString().equals(String.valueOf(qualification.get("expires_on"))), "qualification history update");
+
+    portal.addDelegation(manager, manager.getId(), employee.getId(), tomorrow, tomorrow.plusDays(5));
+    long delegationId = ((Number) Sql.one("SELECT MAX(id) id FROM delegations WHERE manager_id=? AND delegate_id=?", manager.getId(), employee.getId()).get("id")).longValue();
+    portal.updateDelegation(hr, delegationId, tomorrow.plusDays(1), tomorrow.plusDays(6), false);
+    Map<String, Object> delegation = Sql.one("SELECT starts_on,ends_on,active FROM delegations WHERE id=?", delegationId);
+    check(Boolean.FALSE.equals(delegation.get("active")) && tomorrow.plusDays(1).toString().equals(String.valueOf(delegation.get("starts_on"))), "delegation update");
+
     check(!Sql.query("SELECT * FROM audit_logs").isEmpty(), "audit log");
     System.out.println("SmokeTest: all checks passed");
   }

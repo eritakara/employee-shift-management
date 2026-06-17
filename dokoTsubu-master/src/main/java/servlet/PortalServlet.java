@@ -18,6 +18,7 @@ import service.PortalService;
 public class PortalServlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
   private final PortalService portal = new PortalService();
+  private final service.SettingsService settings = new service.SettingsService();
 
   private static final Map<String, String> TITLES = new LinkedHashMap<>();
   static {
@@ -68,11 +69,13 @@ public class PortalServlet extends HttpServlet {
     } else if (page.startsWith("leave/")) {
       req.setAttribute("rows", portal.leaveRequests(user));
       req.setAttribute("balance", portal.leaveBalance(user.getId()));
+      req.setAttribute("leaveLedger", portal.leaveHistory(user));
     } else if (page.startsWith("attendance/")) {
       req.setAttribute("rows", portal.attendance(user, month));
       req.setAttribute("adjustments", portal.attendanceAdjustments(user));
     } else if ("notifications".equals(page)) {
       req.setAttribute("rows", portal.notifications(user));
+      if (user.isHr()) req.setAttribute("mailRows", portal.mailOutbox(user));
     } else if ("employees".equals(page) || "employees/edit".equals(page)) {
       java.util.List<Map<String,Object>> employeeRows = portal.users(user);
       req.setAttribute("rows", employeeRows);
@@ -86,6 +89,7 @@ public class PortalServlet extends HttpServlet {
     } else if ("qualifications".equals(page)) {
       req.setAttribute("rows", portal.qualifications(user));
       req.setAttribute("people", portal.users(user));
+      req.setAttribute("qualificationTypes", portal.master("qualifications"));
     } else if ("delegations".equals(page)) {
       req.setAttribute("rows", portal.delegations(user));
       req.setAttribute("people", portal.users(user));
@@ -94,6 +98,10 @@ public class PortalServlet extends HttpServlet {
           ? "departments" : page.endsWith("catalogs") ? "employment" : "work_types";
       req.setAttribute("masterType", type);
       req.setAttribute("rows", portal.master(type));
+      if (page.endsWith("catalogs")) {
+        req.setAttribute("qualificationTypes", portal.master("qualifications"));
+        req.setAttribute("appSettings", settings.all(user));
+      }
     } else if ("audit".equals(page)) {
       req.setAttribute("rows", portal.audit(user));
     }
@@ -108,21 +116,27 @@ public class PortalServlet extends HttpServlet {
     try {
       String action = req.getParameter("action");
       switch (action == null ? "" : action) {
-        case "saveShift" -> portal.saveShift(user, longValue(req, "userId", user.getId()),
-            LocalDate.parse(req.getParameter("date")), req.getParameter("workType"),
-            user.isManager() || user.isHr() ? value(req, "status", "DRAFT") : "DRAFT", req.getParameter("note"));
-        case "confirmShifts" -> portal.confirmMonth(user, parseMonth(req.getParameter("month")));
+        case "saveShift" -> {
+          LocalDate date = LocalDate.parse(req.getParameter("date"));
+          if (user.isManager() || user.isHr()) portal.saveShift(user, longValue(req, "userId", user.getId()), date,
+              req.getParameter("workType"), value(req, "status", "DRAFT"), req.getParameter("note"));
+          else portal.submitPreferredShift(user, date, req.getParameter("workType"), req.getParameter("note"));
+        }
+        case "confirmShifts" -> portal.confirmMonth(user, parseMonth(req.getParameter("month")), req.getParameter("warningReason"));
         case "requestShiftChange" -> portal.requestShiftChange(user, LocalDate.parse(req.getParameter("date")), req.getParameter("workType"), req.getParameter("reason"));
         case "decideShiftChange" -> portal.decideShiftChange(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
         case "requestLeave" -> portal.requestLeave(user, LocalDate.parse(req.getParameter("date")),
             req.getParameter("unit"), integer(req.getParameter("hours")), req.getParameter("reason"));
         case "decideLeave" -> portal.decideLeave(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
+        case "cancelLeave" -> portal.cancelLeave(user, Long.parseLong(req.getParameter("id")));
         case "clock" -> portal.clock(user, "in".equals(req.getParameter("direction")), req.getParameter("lat"), req.getParameter("lng"), value(req, "locationStatus", "UNKNOWN"));
         case "finalizeAttendance" -> portal.finalizeAttendance(user, Long.parseLong(req.getParameter("id")), Boolean.parseBoolean(req.getParameter("finalized")));
+        case "finalizeAttendanceMonth" -> portal.finalizeAttendanceMonth(user, parseMonth(req.getParameter("month")), Boolean.parseBoolean(req.getParameter("finalized")));
         case "requestAttendanceAdjustment" -> portal.requestAttendanceAdjustment(user, Long.parseLong(req.getParameter("attendanceId")),
             LocalDateTime.parse(req.getParameter("requestedIn")), LocalDateTime.parse(req.getParameter("requestedOut")), req.getParameter("reason"));
         case "decideAttendanceAdjustment" -> portal.decideAttendanceAdjustment(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
         case "markNotificationsRead" -> portal.markNotificationsRead(user);
+        case "retryMail" -> portal.retryMail(user, Long.parseLong(req.getParameter("id")));
         case "addEmployee" -> portal.addEmployee(user, req.getParameter("employeeNumber"), req.getParameter("name"), req.getParameter("email"),
             LocalDate.parse(req.getParameter("hireDate")), Long.parseLong(req.getParameter("branchId")), Long.parseLong(req.getParameter("departmentId")),
             Long.parseLong(req.getParameter("employmentId")), req.getParameter("role"), baseUrl(req));
@@ -131,12 +145,19 @@ public class PortalServlet extends HttpServlet {
             Long.parseLong(req.getParameter("employmentId")), req.getParameter("role"), Boolean.parseBoolean(req.getParameter("active")));
         case "addQualification" -> portal.addQualification(user, Long.parseLong(req.getParameter("userId")), req.getParameter("name"),
             req.getParameter("expiresOn").isBlank() ? null : LocalDate.parse(req.getParameter("expiresOn")));
-        case "addDelegation" -> portal.addDelegation(user, Long.parseLong(req.getParameter("delegateId")),
+        case "updateQualification" -> portal.updateQualification(user, Long.parseLong(req.getParameter("id")), req.getParameter("name"),
+            req.getParameter("expiresOn").isBlank() ? null : LocalDate.parse(req.getParameter("expiresOn")), Boolean.parseBoolean(req.getParameter("active")));
+        case "addDelegation" -> portal.addDelegation(user, longValue(req, "managerId", user.getId()), Long.parseLong(req.getParameter("delegateId")),
             LocalDate.parse(req.getParameter("startsOn")), LocalDate.parse(req.getParameter("endsOn")));
+        case "updateDelegation" -> portal.updateDelegation(user, Long.parseLong(req.getParameter("id")),
+            LocalDate.parse(req.getParameter("startsOn")), LocalDate.parse(req.getParameter("endsOn")), Boolean.parseBoolean(req.getParameter("active")));
         case "addMaster" -> portal.addMaster(user, req.getParameter("type"), req.getParameter("name"));
         case "toggleMaster" -> portal.toggleMaster(user, req.getParameter("type"), Long.parseLong(req.getParameter("id")), Boolean.parseBoolean(req.getParameter("active")));
+        case "updateMaster" -> portal.updateMaster(user, req.getParameter("type"), Long.parseLong(req.getParameter("id")),
+            req.getParameter("name"), Boolean.parseBoolean(req.getParameter("active")));
         case "updateWorkType" -> portal.updateWorkType(user, req.getParameter("code"), req.getParameter("nameJa"), req.getParameter("nameEn"), req.getParameter("start"), req.getParameter("end"),
             Integer.parseInt(req.getParameter("breakMinutes")), Integer.parseInt(req.getParameter("requiredStaff")), Boolean.parseBoolean(req.getParameter("active")));
+        case "updateSetting" -> settings.update(user, req.getParameter("key"), req.getParameter("value"));
         default -> throw new IllegalArgumentException("操作が指定されていません。");
       }
       req.getSession().setAttribute("flash", "保存しました。");

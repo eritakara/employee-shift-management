@@ -2,10 +2,13 @@ package service;
 
 import config.Database;
 import dao.Sql;
+import dao.UserDAO;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
+import model.User;
 
 public class LeavePolicyTest {
   public static void main(String[] args) throws Exception {
@@ -47,11 +50,39 @@ public class LeavePolicyTest {
     Sql.update("UPDATE leave_requests SET status='CANCELLED' WHERE id=?", requestId);
     check(((BigDecimal) ledger.balance(employeeId, today).get("days_remaining")).compareTo(new BigDecimal("10.00")) == 0, "cancellation restores balance");
 
+    long halfDayId = Sql.insert("INSERT INTO leave_requests(user_id,leave_date,leave_unit,reason) VALUES(?,?,'AM','half day')", employeeId, leaveDate.plusDays(1));
+    ledger.consume(halfDayId);
+    Sql.update("UPDATE leave_requests SET status='APPROVED' WHERE id=?", halfDayId);
+    check(((BigDecimal) ledger.balance(employeeId, today).get("days_remaining")).compareTo(new BigDecimal("9.50")) == 0, "half-day consumption");
+
+    for (int i = 0; i < 5; i++) {
+      long hourlyId = Sql.insert("INSERT INTO leave_requests(user_id,leave_date,leave_unit,hours,reason) VALUES(?,?,'HOURLY',8,'hourly')",
+          employeeId, leaveDate.plusDays(2 + i));
+      ledger.consume(hourlyId);
+      Sql.update("UPDATE leave_requests SET status='APPROVED' WHERE id=?", hourlyId);
+    }
+    Map<String, Object> hourlyBalance = ledger.balance(employeeId, today);
+    check(((Number) hourlyBalance.get("hourly_used")).intValue() == 40, "annual hourly usage");
+    check(((Number) hourlyBalance.get("hourly_remaining")).intValue() == 0, "annual hourly limit reached");
+    long overLimitId = Sql.insert("INSERT INTO leave_requests(user_id,leave_date,leave_unit,hours,reason) VALUES(?,?,'HOURLY',1,'over limit')",
+        employeeId, leaveDate.plusDays(8));
+    expectFailure(() -> ledger.consume(overLimitId), "annual 40-hour limit");
+
     Sql.update("UPDATE leave_grants SET expires_on=? WHERE user_id=?", today.minusDays(1), employeeId);
     policy.expire(today);
     check(((BigDecimal) Sql.one("SELECT days_remaining FROM leave_grants WHERE user_id=?", employeeId).get("days_remaining")).signum() == 0, "expired grant removed");
     check(((Number) Sql.one("SELECT COUNT(*) count_value FROM leave_history WHERE user_id=?", employeeId).get("count_value")).intValue() >= 4, "ledger history recorded");
+
+    User manager = new UserDAO().authenticate("manager@example.com", "Password1!");
+    expectFailure(() -> new PortalService().saveShift(manager, employeeId, today.plusDays(20), "LEAVE", "DRAFT", "insufficient"),
+        "shift leave balance shortage");
     System.out.println("LeavePolicyTest: all checks passed");
+  }
+
+  private static void expectFailure(Runnable action, String label) {
+    try { action.run(); }
+    catch (IllegalArgumentException expected) { return; }
+    throw new AssertionError("Failed: " + label);
   }
 
   private static void check(boolean condition, String label) {

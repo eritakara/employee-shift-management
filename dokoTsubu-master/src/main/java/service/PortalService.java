@@ -65,9 +65,25 @@ public class PortalService {
   public void saveShift(User actor, long userId, LocalDate date, String type, String status, String note) {
     assertCanManage(actor, userId);
     if (!workTypes().stream().anyMatch(r -> type.equals(r.get("code")))) throw new IllegalArgumentException("勤務区分が不正です。");
+    assertShiftLeaveBalance(userId, date, type);
     Sql.update("MERGE INTO shifts(user_id,work_date,work_type_code,status,note,updated_by,updated_at) KEY(user_id,work_date) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP)",
         userId, date, type, status, note, actor.getId());
     AuditService.record(actor.getId(), "SAVE_SHIFT", "SHIFT", userId + ":" + date, null, type + "/" + status);
+  }
+
+  private void assertShiftLeaveBalance(long userId, LocalDate date, String type) {
+    BigDecimal needed = switch (type) {
+      case "LEAVE" -> BigDecimal.ONE;
+      case "AM_LEAVE", "PM_LEAVE" -> new BigDecimal("0.5");
+      default -> BigDecimal.ZERO;
+    };
+    if (needed.signum() == 0) return;
+    boolean approvedRequest = !Sql.query("SELECT id FROM leave_requests WHERE user_id=? AND leave_date=? AND status='APPROVED' "
+        + "AND ((?='LEAVE' AND leave_unit='FULL') OR (?='AM_LEAVE' AND leave_unit='AM') OR (?='PM_LEAVE' AND leave_unit='PM'))",
+        userId, date, type, type, type).isEmpty();
+    if (approvedRequest) return;
+    BigDecimal remaining = (BigDecimal) leaveLedger.balance(userId, date).getOrDefault("days_remaining", BigDecimal.ZERO);
+    if (remaining.compareTo(needed) < 0) throw new IllegalArgumentException("有効期限内の有休残数が不足しています。");
   }
 
   public void submitPreferredShift(User actor, LocalDate date, String type, String note) {

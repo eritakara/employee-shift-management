@@ -1,7 +1,21 @@
 document.addEventListener('DOMContentLoaded', () => {
   if (document.documentElement.lang === 'en') translatePage();
   const menu = document.querySelector('[data-menu]');
-  if (menu) menu.addEventListener('click', () => document.body.classList.toggle('nav-open'));
+  if (menu) {
+    const setMenuOpen = open => {
+      document.body.classList.toggle('nav-open', open);
+      menu.setAttribute('aria-expanded', String(open));
+      if (open) document.querySelector('#main-navigation a')?.focus();
+    };
+    menu.addEventListener('click', () => setMenuOpen(!document.body.classList.contains('nav-open')));
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && document.body.classList.contains('nav-open')) {
+        setMenuOpen(false);
+        menu.focus();
+      }
+    });
+    document.querySelectorAll('#main-navigation a').forEach(link => link.addEventListener('click', () => setMenuOpen(false)));
+  }
 
   const clock = document.querySelector('[data-clock]');
   if (clock) {

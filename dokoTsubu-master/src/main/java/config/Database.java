@@ -29,7 +29,7 @@ public final class Database {
           + ";AUTO_SERVER=TRUE";
       try (Connection connection = getConnection()) {
         createSchema(connection);
-        seed(connection);
+        if (Boolean.parseBoolean(System.getProperty("shiftapp.seedDemo", "true"))) seed(connection);
       }
     } catch (Exception e) {
       jdbcUrl = null;
@@ -119,7 +119,7 @@ public final class Database {
         setting(p, "SHIFT_SUBMISSION_DAY", "15", "翌月希望シフトの提出締切日");
         setting(p, "ALLOW_CONFIRM_WITH_WARNINGS", "true", "理由入力により警告付き確定を許可");
         setting(p, "LEAVE_ALLOW_PAST", "false", "過去日の有休申請を許可");
-        setting(p, "LEAVE_MIN_NOTICE_DAYS", "0", "有休申請の最低事前日数");
+        setting(p, "LEAVE_MIN_NOTICE_DAYS", "1", "有休申請の最低事前日数");
         setting(p, "MONTHLY_CLOSE_DAY", "5", "翌月の勤怠締切日");
         setting(p, "RETENTION_YEARS", "5", "業務データ保存年数");
         setting(p, "LOCATION_REQUIRED", "false", "位置情報なしの打刻を禁止");

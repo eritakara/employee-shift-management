@@ -2,5 +2,7 @@
 /.tomcat/
 /target/
 /data/
+/backups/
+/restore-check/
 *.mv.db
 *.trace.db

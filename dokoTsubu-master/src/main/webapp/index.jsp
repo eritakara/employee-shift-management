@@ -9,7 +9,8 @@
 <link rel="stylesheet" href="assets/app.css">
 </head>
 <body class="auth-page">
-<main class="auth-shell">
+<a class="skip-link" href="#main-content">本文へ移動</a>
+<main class="auth-shell" id="main-content" tabindex="-1">
   <section class="auth-brand">
     <span class="brand-mark">SF</span>
     <div><strong>ShiftFlow</strong><small>シフト・有休管理</small></div>
@@ -27,6 +28,7 @@
       <button class="primary wide" type="submit">ログイン</button>
     </form>
     <p><a href="forgot">パスワードをお忘れですか？</a></p>
+    <p><a href="privacy">個人情報・位置情報の取扱い / Privacy notice</a></p>
     <details class="demo-accounts">
       <summary>デモアカウント</summary>
       <p>人事: hr@example.com</p><p>店長: manager@example.com</p><p>従業員: employee@example.com</p>

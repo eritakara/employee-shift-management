@@ -39,11 +39,32 @@ public class PortalService {
     String filter = user.isHr() ? "" : user.isManager() ? " AND u.branch_id=? AND u.department_id=?" : " AND u.id=?";
     Object[] args = user.isHr() ? new Object[]{} : user.isManager()
         ? new Object[]{user.getBranchId(), user.getDepartmentId()} : new Object[]{user.getId()};
-    return Sql.query("SELECT FORMATDATETIME(a.work_date,'yyyy-MM') AS month_label,"
+    List<Map<String, Object>> attendance = Sql.query("SELECT FORMATDATETIME(a.work_date,'yyyy-MM') AS month_label,"
         + "ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-COALESCE(wt.break_minutes,0))/60.0 ELSE 0 END),1) AS total_hours,"
         + "ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL AND wt.start_time IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-CASE WHEN wt.crosses_midnight THEN 1440+DATEDIFF('MINUTE',wt.start_time,wt.end_time) ELSE DATEDIFF('MINUTE',wt.start_time,wt.end_time) END)/60.0 ELSE 0 END),1) AS overtime_hours "
         + "FROM attendance a JOIN users u ON u.id=a.user_id LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.work_date>=DATEADD('MONTH',-5,CURRENT_DATE)" + filter
         + " GROUP BY FORMATDATETIME(a.work_date,'yyyy-MM') ORDER BY month_label", args);
+    List<Map<String, Object>> leave = Sql.query("SELECT FORMATDATETIME(l.leave_date,'yyyy-MM') AS month_label,"
+        + "SUM(CASE l.leave_unit WHEN 'FULL' THEN 1.0 WHEN 'AM' THEN 0.5 WHEN 'PM' THEN 0.5 WHEN 'HOUR' THEN l.hours/8.0 ELSE 0 END) AS leave_days "
+        + "FROM leave_requests l JOIN users u ON u.id=l.user_id WHERE l.status='APPROVED' AND l.leave_date>=DATEADD('MONTH',-5,CURRENT_DATE)" + filter
+        + " GROUP BY FORMATDATETIME(l.leave_date,'yyyy-MM') ORDER BY month_label", args);
+    java.util.SortedMap<String, Map<String, Object>> months = new java.util.TreeMap<>();
+    for (Map<String, Object> row : attendance) {
+      row.put("leave_days", BigDecimal.ZERO);
+      months.put(String.valueOf(row.get("month_label")), row);
+    }
+    for (Map<String, Object> row : leave) {
+      String key = String.valueOf(row.get("month_label"));
+      Map<String, Object> month = months.computeIfAbsent(key, ignored -> {
+        Map<String, Object> empty = new java.util.LinkedHashMap<>();
+        empty.put("month_label", key);
+        empty.put("total_hours", BigDecimal.ZERO);
+        empty.put("overtime_hours", BigDecimal.ZERO);
+        return empty;
+      });
+      month.put("leave_days", row.get("leave_days"));
+    }
+    return new java.util.ArrayList<>(months.values());
   }
 
   public List<Map<String, Object>> users(User viewer) {
@@ -374,16 +395,29 @@ public class PortalService {
     Map<String, Object> row = Sql.one("SELECT r.*,u.branch_id,u.department_id FROM attendance_adjustments r JOIN users u ON u.id=r.requested_by WHERE r.id=?", requestId);
     if (row.isEmpty() || !"PENDING".equals(row.get("status"))) throw new IllegalArgumentException("未処理の申請が見つかりません。");
     assertScope(actor, ((Number) row.get("branch_id")).longValue(), ((Number) row.get("department_id")).longValue());
-    if (approve && Boolean.TRUE.equals(Sql.one("SELECT finalized FROM attendance WHERE id=?", row.get("attendance_id")).get("finalized"))) {
+    Map<String, Object> attendance = Sql.one("SELECT clock_in,clock_out,status,finalized FROM attendance WHERE id=?", row.get("attendance_id"));
+    if (approve && Boolean.TRUE.equals(attendance.get("finalized"))) {
       throw new IllegalArgumentException("確定済み勤怠は、確定解除してから修正してください。");
     }
+    String beforeAudit = approve
+        ? attendanceAuditValue(attendance.get("clock_in"), attendance.get("clock_out"), attendance.get("status"))
+        : "request_status=PENDING";
+    String updatedStatus = row.get("requested_in") != null && row.get("requested_out") != null ? "COMPLETE" : "OPEN";
+    String afterAudit = approve
+        ? attendanceAuditValue(row.get("requested_in"), row.get("requested_out"), updatedStatus)
+        : "request_status=REJECTED";
     if (approve) Sql.update("UPDATE attendance SET clock_in=?,clock_out=?,status=CASE WHEN ? IS NOT NULL AND ? IS NOT NULL THEN 'COMPLETE' ELSE 'OPEN' END WHERE id=?",
         row.get("requested_in"), row.get("requested_out"), row.get("requested_in"), row.get("requested_out"), row.get("attendance_id"));
     Sql.update("UPDATE attendance_adjustments SET status=?,decided_by=?,decided_at=CURRENT_TIMESTAMP WHERE id=?",
         approve ? "APPROVED" : "REJECTED", actor.getId(), requestId);
     notify(((Number) row.get("requested_by")).longValue(), "ATTENDANCE_ADJUSTMENT_DECISION",
         approve ? "打刻修正が承認されました" : "打刻修正が却下されました", "申請結果を確認してください。", "/app/attendance/history");
-    AuditService.record(actor.getId(), approve ? "APPROVE_ATTENDANCE_ADJUSTMENT" : "REJECT_ATTENDANCE_ADJUSTMENT", "ATTENDANCE_ADJUSTMENT", String.valueOf(requestId), "PENDING", approve ? "APPROVED" : "REJECTED");
+    AuditService.record(actor.getId(), approve ? "APPROVE_ATTENDANCE_ADJUSTMENT" : "REJECT_ATTENDANCE_ADJUSTMENT",
+        "ATTENDANCE_ADJUSTMENT", String.valueOf(requestId), beforeAudit, afterAudit);
+  }
+
+  private String attendanceAuditValue(Object clockIn, Object clockOut, Object status) {
+    return "clock_in=" + clockIn + ";clock_out=" + clockOut + ";status=" + status;
   }
 
   public List<Map<String, Object>> notifications(User user) {
@@ -497,13 +531,23 @@ public class PortalService {
   public void addEmployee(User actor, String number, String name, String email, LocalDate hireDate,
       long branch, long department, long employment, String role, String baseUrl) {
     if (!actor.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
-    String hash = util.PasswordUtil.hash("Password1!");
+    String hash = util.PasswordUtil.hash(java.util.UUID.randomUUID().toString());
     long id = Sql.insert("INSERT INTO users(employee_number,name,email,password_hash,hire_date,branch_id,department_id,employment_type_id,role) VALUES(?,?,?,?,?,?,?,?,?)",
         number, name, email, hash, hireDate, branch, department, employment, role);
     Sql.update("INSERT INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) VALUES(?,10,0,CURRENT_DATE)", id);
     notify(id, "INVITATION", "アカウントが登録されました", "初期パスワードを変更して利用してください。", "/app/account");
     new AccountTokenService().issue(email, "INVITE", baseUrl);
     AuditService.record(actor.getId(), "CREATE_USER", "USER", String.valueOf(id), null, number + ":" + role);
+  }
+
+  public void reissueInvite(User actor, long userId, String baseUrl) {
+    if (!actor.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
+    Map<String, Object> target = Sql.one("SELECT email,active FROM users WHERE id=?", userId);
+    if (target.isEmpty() || !Boolean.TRUE.equals(target.get("active"))) {
+      throw new IllegalArgumentException("有効な従業員が見つかりません。");
+    }
+    new AccountTokenService().issue(String.valueOf(target.get("email")), "INVITE", baseUrl);
+    AuditService.record(actor.getId(), "REISSUE_INVITE", "USER", String.valueOf(userId), null, "expires in 24h");
   }
 
   public void updateEmployee(User actor, long id, String number, String name, String email, LocalDate hireDate,

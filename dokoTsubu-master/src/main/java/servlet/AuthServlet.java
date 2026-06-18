@@ -14,7 +14,7 @@ import service.AccountTokenService;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-@WebServlet(urlPatterns = {"/login", "/logout", "/account", "/forgot", "/reset", "/invite"})
+@WebServlet(urlPatterns = {"/login", "/logout", "/account", "/forgot", "/reset", "/invite", "/privacy"})
 public class AuthServlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
   private final UserDAO users = new UserDAO();
@@ -97,6 +97,8 @@ public class AuthServlet extends HttpServlet {
   protected void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
     if ("/logout".equals(req.getServletPath())) {
       res.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+    } else if ("/privacy".equals(req.getServletPath())) {
+      try { req.getRequestDispatcher("/WEB-INF/jsp/privacy.jsp").forward(req, res); } catch (ServletException e) { throw new IOException(e); }
     } else if ("/forgot".equals(req.getServletPath())) {
       try { req.getRequestDispatcher("/WEB-INF/jsp/forgot.jsp").forward(req, res); } catch (ServletException e) { throw new IOException(e); }
     } else if ("/reset".equals(req.getServletPath()) || "/invite".equals(req.getServletPath())) {

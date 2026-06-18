@@ -154,6 +154,7 @@ public class PortalServlet extends HttpServlet {
         case "addEmployee" -> portal.addEmployee(user, req.getParameter("employeeNumber"), req.getParameter("name"), req.getParameter("email"),
             LocalDate.parse(req.getParameter("hireDate")), Long.parseLong(req.getParameter("branchId")), Long.parseLong(req.getParameter("departmentId")),
             Long.parseLong(req.getParameter("employmentId")), req.getParameter("role"), baseUrl(req));
+        case "reissueInvite" -> portal.reissueInvite(user, Long.parseLong(req.getParameter("id")), baseUrl(req));
         case "updateEmployee" -> portal.updateEmployee(user, Long.parseLong(req.getParameter("id")), req.getParameter("employeeNumber"), req.getParameter("name"), req.getParameter("email"),
             LocalDate.parse(req.getParameter("hireDate")), Long.parseLong(req.getParameter("branchId")), Long.parseLong(req.getParameter("departmentId")),
             Long.parseLong(req.getParameter("employmentId")), req.getParameter("role"), Boolean.parseBoolean(req.getParameter("active")));

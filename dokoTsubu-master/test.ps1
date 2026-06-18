@@ -40,3 +40,23 @@ if ($LASTEXITCODE -ne 0) { throw "Security hardening tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Sensitive data leak tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.DataRetentionServiceTest
 if ($LASTEXITCODE -ne 0) { throw "Data retention tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.BackupRestoreTest
+if ($LASTEXITCODE -ne 0) { throw "Backup and restore tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.CoreWorkflowE2ETest
+if ($LASTEXITCODE -ne 0) { throw "Core workflow E2E tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.PerformanceTest
+if ($LASTEXITCODE -ne 0) { throw "Performance tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.DashboardChartTest
+if ($LASTEXITCODE -ne 0) { throw "Dashboard chart tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.AttendanceAdjustmentAuditTest
+if ($LASTEXITCODE -ne 0) { throw "Attendance adjustment audit tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" config.ProductionInitializationTest
+if ($LASTEXITCODE -ne 0) { throw "Production initialization tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.ApprovedRequirementsTest
+if ($LASTEXITCODE -ne 0) { throw "Approved requirements tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.ConcurrentLoadTest
+if ($LASTEXITCODE -ne 0) { throw "Concurrent load tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.InvitationWorkflowTest
+if ($LASTEXITCODE -ne 0) { throw "Invitation workflow tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.AccessibilityTest
+if ($LASTEXITCODE -ne 0) { throw "Accessibility tests failed" }

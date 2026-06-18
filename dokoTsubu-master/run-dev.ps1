@@ -18,7 +18,8 @@ Copy-Item (Join-Path $project "target\shiftflow\*") $webapp -Recurse -Force
 if ($Port -ne 8080) {
   $serverXml = Join-Path $base "conf\server.xml"
   $replacement = 'port="' + $Port + '" protocol="HTTP/1.1"'
-  (Get-Content $serverXml -Raw).Replace('port="8080" protocol="HTTP/1.1"', $replacement) | Set-Content $serverXml -Encoding UTF8
+  $shutdownPort = 8005 + ($Port - 8080)
+  (Get-Content $serverXml -Raw).Replace('port="8080" protocol="HTTP/1.1"', $replacement).Replace('<Server port="8005"', '<Server port="' + $shutdownPort + '"') | Set-Content $serverXml -Encoding UTF8
 }
 
 $env:CATALINA_HOME = $TomcatHome

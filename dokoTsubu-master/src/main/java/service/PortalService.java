@@ -602,6 +602,7 @@ public class PortalService {
   private void assertCanManage(User actor, long targetId) {
     if (actor.isHr() || actor.getId() == targetId) return;
     Map<String, Object> target = Sql.one("SELECT branch_id,department_id FROM users WHERE id=?", targetId);
+    if (target.isEmpty()) throw new IllegalArgumentException("対象の従業員が見つかりません。");
     requireManager(actor);
     assertScope(actor, ((Number) target.get("branch_id")).longValue(), ((Number) target.get("department_id")).longValue());
   }

@@ -20,7 +20,11 @@ public class SecurityAuthorizationTest {
     check(users.authenticate("employee@example.com", "wrong-password") == null, "wrong password rejected");
     Sql.update("UPDATE users SET active=FALSE WHERE id=?", coworker.getId());
     check(users.authenticate("sato@example.com", "Password1!") == null, "inactive account rejected");
+    check(new SessionUserService().refresh(coworker) == null, "existing inactive session rejected");
     Sql.update("UPDATE users SET active=TRUE WHERE id=?", coworker.getId());
+    Sql.update("UPDATE users SET role='MANAGER' WHERE id=?", employee.getId());
+    check(new SessionUserService().refresh(employee).isManager(), "session role refreshed");
+    Sql.update("UPDATE users SET role='EMPLOYEE' WHERE id=?", employee.getId());
 
     PortalService portal = new PortalService();
     LocalDate targetDate = LocalDate.now().plusDays(10);
@@ -32,6 +36,16 @@ public class SecurityAuthorizationTest {
     check(!Sql.query("SELECT id FROM shifts WHERE user_id=? AND work_date=?", coworker.getId(), targetDate).isEmpty(), "HR company scope");
     expectDenied(() -> new SettingsService().all(employee), "HR settings protected");
     expectDenied(() -> portal.audit(employee), "audit protected");
+    long coworkerAttendance = Sql.insert("INSERT INTO attendance(user_id,work_date,clock_in,clock_out,status) VALUES(?,?,?,?, 'COMPLETE')",
+        coworker.getId(), LocalDate.now(), LocalDate.now().atTime(8, 0), LocalDate.now().atTime(17, 0));
+    expectDenied(() -> portal.requestAttendanceAdjustment(employee, coworkerAttendance, LocalDate.now().atTime(8, 30),
+        LocalDate.now().atTime(17, 30), "IDOR"), "other employee attendance ID rejected");
+    long hrAttendance = Sql.insert("INSERT INTO attendance(user_id,work_date,clock_in,clock_out,status) VALUES(?,?,?,?, 'COMPLETE')",
+        hr.getId(), LocalDate.now(), LocalDate.now().atTime(8, 0), LocalDate.now().atTime(17, 0));
+    expectDenied(() -> portal.finalizeAttendance(manager, hrAttendance, true), "outside-scope attendance ID rejected");
+    long coworkerLeave = Sql.insert("INSERT INTO leave_requests(user_id,leave_date,leave_unit,reason) VALUES(?,?,'FULL','IDOR')",
+        coworker.getId(), LocalDate.now().plusDays(5));
+    expectDenied(() -> portal.cancelLeave(employee, coworkerLeave), "other employee leave ID rejected");
 
     portal.addDelegation(manager, manager.getId(), employee.getId(), LocalDate.now().minusDays(1), LocalDate.now().plusDays(1));
     long delegationId = ((Number) Sql.one("SELECT MAX(id) id FROM delegations WHERE delegate_id=?", employee.getId()).get("id")).longValue();

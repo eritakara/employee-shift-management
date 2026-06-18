@@ -27,8 +27,17 @@ public class UserDAO {
   }
 
   public User findById(long id) {
+    return findById(id, false);
+  }
+
+  public User findActiveById(long id) {
+    return findById(id, true);
+  }
+
+  private User findById(long id, boolean activeOnly) {
     String sql = "SELECT u.*,b.name branch_name,d.name department_name FROM users u "
-        + "JOIN branches b ON b.id=u.branch_id JOIN departments d ON d.id=u.department_id WHERE u.id=?";
+        + "JOIN branches b ON b.id=u.branch_id JOIN departments d ON d.id=u.department_id WHERE u.id=?"
+        + (activeOnly ? " AND u.active=TRUE" : "");
     try (Connection c = Database.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
       p.setLong(1, id);
       try (ResultSet rs = p.executeQuery()) { return rs.next() ? map(rs) : null; }

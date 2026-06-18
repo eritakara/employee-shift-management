@@ -10,7 +10,10 @@ public class ScheduledTasks {
   private final ShiftSubmissionPolicy shiftSubmissionPolicy = new ShiftSubmissionPolicy();
 
   public void runDaily() {
-    LocalDate today = LocalDate.now();
+    runDaily(LocalDate.now());
+  }
+
+  void runDaily(LocalDate today) {
     LocalDate deadline = shiftSubmissionPolicy.deadline(today, settings.integer("SHIFT_SUBMISSION_DAY", 15));
     if (today.equals(deadline.minusDays(1))) sendShiftReminders(today, deadline);
     new LeavePolicyService().runDaily(today);

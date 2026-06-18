@@ -556,7 +556,10 @@ public class PortalService {
   }
 
   private void notifyManagers(User user, String type, String title, String message, String url) {
-    List<Map<String, Object>> managers = Sql.query("SELECT id FROM users WHERE active=TRUE AND ((role='MANAGER' AND branch_id=? AND department_id=?) OR role='HR')", user.getBranchId(), user.getDepartmentId());
+    List<Map<String, Object>> managers = Sql.query("SELECT id FROM users WHERE active=TRUE AND ((role='MANAGER' AND branch_id=? AND department_id=?) OR role='HR') "
+        + "UNION SELECT d.delegate_id id FROM delegations d JOIN users m ON m.id=d.manager_id JOIN users u ON u.id=d.delegate_id "
+        + "WHERE d.active=TRUE AND u.active=TRUE AND CURRENT_DATE BETWEEN d.starts_on AND d.ends_on AND m.branch_id=? AND m.department_id=?",
+        user.getBranchId(), user.getDepartmentId(), user.getBranchId(), user.getDepartmentId());
     for (Map<String, Object> manager : managers) notify(((Number) manager.get("id")).longValue(), type, title, message, url);
   }
 

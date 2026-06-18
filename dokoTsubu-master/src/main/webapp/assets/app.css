@@ -114,6 +114,11 @@ tbody tr:hover { background: #f7fbfa; }
 .notification h3 { margin: 0 0 5px; }
 .notification p { margin: 0; color: var(--muted); }
 .print-only { display: none; }
+.loading-indicator { display: inline-flex; align-items: center; min-height: 40px; color: var(--muted); font-weight: 700; }
+form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
+.error-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.error-card { width: min(620px, 100%); background: white; border-top: 4px solid var(--red); padding: 32px; box-shadow: 0 16px 44px rgba(23,32,42,.12); }
+.error-card h1 { margin-top: 0; }
 .app-footer { padding: 0 28px 24px; color: var(--muted); font-size: 13px; text-align: right; }
 .legal-page { width: min(920px, 100%); margin: 0 auto; padding: 32px 20px 56px; }
 .legal-page header { margin-bottom: 24px; }

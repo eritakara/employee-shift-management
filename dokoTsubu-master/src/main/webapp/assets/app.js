@@ -17,6 +17,23 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('#main-navigation a').forEach(link => link.addEventListener('click', () => setMenuOpen(false)));
   }
 
+  document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', event => {
+      if (form.dataset.submitting === 'true') {
+        event.preventDefault();
+        return;
+      }
+      if (!form.checkValidity()) return;
+      form.dataset.submitting = 'true';
+      form.setAttribute('aria-busy', 'true');
+      const status = document.createElement('span');
+      status.className = 'loading-indicator';
+      status.setAttribute('role', 'status');
+      status.textContent = document.documentElement.lang === 'en' ? 'Processing…' : '処理中…';
+      form.appendChild(status);
+    });
+  });
+
   const clock = document.querySelector('[data-clock]');
   if (clock) {
     const update = () => clock.textContent = new Intl.DateTimeFormat(document.documentElement.lang || 'ja', {
@@ -58,7 +75,7 @@ function translatePage() {
     '営業所管理':'Branch offices','部署管理':'Departments','勤務区分・休憩時間管理':'Work types and breaks',
     '必要人数管理':'Staffing requirements','雇用形態・資格名称管理':'Employment and qualification types','データ出力':'Data export','操作履歴':'Audit log',
     '今日の勤務者':'Working today','未承認申請':'Pending approvals','有休残日数':'Leave balance','人員不足':'Staff shortage','今月の実勤務':'Hours this month',
-    '勤務時間・残業時間の推移':'Work and overtime trend','直近6か月':'Last 6 months','今月の予定':'This month','すべて見る':'View all',
+    '勤務時間・残業時間の推移':'Work and overtime trend','勤務時間・残業時間・有休取得数の推移':'Work, overtime, and leave trend','直近6か月':'Last 6 months','今月の予定':'This month','すべて見る':'View all',
     '対象月':'Month','表示':'Show','印刷表示':'Print view','調整する':'Edit schedule','勤務区分を登録':'Add work type','変更・休みを申請':'Request a change',
     '従業員':'Employee','日付':'Date','勤務区分':'Work type','状態':'Status','備考・理由':'Note or reason','保存する':'Save','申請する':'Submit',
     '確定前チェック':'Pre-confirmation checks','警告はありません。':'No warnings.','種類':'Type','内容':'Details','必要':'Required','実績':'Actual','警告を確認して確定':'Confirm after reviewing warnings',
@@ -69,7 +86,7 @@ function translatePage() {
     '出勤':'Clock in','退勤':'Clock out','打刻修正を申請':'Request correction','対象勤怠':'Attendance record','修正後の出勤':'Corrected clock-in','修正後の退勤':'Corrected clock-out',
     '勤怠実績':'Attendance records','勤務':'Shift','遅刻':'Late','早退':'Early','残業':'Overtime','位置情報':'Location','確定':'Finalize','解除':'Reopen','勤怠データはありません。':'No attendance records.',
     'すべて既読にする':'Mark all as read','通知はありません。':'No notifications.','詳細':'Details',
-    '従業員を登録':'Add employee','メールアドレス':'Email','入社日':'Hire date','営業所':'Branch','部署':'Department','雇用形態':'Employment type','役割':'Role','登録して招待':'Register and invite',
+    '従業員を登録':'Add employee','メールアドレス':'Email','入社日':'Hire date','営業所':'Branch','部署':'Department','雇用形態':'Employment type','役割':'Role','登録して招待':'Register and invite','招待再発行':'Reissue invitation',
     '資格を登録':'Add qualification','資格名':'Qualification','有効期限':'Expiry date','登録':'Add','代理者':'Delegate','開始日':'Start date','終了日':'End date','設定':'Set',
     '項目を追加':'Add item','名称':'Name','追加':'Add','コード':'Code','日本語名':'Japanese name','英語名':'English name','開始':'Start','終了':'End','休憩':'Break','必要人数':'Required staff',
     '対象データ':'Data','形式':'Format','出力する':'Export','日時':'Date and time','実行者':'Actor','対象':'Target','対象ID':'Target ID','変更前':'Before','変更後':'After','最新300件':'Latest 300',

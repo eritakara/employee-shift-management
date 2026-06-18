@@ -365,7 +365,8 @@ public class PortalService {
     long id = Sql.insert("INSERT INTO attendance_adjustments(attendance_id,requested_by,requested_in,requested_out,reason) VALUES(?,?,?,?,?)",
         attendanceId, user.getId(), requestedIn, requestedOut, reason.trim());
     notifyManagers(user, "ATTENDANCE_ADJUSTMENT", "打刻修正申請", user.getName() + "さんから打刻修正申請があります。", "/app/attendance/manage");
-    AuditService.record(user.getId(), "REQUEST_ATTENDANCE_ADJUSTMENT", "ATTENDANCE_ADJUSTMENT", String.valueOf(id), null, reason);
+    AuditService.record(user.getId(), "REQUEST_ATTENDANCE_ADJUSTMENT", "ATTENDANCE_ADJUSTMENT", String.valueOf(id), null,
+        "attendance_id=" + attendanceId);
   }
 
   public void decideAttendanceAdjustment(User actor, long requestId, boolean approve) {
@@ -508,11 +509,11 @@ public class PortalService {
   public void updateEmployee(User actor, long id, String number, String name, String email, LocalDate hireDate,
       long branch, long department, long employment, String role, boolean active) {
     if (!actor.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
-    Map<String, Object> before = Sql.one("SELECT employee_number,name,email,role,active FROM users WHERE id=?", id);
+    Map<String, Object> before = Sql.one("SELECT employee_number,role,active FROM users WHERE id=?", id);
     if (before.isEmpty()) throw new IllegalArgumentException("従業員が見つかりません。");
     Sql.update("UPDATE users SET employee_number=?,name=?,email=?,hire_date=?,branch_id=?,department_id=?,employment_type_id=?,role=?,active=? WHERE id=?",
         number, name, email, hireDate, branch, department, employment, role, active, id);
-    AuditService.record(actor.getId(), "UPDATE_USER", "USER", String.valueOf(id), before.toString(), number + ":" + name + ":" + role + ":" + active);
+    AuditService.record(actor.getId(), "UPDATE_USER", "USER", String.valueOf(id), before.toString(), number + ":" + role + ":" + active);
   }
 
   public void addMaster(User actor, String type, String name) {

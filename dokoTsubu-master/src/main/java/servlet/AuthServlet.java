@@ -71,6 +71,16 @@ public class AuthServlet extends HttpServlet {
       try { req.getRequestDispatcher("/WEB-INF/jsp/reset.jsp").forward(req, res); } catch (ServletException e) { throw new IOException(e); }
       return;
     }
+    if ("/logout".equals(path)) {
+      HttpSession session = req.getSession(false);
+      if (session != null) {
+        User user = (User) session.getAttribute("loginUser");
+        if (user != null) AuditService.record(user.getId(), "LOGOUT", "USER", String.valueOf(user.getId()), null, null);
+        session.invalidate();
+      }
+      res.sendRedirect(req.getContextPath() + "/index.jsp");
+      return;
+    }
     User user = (User) req.getSession().getAttribute("loginUser");
     if ("/account".equals(path)) {
       String locale = req.getParameter("locale");
@@ -86,13 +96,7 @@ public class AuthServlet extends HttpServlet {
   @Override
   protected void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
     if ("/logout".equals(req.getServletPath())) {
-      HttpSession session = req.getSession(false);
-      if (session != null) {
-        User user = (User) session.getAttribute("loginUser");
-        if (user != null) AuditService.record(user.getId(), "LOGOUT", "USER", String.valueOf(user.getId()), null, null);
-        session.invalidate();
-      }
-      res.sendRedirect(req.getContextPath() + "/index.jsp");
+      res.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
     } else if ("/forgot".equals(req.getServletPath())) {
       try { req.getRequestDispatcher("/WEB-INF/jsp/forgot.jsp").forward(req, res); } catch (ServletException e) { throw new IOException(e); }
     } else if ("/reset".equals(req.getServletPath()) || "/invite".equals(req.getServletPath())) {

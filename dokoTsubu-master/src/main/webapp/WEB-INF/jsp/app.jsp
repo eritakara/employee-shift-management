@@ -2,9 +2,7 @@
 <%@ page import="java.util.*,java.time.*,model.User" %>
 <%!
   private String e(Object value) {
-    if (value == null) return "";
-    return String.valueOf(value).replace("&", "&amp;").replace("<", "&lt;")
-        .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
+    return util.HtmlEscaper.escape(value);
   }
   private String status(Object value) { return value == null ? "" : String.valueOf(value).toLowerCase(); }
   private boolean pageIs(String page, String prefix) { return page.equals(prefix) || page.startsWith(prefix + "/"); }
@@ -74,7 +72,7 @@ String ctx = request.getContextPath();
         <a class="button" href="<%=ctx%>/app/notifications" aria-label="通知">●</a>
         <div class="user-chip"><strong><%=e(user.getName())%></strong><small><%=e(user.getBranchName())%> / <%=e(user.getDepartmentName())%></small></div>
         <a class="button" href="<%=ctx%>/app/account" aria-label="アカウント設定">⚙</a>
-        <a class="button" href="<%=ctx%>/logout"><%= en ? "Sign out" : "ログアウト" %></a>
+        <form action="<%=ctx%>/logout" method="post"><button class="button" type="submit"><%= en ? "Sign out" : "ログアウト" %></button></form>
       </div>
     </header>
     <main class="content">

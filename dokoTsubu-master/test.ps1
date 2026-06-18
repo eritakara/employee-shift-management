@@ -30,3 +30,5 @@ if ($LASTEXITCODE -ne 0) { throw "Export service tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Attendance calculator tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.SecurityAuthorizationTest
 if ($LASTEXITCODE -ne 0) { throw "Security authorization tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.ShiftWorkflowTest
+if ($LASTEXITCODE -ne 0) { throw "Shift workflow tests failed" }

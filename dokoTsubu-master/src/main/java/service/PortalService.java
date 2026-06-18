@@ -88,7 +88,10 @@ public class PortalService {
   }
 
   public void submitPreferredShift(User actor, LocalDate date, String type, String note) {
-    LocalDate today = LocalDate.now();
+    submitPreferredShift(actor, date, type, note, LocalDate.now());
+  }
+
+  void submitPreferredShift(User actor, LocalDate date, String type, String note, LocalDate today) {
     shiftSubmissionPolicy.validate(today, date, settings.integer("SHIFT_SUBMISSION_DAY", 15));
     saveShift(actor, actor.getId(), date, type, "SUBMITTED", note);
   }
@@ -192,15 +195,21 @@ public class PortalService {
   }
 
   public List<Map<String, Object>> shiftWarnings(User viewer, YearMonth month) {
-    String filter = viewer.isHr() ? "" : " AND u.branch_id=? AND u.department_id=?";
-    Object[] scope = viewer.isHr() ? new Object[]{} : new Object[]{viewer.getBranchId(), viewer.getDepartmentId()};
+    String userScope = viewer.isHr() ? "" : " AND u.branch_id=? AND u.department_id=?";
+    Object[] scopeArgs = viewer.isHr() ? new Object[]{} : new Object[]{viewer.getBranchId(), viewer.getDepartmentId()};
+    String scopedUserJoin = "LEFT JOIN users u ON u.id=s.user_id" + (viewer.isHr() ? "" : " AND u.branch_id=? AND u.department_id=?");
+    String actualCount = viewer.isHr() ? "COUNT(s.id)" : "COUNT(u.id)";
     List<Map<String, Object>> result = new java.util.ArrayList<>();
-    result.addAll(Sql.query("SELECT 'STAFF_SHORTAGE' warning,s.work_date,wt.name_ja detail,wt.required_staff required,COUNT(s.id) actual "
-        + "FROM work_types wt LEFT JOIN shifts s ON s.work_type_code=wt.code AND s.work_date BETWEEN ? AND ? LEFT JOIN users u ON u.id=s.user_id "
-        + "WHERE wt.required_staff>0" + filter + " GROUP BY s.work_date,wt.name_ja,wt.required_staff HAVING COUNT(s.id)<wt.required_staff",
-        join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scope)));
-    result.addAll(Sql.query("SELECT 'NIGHT_REST' warning,s2.work_date,u.name detail,0 required,0 actual FROM shifts s1 JOIN shifts s2 ON s2.user_id=s1.user_id AND s2.work_date=DATEADD('DAY',1,s1.work_date) JOIN users u ON u.id=s1.user_id WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('OFF','LEAVE') AND s1.work_date BETWEEN ? AND ?" + filter,
-        join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scope)));
+    result.addAll(Sql.query("WITH RECURSIVE dates(work_date) AS (SELECT CAST(? AS DATE) UNION ALL SELECT DATEADD('DAY',1,work_date) FROM dates WHERE work_date<?) "
+        + "SELECT 'STAFF_SHORTAGE' warning,dates.work_date,wt.name_ja detail,wt.required_staff required," + actualCount + " actual "
+        + "FROM dates CROSS JOIN work_types wt LEFT JOIN shifts s ON s.work_date=dates.work_date AND s.work_type_code=wt.code "
+        + scopedUserJoin + " WHERE wt.active=TRUE AND wt.required_staff>0 GROUP BY dates.work_date,wt.name_ja,wt.required_staff "
+        + "HAVING " + actualCount + "<wt.required_staff ORDER BY dates.work_date,wt.name_ja",
+        join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs)));
+    result.addAll(Sql.query("SELECT 'NIGHT_REST' warning,s2.work_date,u.name detail,0 required,0 actual FROM shifts s1 "
+        + "JOIN shifts s2 ON s2.user_id=s1.user_id AND s2.work_date=DATEADD('DAY',1,s1.work_date) JOIN users u ON u.id=s1.user_id "
+        + "WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('OFF','LEAVE') AND s1.work_date BETWEEN ? AND ?" + userScope,
+        join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs)));
     return result;
   }
 

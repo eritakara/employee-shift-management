@@ -17,6 +17,7 @@ public class ScheduledTasks {
     LocalDate deadline = shiftSubmissionPolicy.deadline(today, settings.integer("SHIFT_SUBMISSION_DAY", 15));
     if (today.equals(deadline.minusDays(1))) sendShiftReminders(today, deadline);
     new LeavePolicyService().runDaily(today);
+    new DataRetentionService().run(today);
     Sql.update("UPDATE account_tokens SET used_at=CURRENT_TIMESTAMP WHERE used_at IS NULL AND expires_at<=CURRENT_TIMESTAMP");
   }
 

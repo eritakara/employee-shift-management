@@ -511,8 +511,9 @@ public class PortalService {
     if (!actor.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
     Map<String, Object> before = Sql.one("SELECT employee_number,role,active FROM users WHERE id=?", id);
     if (before.isEmpty()) throw new IllegalArgumentException("従業員が見つかりません。");
-    Sql.update("UPDATE users SET employee_number=?,name=?,email=?,hire_date=?,branch_id=?,department_id=?,employment_type_id=?,role=?,active=? WHERE id=?",
-        number, name, email, hireDate, branch, department, employment, role, active, id);
+    Sql.update("UPDATE users SET employee_number=?,name=?,email=?,hire_date=?,branch_id=?,department_id=?,employment_type_id=?,role=?,"
+        + "deactivated_at=CASE WHEN ?=FALSE AND active=TRUE THEN CURRENT_TIMESTAMP WHEN ?=TRUE THEN NULL ELSE deactivated_at END,active=? WHERE id=?",
+        number, name, email, hireDate, branch, department, employment, role, active, active, active, id);
     AuditService.record(actor.getId(), "UPDATE_USER", "USER", String.valueOf(id), before.toString(), number + ":" + role + ":" + active);
   }
 

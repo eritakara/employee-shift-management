@@ -38,3 +38,5 @@ if ($LASTEXITCODE -ne 0) { throw "Notification routing tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Security hardening tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.SensitiveDataLeakTest
 if ($LASTEXITCODE -ne 0) { throw "Sensitive data leak tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.DataRetentionServiceTest
+if ($LASTEXITCODE -ne 0) { throw "Data retention tests failed" }

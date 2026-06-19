@@ -13,6 +13,7 @@ $webapp = Join-Path $base "webapps\shiftflow"
 
 New-Item -ItemType Directory -Force (Join-Path $base "conf"), (Join-Path $base "logs"), (Join-Path $base "temp"), (Join-Path $base "work"), (Join-Path $base "webapps") | Out-Null
 Copy-Item (Join-Path $TomcatHome "conf\*") (Join-Path $base "conf") -Recurse -Force
+New-Item -ItemType Directory -Force $webapp | Out-Null
 Copy-Item (Join-Path $project "target\shiftflow\*") $webapp -Recurse -Force
 
 if ($Port -ne 8080) {

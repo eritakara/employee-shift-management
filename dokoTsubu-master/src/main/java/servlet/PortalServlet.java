@@ -29,7 +29,7 @@ public class PortalServlet extends HttpServlet {
     TITLES.put("shifts/team", "月間シフト表"); TITLES.put("shifts/change", "シフト変更・休み申請");
     TITLES.put("shifts/history", "シフト申請履歴"); TITLES.put("shifts/manage", "シフト調整");
     TITLES.put("shifts/confirm", "シフト確定確認"); TITLES.put("shifts/print", "月間シフト印刷");
-    TITLES.put("leave/balance", "有休残数・取得履歴"); TITLES.put("leave/request", "有休申請");
+    TITLES.put("leave", "有休"); TITLES.put("leave/balance", "有休残数・取得履歴"); TITLES.put("leave/request", "有休申請");
     TITLES.put("leave/history", "有休申請履歴"); TITLES.put("leave/approvals", "有休承認");
     TITLES.put("attendance/clock", "出勤・退勤打刻"); TITLES.put("attendance/mine", "自分の勤怠");
     TITLES.put("attendance/adjust", "打刻修正申請"); TITLES.put("attendance/history", "打刻修正履歴");
@@ -86,7 +86,7 @@ public class PortalServlet extends HttpServlet {
         req.setAttribute("preferenceSubmissions", portal.preferenceSubmissionSummaries(user, month));
         req.setAttribute("preferenceDetails", portal.preferenceDetails(user, month));
       }
-    } else if (page.startsWith("leave/")) {
+    } else if ("leave".equals(page) || page.startsWith("leave/")) {
       req.setAttribute("rows", portal.leaveRequests(user));
       req.setAttribute("balance", portal.leaveBalance(user.getId()));
       req.setAttribute("leaveLedger", portal.leaveHistory(user));

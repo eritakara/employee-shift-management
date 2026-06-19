@@ -29,6 +29,10 @@ public class UiStateCoverageTest {
         && application.contains("leave-tab-balance"), "leave tabs have semantic color classes");
     check(css.contains(".leave-tabs .leave-tab-request") && css.contains(".leave-tabs .leave-tab-history")
         && css.contains(".leave-tabs .leave-tab-balance"), "leave tabs have distinct color styles");
+    check(application.contains("statusLabel(row.get(\"status\"))"), "leave request statuses use display labels");
+    check(application.contains("leaveUnitLabel(row.get(\"leave_unit\"))"), "leave request units use display labels");
+    check(application.contains("if (\"APPROVED\".equals(status)) return \"承認済み\"")
+        && application.contains("if (\"FULL\".equals(unit)) return \"1日\""), "leave status and unit labels are localized");
     check(application.contains("pageKey.equals(\"leave/request\")") && application.contains("pageKey.equals(\"leave/history\")")
         && application.contains("pageKey.equals(\"leave/balance\")"), "legacy leave URLs map to the matching tab");
     check(deployment.contains("<error-code>404</error-code>"), "404 uses the common error page");

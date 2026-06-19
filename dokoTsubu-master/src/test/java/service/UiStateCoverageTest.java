@@ -33,6 +33,12 @@ public class UiStateCoverageTest {
     check(application.contains("leaveUnitLabel(row.get(\"leave_unit\"))"), "leave request units use display labels");
     check(application.contains("if (\"APPROVED\".equals(status)) return \"承認済み\"")
         && application.contains("if (\"FULL\".equals(unit)) return \"1日\""), "leave status and unit labels are localized");
+    check(application.contains("leaveEventTypeLabel(event.get(\"event_type\"))")
+        && application.contains("leaveNoteLabel(event.get(\"note\"))"), "leave ledger type and note use display labels");
+    check(application.contains("days(event.get(\"days\"))"), "leave ledger days use compact number formatting");
+    check(application.contains("if (\"USE\".equals(type)) return \"取得\"")
+        && application.contains("if (\"statutory expiry\".equals(note)) return \"法定失効\""),
+        "leave ledger labels are localized");
     check(application.contains("pageKey.equals(\"leave/request\")") && application.contains("pageKey.equals(\"leave/history\")")
         && application.contains("pageKey.equals(\"leave/balance\")"), "legacy leave URLs map to the matching tab");
     check(deployment.contains("<error-code>404</error-code>"), "404 uses the common error page");

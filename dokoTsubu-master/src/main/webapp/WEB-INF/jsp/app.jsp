@@ -54,6 +54,21 @@
     if ("HOURLY".equals(unit)) return "時間単位";
     return e(value);
   }
+  private String leaveEventTypeLabel(Object value) {
+    String type = String.valueOf(value);
+    if ("GRANT".equals(type)) return "付与";
+    if ("USE".equals(type)) return "取得";
+    if ("RESTORE".equals(type)) return "取消戻し";
+    if ("EXPIRE".equals(type)) return "失効";
+    if ("INELIGIBLE".equals(type)) return "付与対象外";
+    return e(value);
+  }
+  private String leaveNoteLabel(Object value) {
+    String note = String.valueOf(value);
+    if ("FULL".equals(note) || "AM".equals(note) || "PM".equals(note) || "HOURLY".equals(note)) return leaveUnitLabel(note);
+    if ("statutory expiry".equals(note)) return "法定失効";
+    return e(value);
+  }
   private boolean pageIs(String page, String prefix) { return page.equals(prefix) || page.startsWith(prefix + "/"); }
 %>
 <%
@@ -233,7 +248,7 @@ String ctx = request.getContextPath();
           <%for(Map<String,Object> row:rows){%><tr><td><%=e(row.get("leave_date"))%></td><td><%=e(row.get("name"))%></td><td><%=leaveUnitLabel(row.get("leave_unit"))%></td><td><%=e(row.get("hours"))%></td><td><%=e(row.get("reason"))%></td><td><span class="status <%=status(row.get("status"))%>"><%=statusLabel(row.get("status"))%></span></td><%if(leaveApprovals){%><td><%if("PENDING".equals(row.get("status"))){%><div class="actions"><form method="post"><input type="hidden" name="action" value="decideLeave"><input type="hidden" name="returnPage" value="leave/approvals"><input type="hidden" name="id" value="<%=row.get("id")%>"><button class="primary" name="decision" value="approve">承認</button><button class="danger-button" name="decision" value="reject">却下</button></form></div><%}%></td><%}else{%><td><%if("PENDING".equals(row.get("status"))||"APPROVED".equals(row.get("status"))){%><form method="post"><input type="hidden" name="action" value="cancelLeave"><input type="hidden" name="returnPage" value="leave?tab=history"><input type="hidden" name="id" value="<%=row.get("id")%>"><button class="danger-button">取消</button></form><%}%></td><%}%></tr><%}%>
           <%if(rows.isEmpty()){%><tr><td colspan="7" class="empty">申請はありません。</td></tr><%}%></tbody></table></div></section>
         <% } %>
-        <%if("balance".equals(leaveTab) && !leaveApprovals){List<Map<String,Object>> ledger=(List<Map<String,Object>>)request.getAttribute("leaveLedger");%><section class="section"><div class="section-header"><h2>有休台帳</h2><span class="muted">付与・取得・取消・失効</span></div><div class="table-wrap"><table><thead><tr><th>日付</th><th>種類</th><th>日数</th><th>時間</th><th>備考</th></tr></thead><tbody><%for(Map<String,Object> event:ledger){%><tr><td><%=e(event.get("event_date"))%></td><td><%=e(event.get("event_type"))%></td><td><%=e(event.get("days"))%></td><td><%=e(event.get("hours"))%></td><td><%=e(event.get("note"))%></td></tr><%}%><%if(ledger.isEmpty()){%><tr><td colspan="5" class="empty">台帳履歴はありません。</td></tr><%}%></tbody></table></div></section><%}%>
+        <%if("balance".equals(leaveTab) && !leaveApprovals){List<Map<String,Object>> ledger=(List<Map<String,Object>>)request.getAttribute("leaveLedger");%><section class="section"><div class="section-header"><h2>有休台帳</h2><span class="muted">付与・取得・取消・失効</span></div><div class="table-wrap"><table><thead><tr><th>日付</th><th>種類</th><th>日数</th><th>時間</th><th>備考</th></tr></thead><tbody><%for(Map<String,Object> event:ledger){%><tr><td><%=e(event.get("event_date"))%></td><td><%=leaveEventTypeLabel(event.get("event_type"))%></td><td><%=days(event.get("days"))%></td><td><%=e(event.get("hours"))%></td><td><%=leaveNoteLabel(event.get("note"))%></td></tr><%}%><%if(ledger.isEmpty()){%><tr><td colspan="5" class="empty">台帳履歴はありません。</td></tr><%}%></tbody></table></div></section><%}%>
 
       <% } else if(pageKey.startsWith("attendance/")){ %>
         <%if(pageKey.equals("attendance/clock")){%><section class="section clock-panel"><p class="muted"><%=LocalDate.now()%></p><div class="clock-time" data-clock>--:--:--</div><p>打刻時に端末の位置情報を記録します。場所による打刻制限はありません。</p><div class="clock-actions"><form method="post" data-clock-form><input type="hidden" name="action" value="clock"><input type="hidden" name="returnPage" value="attendance/clock"><input type="hidden" name="direction" value="in"><input type="hidden" name="lat"><input type="hidden" name="lng"><input type="hidden" name="locationStatus"><button class="primary" type="submit">出勤</button></form><form method="post" data-clock-form><input type="hidden" name="action" value="clock"><input type="hidden" name="returnPage" value="attendance/clock"><input type="hidden" name="direction" value="out"><input type="hidden" name="lat"><input type="hidden" name="lng"><input type="hidden" name="locationStatus"><button type="submit">退勤</button></form></div></section><%}%>

@@ -77,7 +77,15 @@ public class PortalServlet extends HttpServlet {
       req.setAttribute("people", portal.users(user));
       req.setAttribute("requests", portal.shiftChangeRequests(user));
       if ("shifts/confirm".equals(page) || "shifts/manage".equals(page)) req.setAttribute("warnings", portal.shiftWarnings(user, month));
-      if ("shifts/request".equals(page)) req.setAttribute("submissionWindow", portal.shiftSubmissionWindow());
+      if ("shifts/request".equals(page)) {
+        req.setAttribute("submissionWindow", portal.shiftSubmissionWindow());
+        req.setAttribute("preferenceRows", portal.preferences(user, month));
+        req.setAttribute("preferenceSubmission", portal.preferenceSubmission(user, month));
+      }
+      if ("shifts/manage".equals(page)) {
+        req.setAttribute("preferenceSubmissions", portal.preferenceSubmissionSummaries(user, month));
+        req.setAttribute("preferenceDetails", portal.preferenceDetails(user, month));
+      }
     } else if (page.startsWith("leave/")) {
       req.setAttribute("rows", portal.leaveRequests(user));
       req.setAttribute("balance", portal.leaveBalance(user.getId()));
@@ -143,6 +151,22 @@ public class PortalServlet extends HttpServlet {
               req.getParameter("workType"), value(req, "status", "DRAFT"), req.getParameter("note"));
           else portal.submitPreferredShift(user, date, req.getParameter("workType"), req.getParameter("note"));
         }
+        case "submitMonthlyPreferences" -> {
+          YearMonth preferenceMonth = parseMonth(req.getParameter("month"));
+          Map<LocalDate, String> preferences = new LinkedHashMap<>();
+          Map<LocalDate, String> reasons = new LinkedHashMap<>();
+          for (int day = 1; day <= preferenceMonth.lengthOfMonth(); day++) {
+            LocalDate date = preferenceMonth.atDay(day);
+            String selected = req.getParameter("preference_" + date);
+            if (selected != null && !selected.isBlank() && !"NONE".equals(selected)) {
+              preferences.put(date, selected);
+              if ("LEAVE".equals(selected)) reasons.put(date, req.getParameter("reason_" + date));
+            }
+          }
+          portal.submitMonthlyPreferences(user, preferenceMonth, preferences, reasons);
+        }
+        case "autoAssignShifts" -> portal.autoAssignShifts(user, parseMonth(req.getParameter("month")));
+        case "reviewShiftPreferences" -> portal.reviewPreferenceSubmission(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
         case "confirmShifts" -> portal.confirmMonth(user, parseMonth(req.getParameter("month")), req.getParameter("warningReason"));
         case "requestShiftChange" -> portal.requestShiftChange(user, LocalDate.parse(req.getParameter("date")), req.getParameter("workType"), req.getParameter("reason"));
         case "decideShiftChange" -> portal.decideShiftChange(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
@@ -198,7 +222,9 @@ public class PortalServlet extends HttpServlet {
       getServletContext().log("Portal action failed", e);
       req.getSession().setAttribute("error", "処理に失敗しました。入力内容を確認してください。");
     }
-    res.sendRedirect(req.getContextPath() + "/app/" + returnPage);
+    String returnMonth = req.getParameter("returnMonth");
+    String monthQuery = returnMonth != null && returnMonth.matches("\\d{4}-\\d{2}") ? "?month=" + returnMonth : "";
+    res.sendRedirect(req.getContextPath() + "/app/" + returnPage + monthQuery);
   }
 
   private boolean allowed(User user, String page) {

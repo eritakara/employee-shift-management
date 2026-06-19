@@ -51,9 +51,11 @@ If a value looks incorrect, check the selected month and confirmation status bef
 
 1. Open **Submit request**.
 2. Check the displayed target month and deadline.
-3. Select a date and work type, and add a note if needed.
-4. Select **Save**.
-5. Confirm that the entry is shown as submitted in your schedule or request history.
+3. In the monthly table, select only the dates for which you have a preference: day, night, day off, or paid leave. Unselected dates remain **No preference**.
+4. Selecting paid leave opens an optional reason dialog. You may leave it blank.
+5. Review the selected dates and paid-leave reasons under **Preferences to submit**. Use **Add/Edit reason** when needed.
+6. Select **Submit** to send the entire month at once.
+7. Confirm that the status at the top of the page is **Submitted**.
 
 Preferred shifts for the next month are due on the 15th. Employees who have not submitted are notified on the 14th. After the deadline, use a change request.
 
@@ -153,4 +155,3 @@ When reporting a problem, provide:
 - Message displayed
 
 Do not send passwords, invitation/reset links, precise location, leave reasons, or an unredacted screen containing personal data by email or chat. Redact personal data and use your organization's approved support channel.
-

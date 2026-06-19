@@ -1,12 +1,19 @@
 package service;
 
+import config.Database;
 import dao.Sql;
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import model.User;
@@ -151,6 +158,187 @@ public class PortalService {
   void submitPreferredShift(User actor, LocalDate date, String type, String note, LocalDate today) {
     shiftSubmissionPolicy.validate(today, date, settings.integer("SHIFT_SUBMISSION_DAY", 15));
     saveShift(actor, actor.getId(), date, type, "SUBMITTED", note);
+  }
+
+  public void submitMonthlyPreferences(User actor, YearMonth month, Map<LocalDate, String> preferences) {
+    submitMonthlyPreferences(actor, month, preferences, Map.of(), LocalDate.now());
+  }
+
+  void submitMonthlyPreferences(User actor, YearMonth month, Map<LocalDate, String> preferences, LocalDate today) {
+    submitMonthlyPreferences(actor, month, preferences, Map.of(), today);
+  }
+
+  public void submitMonthlyPreferences(User actor, YearMonth month, Map<LocalDate, String> preferences,
+      Map<LocalDate, String> reasons) {
+    submitMonthlyPreferences(actor, month, preferences, reasons, LocalDate.now());
+  }
+
+  void submitMonthlyPreferences(User actor, YearMonth month, Map<LocalDate, String> preferences,
+      Map<LocalDate, String> reasons, LocalDate today) {
+    shiftSubmissionPolicy.validate(today, month.atDay(1), settings.integer("SHIFT_SUBMISSION_DAY", 15));
+    Map<LocalDate, String> selected = new LinkedHashMap<>();
+    Map<LocalDate, String> selectedReasons = new LinkedHashMap<>();
+    for (Map.Entry<LocalDate, String> entry : preferences.entrySet()) {
+      LocalDate date = entry.getKey();
+      String type = entry.getValue();
+      if (!YearMonth.from(date).equals(month)) throw new IllegalArgumentException("対象月以外の日付は提出できません。");
+      if (type == null || type.isBlank() || "NONE".equals(type)) continue;
+      if (!List.of("DAY", "NIGHT", "OFF", "LEAVE").contains(type)) throw new IllegalArgumentException("希望勤務区分が不正です。");
+      selected.put(date, type);
+      String reason = reasons.get(date);
+      if ("LEAVE".equals(type) && reason != null && !reason.isBlank()) {
+        reason = reason.trim();
+        if (reason.length() > 500) throw new IllegalArgumentException("有休希望の理由は500文字以内で入力してください。");
+        selectedReasons.put(date, reason);
+      }
+    }
+    try (Connection connection = Database.getConnection()) {
+      connection.setAutoCommit(false);
+      try {
+        long submissionId;
+        try (PreparedStatement merge = connection.prepareStatement(
+            "MERGE INTO shift_preference_submissions(user_id,target_month,status,submitted_at,updated_at,reviewed_by,reviewed_at) KEY(user_id,target_month) VALUES(?,?,'SUBMITTED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL,NULL)")) {
+          merge.setLong(1, actor.getId()); merge.setObject(2, month.atDay(1)); merge.executeUpdate();
+        }
+        try (PreparedStatement find = connection.prepareStatement(
+            "SELECT id FROM shift_preference_submissions WHERE user_id=? AND target_month=?")) {
+          find.setLong(1, actor.getId()); find.setObject(2, month.atDay(1));
+          try (ResultSet result = find.executeQuery()) { result.next(); submissionId = result.getLong(1); }
+        }
+        try (PreparedStatement delete = connection.prepareStatement("DELETE FROM shift_preferences WHERE submission_id=?")) {
+          delete.setLong(1, submissionId); delete.executeUpdate();
+        }
+        try (PreparedStatement insert = connection.prepareStatement(
+            "INSERT INTO shift_preferences(submission_id,preference_date,request_type,note) VALUES(?,?,?,?)")) {
+          for (Map.Entry<LocalDate, String> entry : selected.entrySet()) {
+            insert.setLong(1, submissionId); insert.setObject(2, entry.getKey()); insert.setString(3, entry.getValue());
+            insert.setString(4, selectedReasons.get(entry.getKey())); insert.addBatch();
+          }
+          insert.executeBatch();
+        }
+        connection.commit();
+      } catch (SQLException error) {
+        connection.rollback(); throw error;
+      } catch (RuntimeException error) {
+        connection.rollback(); throw error;
+      }
+    } catch (SQLException error) {
+      throw new IllegalStateException("希望シフトの保存に失敗しました。", error);
+    }
+    AuditService.record(actor.getId(), "SUBMIT_SHIFT_PREFERENCES", "SHIFT_PREFERENCE", actor.getId() + ":" + month, null, selected.size() + " days");
+  }
+
+  public Map<String, Object> preferenceSubmission(User user, YearMonth month) {
+    return Sql.one("SELECT id,status,submitted_at,updated_at FROM shift_preference_submissions WHERE user_id=? AND target_month=?",
+        user.getId(), month.atDay(1));
+  }
+
+  public List<Map<String, Object>> preferences(User user, YearMonth month) {
+    return Sql.query("SELECT p.preference_date,p.request_type,p.note FROM shift_preferences p "
+        + "JOIN shift_preference_submissions s ON s.id=p.submission_id WHERE s.user_id=? AND s.target_month=? ORDER BY p.preference_date",
+        user.getId(), month.atDay(1));
+  }
+
+  public List<Map<String, Object>> preferenceSubmissionSummaries(User viewer, YearMonth month) {
+    requireManager(viewer);
+    String scope = viewer.isHr() ? "" : " AND u.branch_id=? AND u.department_id=?";
+    Object[] args = viewer.isHr() ? new Object[]{month.atDay(1)} : new Object[]{month.atDay(1), viewer.getBranchId(), viewer.getDepartmentId()};
+    return Sql.query("SELECT u.id user_id,s.id submission_id,u.employee_number,u.name,b.name branch_name,COALESCE(s.status,'NOT_SUBMITTED') status,s.submitted_at,"
+        + "COUNT(p.id) preference_count FROM users u JOIN branches b ON b.id=u.branch_id "
+        + "LEFT JOIN shift_preference_submissions s ON s.user_id=u.id AND s.target_month=? "
+        + "LEFT JOIN shift_preferences p ON p.submission_id=s.id WHERE u.active=TRUE AND u.role<>'HR'" + scope
+        + " GROUP BY u.id,s.id,u.employee_number,u.name,b.name,s.status,s.submitted_at ORDER BY b.name,u.employee_number", args);
+  }
+
+  public List<Map<String, Object>> preferenceDetails(User viewer, YearMonth month) {
+    requireManager(viewer);
+    String scope = viewer.isHr() ? "" : " AND u.branch_id=? AND u.department_id=?";
+    Object[] args = viewer.isHr() ? new Object[]{month.atDay(1)} : new Object[]{month.atDay(1), viewer.getBranchId(), viewer.getDepartmentId()};
+    return Sql.query("SELECT u.employee_number,u.name,p.preference_date,p.request_type,p.note FROM shift_preferences p "
+        + "JOIN shift_preference_submissions s ON s.id=p.submission_id JOIN users u ON u.id=s.user_id "
+        + "WHERE s.target_month=? AND s.status IN('SUBMITTED','APPROVED')" + scope + " ORDER BY p.preference_date,u.employee_number", args);
+  }
+
+  public void reviewPreferenceSubmission(User actor, long submissionId, boolean approved) {
+    requireManager(actor);
+    Map<String, Object> submission = Sql.one("SELECT s.user_id,s.target_month,u.branch_id,u.department_id FROM shift_preference_submissions s "
+        + "JOIN users u ON u.id=s.user_id WHERE s.id=?", submissionId);
+    if (submission.isEmpty()) throw new IllegalArgumentException("対象の希望シフト提出が見つかりません。");
+    assertCanManage(actor, ((Number) submission.get("user_id")).longValue());
+    String status = approved ? "APPROVED" : "RETURNED";
+    Sql.update("UPDATE shift_preference_submissions SET status=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+        status, actor.getId(), submissionId);
+    AuditService.record(actor.getId(), "REVIEW_SHIFT_PREFERENCES", "SHIFT_PREFERENCE_SUBMISSION", String.valueOf(submissionId), null, status);
+  }
+
+  public int autoAssignShifts(User actor, YearMonth month) {
+    requireManager(actor);
+    String userScope = actor.isHr() ? "" : " AND branch_id=? AND department_id=?";
+    Object[] userArgs = actor.isHr() ? new Object[]{} : new Object[]{actor.getBranchId(), actor.getDepartmentId()};
+    List<Map<String, Object>> people = Sql.query("SELECT id,employee_number,role,weekly_work_days FROM users WHERE active=TRUE AND role<>'HR'" + userScope
+        + " ORDER BY CASE WHEN role='MANAGER' THEN 0 ELSE 1 END,employee_number", userArgs);
+    int assigned = 0;
+    List<Map<String, Object>> preferred = preferenceDetails(actor, month);
+    Map<String, Long> employeeIds = new LinkedHashMap<>();
+    for (Map<String, Object> person : people) employeeIds.put(String.valueOf(person.get("employee_number")), ((Number) person.get("id")).longValue());
+    for (Map<String, Object> preference : preferred) {
+      Long userId = employeeIds.get(String.valueOf(preference.get("employee_number")));
+      if (userId == null) continue;
+      LocalDate date = LocalDate.parse(String.valueOf(preference.get("preference_date")));
+      if (shiftMissing(userId, date)) {
+        String requestType = String.valueOf(preference.get("request_type"));
+        saveShift(actor, userId, date, requestType, "DRAFT", "希望シフトから自動反映"); assigned++;
+        if ("NIGHT".equals(requestType) && YearMonth.from(date.plusDays(1)).equals(month) && shiftMissing(userId, date.plusDays(1))) {
+          saveShift(actor, userId, date.plusDays(1), "NIGHT_OFF", "DRAFT", "夜勤明け自動設定"); assigned++;
+        }
+      }
+    }
+    int dayRequired = requiredStaff("DAY");
+    int nightRequired = requiredStaff("NIGHT");
+    for (int day = 1; day <= month.lengthOfMonth(); day++) {
+      LocalDate date = month.atDay(day);
+      assigned += fillWorkType(actor, people, date, "DAY", dayRequired);
+      assigned += fillWorkType(actor, people, date, "NIGHT", nightRequired);
+    }
+    AuditService.record(actor.getId(), "AUTO_ASSIGN_SHIFTS", "SHIFT_MONTH", month.toString(), null, assigned + " shifts");
+    return assigned;
+  }
+
+  private int fillWorkType(User actor, List<Map<String, Object>> people, LocalDate date, String type, int required) {
+    int actual = ((Number) Sql.one("SELECT COUNT(*) metric_value FROM shifts s JOIN users u ON u.id=s.user_id WHERE s.work_date=? AND s.work_type_code=?"
+        + (actor.isHr() ? "" : " AND u.branch_id=? AND u.department_id=?"), actor.isHr() ? new Object[]{date, type} : new Object[]{date, type, actor.getBranchId(), actor.getDepartmentId()})
+        .getOrDefault("metric_value", 0)).intValue();
+    int added = 0;
+    for (Map<String, Object> person : people) {
+      if (actual >= required) break;
+      long userId = ((Number) person.get("id")).longValue();
+      int maxConsecutive = Math.max(1, ((Number) person.get("weekly_work_days")).intValue());
+      if (!canAutoAssign(userId, date, maxConsecutive)) continue;
+      saveShift(actor, userId, date, type, "DRAFT", "希望なしの自動割当"); actual++; added++;
+      if ("NIGHT".equals(type) && date.plusDays(1).getMonthValue() == date.getMonthValue() && shiftMissing(userId, date.plusDays(1))) {
+        saveShift(actor, userId, date.plusDays(1), "NIGHT_OFF", "DRAFT", "夜勤明け自動設定"); added++;
+      }
+    }
+    return added;
+  }
+
+  private boolean canAutoAssign(long userId, LocalDate date, int maxConsecutive) {
+    if (!shiftMissing(userId, date)) return false;
+    if (!Sql.query("SELECT id FROM shifts WHERE user_id=? AND work_date=? AND work_type_code='NIGHT'", userId, date.minusDays(1)).isEmpty()) return false;
+    if (!Sql.query("SELECT p.id FROM shift_preferences p JOIN shift_preference_submissions s ON s.id=p.submission_id "
+        + "WHERE s.user_id=? AND p.preference_date=? AND p.request_type IN('OFF','LEAVE')", userId, date).isEmpty()) return false;
+    int consecutive = ((Number) Sql.one("SELECT COUNT(*) metric_value FROM shifts WHERE user_id=? AND work_date BETWEEN ? AND ? "
+        + "AND work_type_code IN('DAY','NIGHT','AM_LEAVE','PM_LEAVE')", userId, date.minusDays(maxConsecutive), date.minusDays(1))
+        .getOrDefault("metric_value", 0)).intValue();
+    return consecutive < maxConsecutive;
+  }
+
+  private boolean shiftMissing(long userId, LocalDate date) {
+    return Sql.query("SELECT id FROM shifts WHERE user_id=? AND work_date=?", userId, date).isEmpty();
+  }
+
+  private int requiredStaff(String type) {
+    return ((Number) Sql.one("SELECT required_staff metric_value FROM work_types WHERE code=?", type).getOrDefault("metric_value", 0)).intValue();
   }
 
   public Map<String, Object> shiftSubmissionWindow() {

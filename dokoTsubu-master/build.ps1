@@ -18,6 +18,9 @@ $sources = Get-ChildItem (Join-Path $project "src\main\java") -Recurse -Filter *
 & (Join-Path $JavaHome "bin\javac.exe") --release 21 -encoding UTF-8 -cp "$servletApi;$h2" -d $classes $sources
 if ($LASTEXITCODE -ne 0) { throw "Java compilation failed" }
 
+$resources = Join-Path $project "src\main\resources"
+if (Test-Path $resources) { Copy-Item (Join-Path $resources "*") $classes -Recurse -Force }
+
 Copy-Item (Join-Path $project "src\main\webapp\*") $stage -Recurse -Force
 $webInfClasses = Join-Path $stage "WEB-INF\classes"
 New-Item -ItemType Directory -Force $webInfClasses | Out-Null

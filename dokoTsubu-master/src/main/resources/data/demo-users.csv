@@ -1,0 +1,18 @@
+employee_number,name,email,role,branch_id,department_id,employment_type_id
+MG001,那覇 店長,manager@example.com,MANAGER,4,1,1
+EM001,山田 花子,employee@example.com,EMPLOYEE,4,1,1
+EM003,比嘉 愛,higa.ai@example.com,EMPLOYEE,4,1,1
+EM006,大城 翔,oshiro.sho@example.com,EMPLOYEE,4,1,1
+EM009,上原 葵,uehara.aoi@example.com,EMPLOYEE,4,1,1
+EM012,知念 陸,chinnen.riku@example.com,EMPLOYEE,4,1,1
+MG002,比嘉 大輔,higa.daisuke@example.com,MANAGER,2,1,1
+EM002,佐藤 太郎,sato@example.com,EMPLOYEE,2,1,1
+EM004,金城 健,kinjo.ken@example.com,EMPLOYEE,2,1,1
+EM007,新垣 美咲,arakaki.misaki@example.com,EMPLOYEE,2,1,1
+EM010,島袋 悠,shimabukuro.yu@example.com,EMPLOYEE,2,1,1
+EM013,平良 結衣,taira.yui@example.com,EMPLOYEE,2,1,1
+EM005,宮城 彩,miyagi.aya@example.com,EMPLOYEE,3,1,1
+EM015,安里 凛,asato.rin@example.com,EMPLOYEE,3,1,1
+EM008,玉城 蓮,tamaki.ren@example.com,EMPLOYEE,3,1,1
+EM011,仲村 さくら,nakamura.sakura@example.com,EMPLOYEE,3,1,1
+EM014,嘉数 湊,kakazu.minato@example.com,EMPLOYEE,3,1,1

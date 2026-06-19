@@ -1,5 +1,10 @@
 package config;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -82,7 +87,7 @@ public final class Database {
     }
   }
 
-  private static void seed(Connection c) throws SQLException {
+  private static void seed(Connection c) throws SQLException, IOException {
     if (count(c, "branches") == 0) {
       insertNames(c, "branches", new String[]{"本社", "北部支店", "中部支店", "那覇支店", "南部支店", "宮古支店", "石垣支店"});
       insertNames(c, "departments", new String[]{"営業部", "経理部", "総務部", "人事部"});
@@ -98,6 +103,10 @@ public final class Database {
         workType(p, "AM_LEAVE", "午前休", "AM leave", "13:00:00", "17:00:00", false, 0, 0);
         workType(p, "PM_LEAVE", "午後休", "PM leave", "08:00:00", "12:00:00", false, 0, 0);
       }
+    }
+    try (Statement s = c.createStatement()) {
+      s.executeUpdate("INSERT INTO work_types(code,name_ja,name_en,start_time,end_time,crosses_midnight,break_minutes,required_staff) "
+          + "SELECT 'NIGHT_OFF','夜勤明け','Post-night rest',NULL,NULL,FALSE,0,0 WHERE NOT EXISTS(SELECT 1 FROM work_types WHERE code='NIGHT_OFF')");
     }
     if (count(c, "users") == 0) {
       addUser(c, "HR001", "人事担当", "hr@example.com", "HR", 1, 4);
@@ -126,10 +135,87 @@ public final class Database {
         setting(p, "MAX_CONCURRENT_USERS", "100", "想定最大同時利用者数");
       }
     }
+    if (Boolean.parseBoolean(System.getProperty("shiftapp.seedDemoShifts", "false"))) {
+      importDemoUsers(c);
+      importDemoShifts(c);
+    }
     if (count(c, "leave_grants") == 0 && count(c, "users") > 0) {
       try (Statement s = c.createStatement()) {
         s.executeUpdate("INSERT INTO leave_grants(user_id,grant_date,expires_on,days_granted,days_remaining,attendance_rate,source) SELECT b.user_id,COALESCE(b.last_granted_on,CURRENT_DATE),DATEADD('MONTH',24,COALESCE(b.last_granted_on,CURRENT_DATE)),b.days_remaining,b.days_remaining,1.0,'MIGRATION' FROM leave_balances b WHERE b.days_remaining>0");
       }
+    }
+  }
+
+  private static void importDemoUsers(Connection c) throws SQLException, IOException {
+    InputStream input = Database.class.getResourceAsStream("/data/demo-users.csv");
+    if (input == null) throw new IOException("Demo user CSV was not found: /data/demo-users.csv");
+    String userSql = "INSERT INTO users(employee_number,name,email,password_hash,hire_date,branch_id,department_id,employment_type_id,role) "
+        + "SELECT ?,?,?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM users WHERE employee_number=?)";
+    String balanceSql = "MERGE INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) KEY(user_id) "
+        + "SELECT id,10,0,CURRENT_DATE FROM users WHERE employee_number=?";
+    String updateSql = "UPDATE users SET name=?,email=?,role=?,branch_id=?,department_id=?,employment_type_id=? WHERE employee_number=?";
+    try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
+         PreparedStatement exists = c.prepareStatement("SELECT 1 FROM users WHERE employee_number=?");
+         PreparedStatement user = c.prepareStatement(userSql); PreparedStatement update = c.prepareStatement(updateSql);
+         PreparedStatement balance = c.prepareStatement(balanceSql)) {
+      String header = reader.readLine();
+      if (!"employee_number,name,email,role,branch_id,department_id,employment_type_id".equals(header)) {
+        throw new IOException("Unexpected demo user CSV header");
+      }
+      String line;
+      while ((line = reader.readLine()) != null) {
+        if (line.isBlank() || line.startsWith("#")) continue;
+        String[] values = line.split(",", -1);
+        if (values.length != 7) throw new IOException("Invalid demo user CSV row: " + line);
+        exists.setString(1, values[0]);
+        try (ResultSet found = exists.executeQuery()) {
+          if (!found.next()) {
+            user.setString(1, values[0]); user.setString(2, values[1]); user.setString(3, values[2]);
+            user.setString(4, PasswordUtil.hash("Password1!")); user.setObject(5, LocalDate.of(2024, 4, 1));
+            user.setLong(6, Long.parseLong(values[4])); user.setLong(7, Long.parseLong(values[5]));
+            user.setLong(8, Long.parseLong(values[6])); user.setString(9, values[3]); user.setString(10, values[0]);
+            user.executeUpdate();
+          } else {
+            update.setString(1, values[1]); update.setString(2, values[2]); update.setString(3, values[3]);
+            update.setLong(4, Long.parseLong(values[4])); update.setLong(5, Long.parseLong(values[5]));
+            update.setLong(6, Long.parseLong(values[6])); update.setString(7, values[0]); update.executeUpdate();
+          }
+        }
+        balance.setString(1, values[0]); balance.executeUpdate();
+      }
+    }
+  }
+
+  private static void importDemoShifts(Connection c) throws SQLException, IOException {
+    InputStream input = Database.class.getResourceAsStream("/data/demo-shifts.csv");
+    if (input == null) throw new IOException("Demo shift CSV was not found: /data/demo-shifts.csv");
+
+    String sql = "MERGE INTO shifts(user_id,work_date,work_type_code,status,note,updated_by,updated_at) "
+        + "KEY(user_id,work_date) SELECT u.id,?,?,?,?,u.id,CURRENT_TIMESTAMP FROM users u WHERE u.employee_number=?";
+    try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
+         PreparedStatement p = c.prepareStatement(sql)) {
+      String header = reader.readLine();
+      if (!"employee_number,month,work_pattern,leave_day,half_leave_day,half_leave_type,status,note".equals(header)) {
+        throw new IOException("Unexpected demo shift CSV header");
+      }
+      String line;
+      int lineNumber = 1;
+      while ((line = reader.readLine()) != null) {
+        lineNumber++;
+        if (line.isBlank() || line.startsWith("#")) continue;
+        String[] values = line.split(",", -1);
+        if (values.length != 8) throw new IOException("Invalid demo shift CSV at line " + lineNumber);
+        java.time.YearMonth month = java.time.YearMonth.parse(values[1]);
+        String[] pattern = values[2].split("\\|");
+        int leaveDay = values[3].isBlank() ? -1 : Integer.parseInt(values[3]);
+        int halfLeaveDay = values[4].isBlank() ? -1 : Integer.parseInt(values[4]);
+        for (int day = 1; day <= month.lengthOfMonth(); day++) {
+          String workType = day == leaveDay ? "LEAVE" : day == halfLeaveDay ? values[5] : pattern[(day - 1) % pattern.length];
+          p.setObject(1, month.atDay(day)); p.setString(2, workType); p.setString(3, values[6]);
+          p.setString(4, values[7].isBlank() ? null : values[7]); p.setString(5, values[0]); p.addBatch();
+        }
+      }
+      p.executeBatch();
     }
   }
 

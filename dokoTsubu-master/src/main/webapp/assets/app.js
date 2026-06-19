@@ -34,6 +34,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  document.querySelectorAll('[data-auto-submit]').forEach(input => {
+    input.addEventListener('change', () => input.form?.requestSubmit());
+  });
+
+  document.querySelectorAll('[data-print-page]').forEach(button => {
+    button.addEventListener('click', () => window.print());
+  });
+
   const clock = document.querySelector('[data-clock]');
   if (clock) {
     const update = () => clock.textContent = new Intl.DateTimeFormat(document.documentElement.lang || 'ja', {
@@ -65,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function translatePage() {
   const dictionary = {
     'ダッシュボード':'Dashboard','通知':'Notifications','アカウント設定':'Account settings',
-    '自分のシフト':'My schedule','希望シフト提出':'Submit schedule','月間シフト表':'Team schedule',
+    'シフト':'Schedule','希望シフト提出':'Submit schedule','月間シフト表':'Team schedule',
     'シフト変更・休み申請':'Schedule change request','シフト申請履歴':'Schedule request history',
     'シフト調整':'Schedule editor','シフト確定確認':'Schedule confirmation','月間シフト印刷':'Print schedule',
     '有休残数・取得履歴':'Leave balance and history','有休申請':'Leave request','有休申請履歴':'Leave request history','有休承認':'Leave approvals',
@@ -76,7 +84,7 @@ function translatePage() {
     '必要人数管理':'Staffing requirements','雇用形態・資格名称管理':'Employment and qualification types','データ出力':'Data export','操作履歴':'Audit log',
     '今日の勤務者':'Working today','未承認申請':'Pending approvals','有休残日数':'Leave balance','人員不足':'Staff shortage','今月の実勤務':'Hours this month',
     '勤務時間・残業時間の推移':'Work and overtime trend','勤務時間・残業時間・有休取得数の推移':'Work, overtime, and leave trend','直近6か月':'Last 6 months','今月の予定':'This month','すべて見る':'View all',
-    '対象月':'Month','表示':'Show','印刷表示':'Print view','調整する':'Edit schedule','勤務区分を登録':'Add work type','変更・休みを申請':'Request a change',
+    '対象月':'Month','表示':'Show','印刷':'Print','印刷する':'Print','シフトへ戻る':'Back to schedule','調整する':'Edit schedule','勤務区分を登録':'Add work type','変更・休みを申請':'Request a change',
     '従業員':'Employee','日付':'Date','勤務区分':'Work type','状態':'Status','備考・理由':'Note or reason','保存する':'Save','申請する':'Submit',
     '確定前チェック':'Pre-confirmation checks','警告はありません。':'No warnings.','種類':'Type','内容':'Details','必要':'Required','実績':'Actual','警告を確認して確定':'Confirm after reviewing warnings',
     '変更・休み申請':'Change and leave requests','申請者':'Requester','変更前':'Before','変更後':'After','理由':'Reason','緊急':'Urgent','操作':'Actions','承認':'Approve','却下':'Reject',
@@ -91,7 +99,7 @@ function translatePage() {
     '項目を追加':'Add item','名称':'Name','追加':'Add','コード':'Code','日本語名':'Japanese name','英語名':'English name','開始':'Start','終了':'End','休憩':'Break','必要人数':'Required staff',
     '対象データ':'Data','形式':'Format','出力する':'Export','日時':'Date and time','実行者':'Actor','対象':'Target','対象ID':'Target ID','変更前':'Before','変更後':'After','最新300件':'Latest 300',
     '表示と言語':'Display and language','表示言語':'Language','新しいパスワード':'New password','設定を保存':'Save settings','有効':'Active','無効':'Inactive','提出済み':'Submitted','下書き':'Draft',
-    '日勤':'Day','夜勤':'Night','休み':'Off','有休':'Paid leave','午前休':'AM leave','午後休':'PM leave','1日':'Full day','時間単位':'Hourly'
+    '日勤':'Day','夜勤':'Night','夜勤明け':'Post-night rest','休み':'Off','有休':'Paid leave','午前休':'AM leave','午後休':'PM leave','1日':'Full day','時間単位':'Hourly'
   };
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const nodes = [];

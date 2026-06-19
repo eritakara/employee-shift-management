@@ -68,6 +68,14 @@ button:hover, .button:hover { border-color: var(--teal); }
 
 .alert { padding: 12px 14px; border-left: 4px solid var(--teal); background: var(--green-soft); margin-bottom: 20px; }
 .alert.danger { background: var(--red-soft); border-color: var(--red); }
+.overtime-alert { display: flex; align-items: center; gap: 14px; padding: 15px 18px; margin-bottom: 20px; border: 1px solid #b9ddd5; border-left: 5px solid var(--teal); border-radius: 6px; background: var(--green-soft); }
+.overtime-alert.warning { border-color: #e4c45d; border-left-color: var(--yellow); background: var(--yellow-soft); }
+.overtime-alert.danger { border-color: #e2aaaa; border-left-color: var(--red); background: var(--red-soft); }
+.overtime-alert-icon { flex: 0 0 32px; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--teal); color: white; font-size: 18px; font-weight: 900; }
+.overtime-alert.warning .overtime-alert-icon { background: #a87800; }
+.overtime-alert.danger .overtime-alert-icon { background: var(--red); }
+.overtime-alert strong { font-size: 16px; }
+.overtime-alert p { margin: 3px 0 0; color: #42505a; }
 .toolbar { display: flex; align-items: end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .toolbar form, .inline-form { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
 .toolbar label, .inline-form label { min-width: 150px; }
@@ -80,7 +88,72 @@ button:hover, .button:hover { border-color: var(--teal); }
 .metric .label { color: var(--muted); font-size: 12px; font-weight: 700; }
 .metric strong { display: block; font-size: 28px; margin-top: 8px; }
 .metric small { color: var(--muted); }
-.dashboard-grid { display: grid; grid-template-columns: 1.25fr .75fr; gap: 22px; }
+.staffing-shortage { display: flex; align-items: end; gap: 16px; margin-top: 8px; }
+.staffing-shortage span { color: var(--muted); font-size: 11px; font-weight: 700; }
+.staffing-shortage strong { display: block; margin-top: 3px; font-size: 20px; color: var(--ink); }
+.dashboard-grid { display: grid; grid-template-columns: 1fr; gap: 22px; }
+.shift-legend { display: flex; flex-wrap: wrap; gap: 12px 18px; margin: -4px 0 14px; color: var(--muted); font-size: 12px; }
+.shift-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.shift-dot { width: 11px; height: 11px; border-radius: 3px; background: #e9eef0; }
+.shift-dot.day, .calendar-shift.day { background: #ffe0b2; color: #8a4b00; }
+.shift-dot.night, .calendar-shift.night { background: #cdefff; color: #075b7a; }
+.shift-dot.night-off, .calendar-shift.night-off { background: #dce8f4; color: #3d5f7a; }
+.shift-dot.off, .calendar-shift.off { background: #e8ecef; color: #53616a; }
+.shift-dot.leave, .calendar-shift.leave { background: #eadcff; color: #60379b; }
+.shift-dot.half-leave, .calendar-shift.half-leave { background: #d8f2df; color: #27663a; }
+.calendar-shift.other { background: #e8ecef; color: #53616a; }
+.calendar-wrap { overflow-x: auto; }
+.month-calendar { min-width: 760px; table-layout: fixed; border: 1px solid var(--line); }
+.month-calendar th { text-align: center; padding: 9px; }
+.month-calendar th.sunday { color: #b73535; }
+.month-calendar th.saturday { color: #28699a; }
+.month-calendar td { height: 94px; padding: 7px; vertical-align: top; white-space: normal; border-right: 1px solid var(--line); background: white; }
+.month-calendar tbody tr:hover { background: transparent; }
+.month-calendar td:hover { background: #f8fbfb; }
+.month-calendar td.outside-month { background: #f4f6f7; }
+.month-calendar td.today { box-shadow: inset 0 0 0 2px var(--teal); }
+.calendar-day-line { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-height: 18px; margin-bottom: 7px; line-height: 18px; }
+.calendar-day { display: block; font-size: 12px; font-weight: 800; line-height: inherit; }
+.calendar-counts { display: inline-flex; align-items: center; font-size: 12px; font-weight: 800; line-height: inherit; white-space: nowrap; }
+.calendar-counts b { font-size: inherit; font-weight: 800; line-height: inherit; }
+.calendar-counts .count-day { color: #a85a00; }
+.calendar-counts .count-night { color: #08739a; }
+.calendar-shift { display: block; overflow: hidden; margin-top: 4px; padding: 5px 7px; border-radius: 4px; font-size: 12px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-grid .calendar-shifts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.dashboard-grid .calendar-shifts .calendar-shift { margin-top: 0; }
+.calendar-shift-summaries { display: grid; gap: 5px; }
+.shift-summary { overflow: hidden; padding: 6px 7px; border: 1px solid; border-radius: 4px; background: white; }
+.shift-summary.day { border-color: #efc35d; background: #fffaf0; color: #8a4b00; }
+.shift-summary.night { border-color: #a8c4dd; background: #f2f7fc; color: #315d7a; }
+.shift-summary > div { display: flex; align-items: center; justify-content: space-between; gap: 5px; }
+.shift-summary strong, .shift-summary b { font-size: 11px; white-space: nowrap; }
+.shift-summary small { display: block; overflow: hidden; margin-top: 2px; color: #667985; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.shift-roster-wrap { overflow-x: auto; border: 1px solid var(--line); }
+.roster-header-actions { display: flex; align-items: end; gap: 14px; }
+.roster-branch-filter label { min-width: 150px; }
+.roster-branch-filter select { min-height: 36px; padding: 6px 10px; }
+.shift-roster { width: max-content; min-width: 100%; table-layout: fixed; }
+.shift-roster th, .shift-roster td { height: 42px; padding: 4px; text-align: center; border-right: 1px solid var(--line); font-size: 11px; }
+.shift-roster thead th { position: sticky; top: 0; z-index: 2; }
+.shift-roster .roster-number { position: sticky; left: 0; z-index: 4; width: 38px; min-width: 38px; max-width: 38px; text-align: center; background: #f0f3f4; font-weight: 800; }
+.shift-roster .roster-name { position: sticky; left: 38px; z-index: 3; width: 128px; min-width: 128px; max-width: 128px; text-align: left; background: #f0f3f4; }
+.shift-roster tbody .roster-name { background: white; }
+.shift-roster .roster-name strong, .shift-roster .roster-name small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shift-roster .roster-name small { margin-top: 2px; color: var(--muted); font-weight: 500; }
+.shift-roster .roster-date { width: 42px; min-width: 42px; max-width: 42px; }
+.shift-roster .roster-date strong, .shift-roster .roster-date small { display: block; }
+.shift-roster .roster-date.sunday { color: #b73535; }
+.shift-roster .roster-date.saturday { color: #28699a; }
+.shift-roster .roster-cell { width: 42px; min-width: 42px; max-width: 42px; font-weight: 900; line-height: 1.05; }
+.shift-roster .roster-cell span, .shift-roster .roster-cell small { display: block; }
+.shift-roster .roster-cell small { margin-top: 3px; font-size: 8px; font-weight: 800; white-space: nowrap; }
+.shift-roster .roster-cell.day { background: #ffe0b2; color: #8a4b00; }
+.shift-roster .roster-cell.night { background: #cdefff; color: #075b7a; }
+.shift-roster .roster-cell.night-off { background: #dce8f4; color: #3d5f7a; }
+.shift-roster .roster-cell.off { background: #e8ecef; color: #53616a; }
+.shift-roster .roster-cell.leave { background: #eadcff; color: #60379b; }
+.shift-roster .roster-cell.half-leave { background: #d8f2df; color: #27663a; }
+.shift-roster .roster-total { width: 54px; min-width: 54px; max-width: 54px; font-weight: 800; background: #f7f9fa; }
 
 .table-wrap { overflow-x: auto; border: 1px solid var(--line); }
 table { width: 100%; border-collapse: collapse; background: white; }

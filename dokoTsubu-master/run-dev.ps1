@@ -25,5 +25,6 @@ if ($Port -ne 8080) {
 $env:CATALINA_HOME = $TomcatHome
 $env:CATALINA_BASE = $base
 $env:JRE_HOME = $JavaHome
+$env:CATALINA_OPTS = (($env:CATALINA_OPTS + " -Dshiftapp.seedDemoShifts=true").Trim())
 & (Join-Path $TomcatHome "bin\startup.bat")
 Write-Host "ShiftFlow: http://localhost:$Port/shiftflow/"

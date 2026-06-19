@@ -54,6 +54,14 @@ $env:CATALINA_BASE=(Resolve-Path '.tomcat').Path
 - `src/main/webapp`: JSP、CSS、JavaScript、H2ドライバー
 - `src/test/java`: 外部テストライブラリを使わないスモークテスト
 
+## 仕様・進捗資料
+
+- [要件定義書](docs/REQUIREMENTS.md)
+- [タスクリスト](docs/TASK_LIST.md)
+- [受入テストケース](docs/UAT_TEST_CASES.md)
+
+`run-dev.ps1` で起動した開発環境では、`src/main/resources/data` のCSVから2026年6月のデモ従業員・シフトを投入します。デモシフトは那覇支店・北部支店・中部支店の17名分です。
+
 ## メール
 
 招待、パスワード再設定、申請通知メールは `mail_outbox` に送信待ちとして登録されます。実運用前に利用するメールサービスを決め、送信処理へ接続してください。ローカル環境では再設定画面への確認用リンクを画面に表示します。

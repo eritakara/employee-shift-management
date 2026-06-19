@@ -30,9 +30,31 @@ public class PortalService {
     result.put("pending", value(pending, args));
     Object[] shortageArgs = user.isHr() ? new Object[]{} : new Object[]{user.getBranchId(), user.getDepartmentId()};
     result.put("shortage", value(shortage, shortageArgs));
+    result.put("dayShortagePercent", staffingShortagePercent(user, "DAY"));
+    result.put("nightShortagePercent", staffingShortagePercent(user, "NIGHT"));
     result.put("leave", Sql.one("SELECT days_remaining AS metric_value FROM leave_balances WHERE user_id=?", user.getId()).getOrDefault("metric_value", 0));
     result.put("monthHours", monthHours(user));
+    double overtimeHours = monthOvertimeHours(user);
+    double overtimeLimit = 45.0;
+    result.put("monthOvertimeHours", overtimeHours);
+    result.put("overtimeAlertThreshold", overtimeLimit);
+    result.put("overtimeAlertLevel", overtimeHours >= overtimeLimit ? "danger" : overtimeHours >= overtimeLimit * 0.8 ? "warning" : "safe");
     return result;
+  }
+
+  private int staffingShortagePercent(User user, String workType) {
+    Number requiredValue = (Number) Sql.one("SELECT required_staff AS metric_value FROM work_types WHERE code=?", workType)
+        .getOrDefault("metric_value", 0);
+    int required = requiredValue.intValue();
+    if (required <= 0) return 0;
+    String filter = user.isHr() ? "" : " AND u.branch_id=? AND u.department_id=?";
+    Object[] args = user.isHr() ? new Object[]{workType}
+        : new Object[]{workType, user.getBranchId(), user.getDepartmentId()};
+    Number actualValue = (Number) Sql.one("SELECT COUNT(*) AS metric_value FROM shifts s JOIN users u ON u.id=s.user_id "
+        + "WHERE s.work_date=CURRENT_DATE AND s.work_type_code=? AND s.status='CONFIRMED'" + filter, args)
+        .getOrDefault("metric_value", 0);
+    int missing = Math.max(0, required - actualValue.intValue());
+    return (int) Math.round(missing * 100.0 / required);
   }
 
   public List<Map<String, Object>> chart(User user) {
@@ -78,6 +100,20 @@ public class PortalService {
         + "FROM shifts s JOIN users u ON u.id=s.user_id JOIN work_types wt ON wt.code=s.work_type_code "
         + "WHERE s.work_date BETWEEN ? AND ?" + scope(viewer, "u") + " ORDER BY s.work_date,u.name",
         join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs(viewer)));
+  }
+
+  public List<Map<String, Object>> dashboardShifts(User viewer, YearMonth month, long branchId) {
+    if (!viewer.isManager() && !viewer.isHr()) return shifts(viewer, month);
+    return Sql.query("SELECT s.id,s.work_date,s.work_type_code,wt.name_ja work_type,u.id user_id,u.name,u.employee_number,s.status,s.note "
+        + "FROM shifts s JOIN users u ON u.id=s.user_id JOIN work_types wt ON wt.code=s.work_type_code "
+        + "WHERE s.work_date BETWEEN ? AND ? AND u.branch_id=? ORDER BY s.work_date,u.name",
+        month.atDay(1), month.atEndOfMonth(), branchId);
+  }
+
+  public List<Map<String, Object>> dashboardBranches(YearMonth month) {
+    return Sql.query("SELECT DISTINCT b.id,b.name FROM branches b JOIN users u ON u.branch_id=b.id "
+        + "JOIN shifts s ON s.user_id=u.id WHERE b.active=TRUE AND s.work_date BETWEEN ? AND ? ORDER BY b.name",
+        month.atDay(1), month.atEndOfMonth());
   }
 
   public List<Map<String, Object>> workTypes() {
@@ -615,6 +651,18 @@ public class PortalService {
     Map<String, Object> row = Sql.one("SELECT COALESCE(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-COALESCE(wt.break_minutes,0)) ELSE 0 END),0) AS metric_value FROM attendance a LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.user_id=? AND a.work_date BETWEEN ? AND ?",
         user.getId(), YearMonth.now().atDay(1), YearMonth.now().atEndOfMonth());
     return ((Number) row.getOrDefault("metric_value", 0)).doubleValue() / 60.0;
+  }
+
+  private double monthOvertimeHours(User user) {
+    YearMonth month = YearMonth.now();
+    Map<String, Object> row = Sql.one("SELECT COALESCE(ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL "
+        + "AND wt.start_time IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-CASE WHEN wt.crosses_midnight "
+        + "THEN 1440+DATEDIFF('MINUTE',wt.start_time,wt.end_time) ELSE DATEDIFF('MINUTE',wt.start_time,wt.end_time) END) "
+        + "ELSE 0 END)/60.0,1),0) AS metric_value FROM attendance a "
+        + "LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date "
+        + "LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.user_id=? AND a.work_date BETWEEN ? AND ?",
+        user.getId(), month.atDay(1), month.atEndOfMonth());
+    return ((Number) row.getOrDefault("metric_value", 0)).doubleValue();
   }
 
   private String scope(User user, String alias) {

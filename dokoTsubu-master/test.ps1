@@ -14,6 +14,8 @@ $tests = Get-ChildItem (Join-Path $PSScriptRoot "src\test\java") -Recurse -Filte
 if ($LASTEXITCODE -ne 0) { throw "Test compilation failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" SmokeTest
 if ($LASTEXITCODE -ne 0) { throw "Tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" config.DemoShiftCsvTest
+if ($LASTEXITCODE -ne 0) { throw "Demo shift CSV tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.MailDeliveryTest
 if ($LASTEXITCODE -ne 0) { throw "Mail tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.LeavePolicyTest

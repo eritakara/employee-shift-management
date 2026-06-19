@@ -4,6 +4,31 @@
   private String e(Object value) {
     return util.HtmlEscaper.escape(value);
   }
+  private String days(Object value) {
+    if (value == null) return "0";
+    try { return new java.math.BigDecimal(String.valueOf(value)).stripTrailingZeros().toPlainString(); }
+    catch (NumberFormatException ex) { return e(value); }
+  }
+  private String shiftClass(Object code) {
+    String value = String.valueOf(code);
+    if ("DAY".equals(value)) return "day";
+    if ("NIGHT".equals(value)) return "night";
+    if ("NIGHT_OFF".equals(value)) return "night-off";
+    if ("OFF".equals(value)) return "off";
+    if ("LEAVE".equals(value)) return "leave";
+    if ("AM_LEAVE".equals(value) || "PM_LEAVE".equals(value)) return "half-leave";
+    return "other";
+  }
+  private String shiftShort(Object code) {
+    String value = String.valueOf(code);
+    if ("DAY".equals(value)) return "日";
+    if ("NIGHT".equals(value)) return "夜";
+    if ("NIGHT_OFF".equals(value)) return "明";
+    if ("OFF".equals(value)) return "休";
+    if ("LEAVE".equals(value)) return "有";
+    if ("AM_LEAVE".equals(value) || "PM_LEAVE".equals(value)) return "半";
+    return "-";
+  }
   private String status(Object value) { return value == null ? "" : String.valueOf(value).toLowerCase(); }
   private boolean pageIs(String page, String prefix) { return page.equals(prefix) || page.startsWith(prefix + "/"); }
 %>
@@ -27,7 +52,7 @@ String ctx = request.getContextPath();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= e(pageTitle) %> | ShiftFlow</title>
-  <link rel="stylesheet" href="<%= ctx %>/assets/app.css">
+  <link rel="stylesheet" href="<%= ctx %>/assets/app.css?v=20260619-10">
 </head>
 <body>
 <a class="skip-link" href="#main-content"><%=en?"Skip to main content":"本文へ移動"%></a>
@@ -36,10 +61,10 @@ String ctx = request.getContextPath();
     <a class="brand" href="<%= ctx %>/app/dashboard"><span class="brand-mark">SF</span><span><strong>ShiftFlow</strong><small><%= en ? "Workforce portal" : "シフト・有休管理" %></small></span></a>
     <nav>
       <p class="nav-label"><%= en ? "Overview" : "概要" %></p>
-      <a class="nav-link <%= pageKey.equals("dashboard") ? "active" : "" %>" href="<%=ctx%>/app/dashboard">▦ <%= en ? "Dashboard" : "ダッシュボード" %></a>
       <a class="nav-link <%= pageKey.equals("notifications") ? "active" : "" %>" href="<%=ctx%>/app/notifications"><span aria-hidden="true">🔔</span> <%= en ? "Notifications" : "通知" %></a>
+      <a class="nav-link <%= pageKey.equals("dashboard") ? "active" : "" %>" href="<%=ctx%>/app/dashboard">▦ <%= en ? "Dashboard" : "ダッシュボード" %></a>
       <p class="nav-label"><%= en ? "Schedule" : "シフト" %></p>
-      <a class="nav-link <%= pageKey.equals("shifts/mine") ? "active" : "" %>" href="<%=ctx%>/app/shifts/mine">□ <%= en ? "My schedule" : "自分のシフト" %></a>
+      <a class="nav-link <%= pageKey.equals("shifts/mine") ? "active" : "" %>" href="<%=ctx%>/app/shifts/mine">□ <%= en ? "My schedule" : "シフト" %></a>
       <a class="nav-link <%= pageKey.equals("shifts/request") ? "active" : "" %>" href="<%=ctx%>/app/shifts/request">＋ <%= en ? "Submit request" : "希望シフト提出" %></a>
       <a class="nav-link <%= pageKey.equals("shifts/team") ? "active" : "" %>" href="<%=ctx%>/app/shifts/team">▤ <%= en ? "Team schedule" : "月間シフト表" %></a>
       <a class="nav-link <%= pageKey.equals("shifts/change") ? "active" : "" %>" href="<%=ctx%>/app/shifts/change">↻ <%= en ? "Change request" : "変更・休み申請" %></a>
@@ -82,12 +107,23 @@ String ctx = request.getContextPath();
 
       <% if (pageKey.equals("dashboard")) {
         Map<String,Object> stats = (Map<String,Object>) request.getAttribute("stats");
-        List<Map<String,Object>> chart = (List<Map<String,Object>>) request.getAttribute("chart"); %>
+        List<Map<String,Object>> chart = (List<Map<String,Object>>) request.getAttribute("chart");
+        double overtimeHours = ((Number)stats.get("monthOvertimeHours")).doubleValue();
+        double overtimeThreshold = ((Number)stats.get("overtimeAlertThreshold")).doubleValue();
+        String overtimeLevel = String.valueOf(stats.get("overtimeAlertLevel")); %>
+        <div class="overtime-alert <%=overtimeLevel%>" role="<%="danger".equals(overtimeLevel)?"alert":"status"%>">
+          <span class="overtime-alert-icon" aria-hidden="true"><%="safe".equals(overtimeLevel)?"✓":"!"%></span>
+          <div><strong>残業アラート</strong>
+            <p>今月の残業は<strong><%=String.format("%.1f",overtimeHours)%>時間</strong>です（基準 <%=String.format("%.0f",overtimeThreshold)%>時間）。
+              <%if("danger".equals(overtimeLevel)){%>基準に達しています。勤務状況を確認してください。<%}else if("warning".equals(overtimeLevel)){%>基準に近づいています。今後の勤務予定にご注意ください。<%}else{%>現在は基準内です。<%}%>
+            </p>
+          </div>
+        </div>
         <div class="metric-grid">
           <div class="metric"><span class="label">今日の勤務者</span><strong><%=e(stats.get("todayWorkers"))%><small>名</small></strong></div>
           <div class="metric"><span class="label">未承認申請</span><strong><%=e(stats.get("pending"))%><small>件</small></strong></div>
-          <div class="metric"><span class="label">有休残日数</span><strong><%=e(stats.get("leave"))%><small>日</small></strong></div>
-          <div class="metric"><span class="label">人員不足</span><strong><%=e(stats.get("shortage"))%><small>区分</small></strong></div>
+          <div class="metric"><span class="label">有休残日数</span><strong><%=days(stats.get("leave"))%><small>日</small></strong></div>
+          <div class="metric"><span class="label">人員不足</span><div class="staffing-shortage"><span>日勤<strong><%=e(stats.get("dayShortagePercent"))%>%</strong></span><span>夜勤<strong><%=e(stats.get("nightShortagePercent"))%>%</strong></span></div></div>
           <div class="metric"><span class="label">今月の実勤務</span><strong><%=String.format("%.1f",stats.get("monthHours"))%><small>時間</small></strong></div>
         </div>
         <div class="dashboard-grid">
@@ -98,17 +134,15 @@ String ctx = request.getContextPath();
               <div class="chart-column"><span class="bar" style="height:<%=Math.min(100,hours/2)%>%" title="勤務 <%=hours%>時間"></span><span class="bar overtime" style="height:<%=Math.min(100,overtime*2)%>%" title="残業 <%=overtime%>時間"></span><span class="bar leave" style="height:<%=Math.min(100,leave*12)%>%" title="<%=en?"Leave":"有休"%> <%=leave%>日"></span><small><%=e(item.get("month_label"))%></small></div>
             <% } %></div><% } %>
           </section>
-          <section class="section"><div class="section-header"><h2>今月の予定</h2><a href="<%=ctx%>/app/shifts/mine">すべて見る</a></div>
-            <% if (rows.isEmpty()) { %><div class="empty">シフトはまだありません。</div><% } else { int shown=0; for (Map<String,Object> row:rows) { if(shown++>=7) break; %>
-              <p><strong><%=e(row.get("work_date"))%></strong>　<%=e(row.get("work_type"))%> <span class="status <%=status(row.get("status"))%>"><%=e(row.get("status"))%></span></p>
-            <% }} %>
-          </section>
+          <% { String rosterTitle="今月のシフト"; String rosterLink=ctx+"/app/shifts/mine"; List<Map<String,Object>> rosterBranches=(List<Map<String,Object>>)request.getAttribute("dashboardBranches"); Number selectedRosterBranch=(Number)request.getAttribute("dashboardBranchId"); Long rosterBranchId=selectedRosterBranch==null?user.getBranchId():selectedRosterBranch.longValue(); if(rosterBranches==null)rosterBranches=Collections.emptyList(); %>
+            <%@ include file="_shiftRoster.jspf" %>
+          <% } %>
         </div>
 
       <% } else if (pageKey.startsWith("shifts/")) { %>
         <div class="toolbar no-print">
-          <form method="get"><label>対象月<input type="month" name="month" value="<%=month%>"></label><button type="submit">表示</button></form>
-          <div class="actions"><a class="button" href="<%=ctx%>/app/shifts/print?month=<%=month%>">印刷表示</a><% if(manager){ %><a class="button primary" href="<%=ctx%>/app/shifts/manage?month=<%=month%>">調整する</a><% } %></div>
+          <form method="get"><label>対象月<input type="month" name="month" value="<%=month%>" <%=pageKey.equals("shifts/mine")?"data-auto-submit":""%>></label><%if(!pageKey.equals("shifts/mine")){%><button type="submit">表示</button><%}%></form>
+          <div class="actions"><%if(pageKey.equals("shifts/print")){%><a class="button" href="<%=ctx%>/app/shifts/mine?month=<%=month%>">シフトへ戻る</a><button type="button" class="primary" data-print-page>印刷する</button><%}else{%><a class="button" href="<%=ctx%>/app/shifts/print?month=<%=month%>">印刷</a><% if(manager){ %><a class="button primary" href="<%=ctx%>/app/shifts/manage?month=<%=month%>">調整する</a><% }} %></div>
         </div>
         <% if (pageKey.equals("shifts/request") || pageKey.equals("shifts/manage") || pageKey.equals("shifts/change")) { Map<String,Object> submissionWindow=(Map<String,Object>)request.getAttribute("submissionWindow"); boolean submissionOpen=submissionWindow==null||Boolean.TRUE.equals(submissionWindow.get("open")); %>
         <%if(pageKey.equals("shifts/request")){%><div class="<%=submissionOpen?"alert":"error-banner"%>">対象月: <strong><%=e(submissionWindow.get("target_month"))%></strong> / 提出期限: <strong><%=e(submissionWindow.get("deadline"))%></strong><%=submissionOpen?"":"（受付終了）"%></div><%}%>
@@ -125,11 +159,17 @@ String ctx = request.getContextPath();
         </section><% } %>
         <% if (pageKey.equals("shifts/confirm") || pageKey.equals("shifts/manage")) { List<Map<String,Object>> warnings=(List<Map<String,Object>>)request.getAttribute("warnings"); %><section class="section no-print"><h2>確定前チェック</h2><%if(warnings==null||warnings.isEmpty()){%><p class="alert">警告はありません。</p><%}else{%><div class="table-wrap"><table><thead><tr><th>種類</th><th>日付</th><th>内容</th><th>必要</th><th>実績</th></tr></thead><tbody><%for(Map<String,Object>w:warnings){%><tr><td class="warning-text"><%=e(w.get("warning"))%></td><td><%=e(w.get("work_date"))%></td><td><%=e(w.get("detail"))%></td><td><%=e(w.get("required"))%></td><td><%=e(w.get("actual"))%></td></tr><%}%></tbody></table></div><%}%><%if(pageKey.equals("shifts/confirm")){%><form method="post" class="stack-form"><input type="hidden" name="action" value="confirmShifts"><input type="hidden" name="returnPage" value="shifts/confirm"><input type="hidden" name="month" value="<%=month%>"><%if(warnings!=null&&!warnings.isEmpty()){%><label>警告付きで確定する理由<textarea name="warningReason" required maxlength="500"></textarea></label><%}%><button class="primary" type="submit">警告を確認して確定</button></form><%}%></section><% } %>
         <% if(pageKey.equals("shifts/history") || pageKey.equals("shifts/change") || pageKey.equals("shifts/manage")){ List<Map<String,Object>> requests=(List<Map<String,Object>>)request.getAttribute("requests"); %><section class="section"><div class="section-header"><h2>変更・休み申請</h2><span class="muted"><%=requests.size()%>件</span></div><div class="table-wrap"><table><thead><tr><th>日付</th><th>申請者</th><th>変更前</th><th>変更後</th><th>理由</th><th>緊急</th><th>状態</th><%if(manager){%><th>操作</th><%}%></tr></thead><tbody><%for(Map<String,Object>r:requests){%><tr><td><%=e(r.get("work_date"))%></td><td><%=e(r.get("name"))%></td><td><%=e(r.get("current_type"))%></td><td><%=e(r.get("requested_name"))%></td><td><%=e(r.get("reason"))%></td><td><%=Boolean.TRUE.equals(r.get("urgent"))?"緊急":"-"%></td><td><span class="status <%=status(r.get("status"))%>"><%=e(r.get("status"))%></span></td><%if(manager){%><td><%if("PENDING".equals(r.get("status"))){%><form method="post"><input type="hidden" name="action" value="decideShiftChange"><input type="hidden" name="returnPage" value="<%=pageKey%>"><input type="hidden" name="id" value="<%=r.get("id")%>"><button class="primary" name="decision" value="approve">承認</button><button class="danger-button" name="decision" value="reject">却下</button></form><%}%></td><%}%></tr><%}%><%if(requests.isEmpty()){%><tr><td colspan="8" class="empty">申請はありません。</td></tr><%}%></tbody></table></div></section><%}%>
+        <% if(pageKey.equals("shifts/mine")){ %>
+          <% { String rosterTitle="シフト"; String rosterLink=null; List<Map<String,Object>> rosterBranches=null; Long rosterBranchId=null; %>
+            <%@ include file="_shiftRoster.jspf" %>
+          <% } %>
+        <% } else { %>
         <section class="section"><div class="section-header"><h2><%=month%> 月間シフト</h2><span class="muted"><%=rows.size()%>件</span></div>
           <div class="table-wrap"><table><thead><tr><th>日付</th><th>社員番号</th><th>氏名</th><th>勤務区分</th><th>状態</th><th>備考</th></tr></thead><tbody>
           <% for(Map<String,Object> row:rows){ %><tr><td><%=e(row.get("work_date"))%></td><td><%=e(row.get("employee_number"))%></td><td><%=e(row.get("name"))%></td><td><%=e(row.get("work_type"))%></td><td><span class="status <%=status(row.get("status"))%>"><%=e(row.get("status"))%></span></td><td><%=e(row.get("note"))%></td></tr><% } %>
           <% if(rows.isEmpty()){%><tr><td colspan="6" class="empty">対象月のシフトはありません。</td></tr><%}%></tbody></table></div>
         </section>
+        <% } %>
 
       <% } else if (pageKey.startsWith("leave/")) {
         Map<String,Object> balance=(Map<String,Object>)request.getAttribute("balance"); %>
@@ -186,6 +226,6 @@ String ctx = request.getContextPath();
     <footer class="app-footer"><a href="<%=ctx%>/privacy"><%=en?"Privacy and location data":"個人情報・位置情報の取扱い"%></a></footer>
   </div>
 </div>
-<script src="<%=ctx%>/assets/app.js"></script>
+<script src="<%=ctx%>/assets/app.js?v=20260619-2"></script>
 </body>
 </html>

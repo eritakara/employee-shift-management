@@ -25,7 +25,7 @@ public class PortalServlet extends HttpServlet {
   static {
     TITLES.put("dashboard", "ダッシュボード");
     TITLES.put("notifications", "通知"); TITLES.put("account", "アカウント設定");
-    TITLES.put("shifts/mine", "自分のシフト"); TITLES.put("shifts/request", "希望シフト提出");
+    TITLES.put("shifts/mine", "シフト"); TITLES.put("shifts/request", "希望シフト提出");
     TITLES.put("shifts/team", "月間シフト表"); TITLES.put("shifts/change", "シフト変更・休み申請");
     TITLES.put("shifts/history", "シフト申請履歴"); TITLES.put("shifts/manage", "シフト調整");
     TITLES.put("shifts/confirm", "シフト確定確認"); TITLES.put("shifts/print", "月間シフト印刷");
@@ -60,9 +60,18 @@ public class PortalServlet extends HttpServlet {
     req.setAttribute("error", takeFlash(req, "error"));
 
     if ("dashboard".equals(page)) {
+      long dashboardBranchId = longValue(req, "branchId", user.getBranchId());
+      java.util.List<Map<String, Object>> dashboardBranches = portal.dashboardBranches(month);
+      boolean dashboardBranchExists = false;
+      for (Map<String, Object> branch : dashboardBranches) {
+        if (((Number) branch.get("id")).longValue() == dashboardBranchId) dashboardBranchExists = true;
+      }
+      if (!dashboardBranchExists && !dashboardBranches.isEmpty()) dashboardBranchId = ((Number) dashboardBranches.get(0).get("id")).longValue();
       req.setAttribute("stats", portal.dashboard(user));
       req.setAttribute("chart", portal.chart(user));
-      req.setAttribute("rows", portal.shifts(user, month));
+      req.setAttribute("rows", portal.dashboardShifts(user, month, dashboardBranchId));
+      req.setAttribute("dashboardBranches", dashboardBranches);
+      req.setAttribute("dashboardBranchId", dashboardBranchId);
     } else if (page.startsWith("shifts/")) {
       req.setAttribute("rows", portal.shifts(user, month));
       req.setAttribute("people", portal.users(user));

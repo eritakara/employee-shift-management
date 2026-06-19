@@ -83,6 +83,13 @@ button:hover, .button:hover { border-color: var(--teal); }
 .page-tabs a { display: inline-flex; align-items: center; min-height: 42px; padding: 0 16px; color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent; font-weight: 800; }
 .page-tabs a:hover { color: var(--ink); background: #f4f8f8; }
 .page-tabs a.active { color: var(--teal-dark); border-bottom-color: var(--teal); }
+.leave-tabs a { border-radius: 6px 6px 0 0; border-left: 4px solid transparent; }
+.leave-tabs .leave-tab-request { background: #e7f5f1; color: #08665f; border-left-color: #2f9d8f; }
+.leave-tabs .leave-tab-history { background: #e8f1fb; color: #235d88; border-left-color: #3d7fb2; }
+.leave-tabs .leave-tab-balance { background: #f1ecfb; color: #5b4389; border-left-color: #7b63b7; }
+.leave-tabs .leave-tab-request:hover, .leave-tabs .leave-tab-request.active { background: #d8eee8; color: #064f4a; border-bottom-color: #2f9d8f; }
+.leave-tabs .leave-tab-history:hover, .leave-tabs .leave-tab-history.active { background: #dbeafa; color: #184b73; border-bottom-color: #3d7fb2; }
+.leave-tabs .leave-tab-balance:hover, .leave-tabs .leave-tab-balance.active { background: #e7ddf8; color: #493575; border-bottom-color: #7b63b7; }
 .section { background: var(--surface); border-top: 3px solid var(--teal); padding: 20px; margin-bottom: 22px; }
 .section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .section h2 { margin: 0; font-size: 17px; }

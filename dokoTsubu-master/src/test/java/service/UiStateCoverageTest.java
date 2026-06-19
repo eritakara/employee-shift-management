@@ -19,12 +19,16 @@ public class UiStateCoverageTest {
     check(application.contains("class=\"empty\""), "application has a common empty state");
     check(application.contains("class=\"alert danger\""), "application has a common input error state");
     check(application.contains("href=\"<%=ctx%>/app/leave\">"), "leave navigation is consolidated into one menu item");
-    check(application.contains("class=\"page-tabs\""), "leave page exposes in-page tabs");
+    check(application.contains("class=\"page-tabs leave-tabs\""), "leave page exposes in-page tabs");
     check(application.contains("leave?tab=balance") && application.contains("leave?tab=request")
         && application.contains("leave?tab=history"), "leave tabs link to balance, request, and history views");
     check(application.indexOf("leave?tab=request") < application.indexOf("leave?tab=history")
         && application.indexOf("leave?tab=history") < application.indexOf("leave?tab=balance"),
         "leave tabs are ordered request, history, balance");
+    check(application.contains("leave-tab-request") && application.contains("leave-tab-history")
+        && application.contains("leave-tab-balance"), "leave tabs have semantic color classes");
+    check(css.contains(".leave-tabs .leave-tab-request") && css.contains(".leave-tabs .leave-tab-history")
+        && css.contains(".leave-tabs .leave-tab-balance"), "leave tabs have distinct color styles");
     check(application.contains("pageKey.equals(\"leave/request\")") && application.contains("pageKey.equals(\"leave/history\")")
         && application.contains("pageKey.equals(\"leave/balance\")"), "legacy leave URLs map to the matching tab");
     check(deployment.contains("<error-code>404</error-code>"), "404 uses the common error page");

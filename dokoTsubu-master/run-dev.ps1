@@ -1,7 +1,8 @@
 param(
   [string]$TomcatHome = "C:\tomcat\10",
   [string]$JavaHome = "C:\Program Files\Java\latest\jdk-25",
-  [int]$Port = 8080
+  [int]$Port = 8080,
+  [switch]$NoWait
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,6 +27,30 @@ if ($Port -ne 8080) {
 $env:CATALINA_HOME = $TomcatHome
 $env:CATALINA_BASE = $base
 $env:JRE_HOME = $JavaHome
-$env:CATALINA_OPTS = (($env:CATALINA_OPTS + " -Dshiftapp.seedDemoShifts=true").Trim())
-& (Join-Path $TomcatHome "bin\startup.bat")
-Write-Host "ShiftFlow: http://localhost:$Port/shiftflow/"
+$env:CATALINA_OPTS = ((($env:CATALINA_OPTS -replace "\s*-Dshiftapp\.seedDemoShifts=true", "") + " -Dshiftapp.seedDemoShifts=true").Trim())
+
+$url = "http://localhost:$Port/shiftflow/"
+
+if ($NoWait) {
+  $process = Start-Process -FilePath (Join-Path $TomcatHome "bin\catalina.bat") -ArgumentList "run" -WindowStyle Hidden -PassThru
+  Set-Content (Join-Path $base "tomcat.pid") $process.Id -Encoding ASCII
+  for ($i = 0; $i -lt 30; $i++) {
+    Start-Sleep -Seconds 1
+    if ($process.HasExited) { throw "Tomcat exited before ShiftFlow became ready. Check logs in $base\logs." }
+    try {
+      $response = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 3
+      if ($response.StatusCode -eq 200) {
+        Write-Host "ShiftFlow: $url"
+        Write-Host "Tomcat PID: $($process.Id)"
+        return
+      }
+    } catch {
+      Start-Sleep -Milliseconds 250
+    }
+  }
+  throw "ShiftFlow did not become ready at $url. Check logs in $base\logs."
+}
+
+Write-Host "ShiftFlow: $url"
+Write-Host "Tomcat is running in this terminal. Press Ctrl+C to stop it."
+& (Join-Path $TomcatHome "bin\catalina.bat") run

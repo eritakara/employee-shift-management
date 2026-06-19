@@ -18,6 +18,12 @@ public class UiStateCoverageTest {
     check(css.contains(".loading-indicator"), "loading state has a common visual style");
     check(application.contains("class=\"empty\""), "application has a common empty state");
     check(application.contains("class=\"alert danger\""), "application has a common input error state");
+    check(application.contains("href=\"<%=ctx%>/app/leave\">"), "leave navigation is consolidated into one menu item");
+    check(application.contains("class=\"page-tabs\""), "leave page exposes in-page tabs");
+    check(application.contains("leave?tab=balance") && application.contains("leave?tab=request")
+        && application.contains("leave?tab=history"), "leave tabs link to balance, request, and history views");
+    check(application.contains("pageKey.equals(\"leave/request\")") && application.contains("pageKey.equals(\"leave/history\")")
+        && application.contains("pageKey.equals(\"leave/balance\")"), "legacy leave URLs map to the matching tab");
     check(deployment.contains("<error-code>404</error-code>"), "404 uses the common error page");
     check(deployment.contains("<error-code>500</error-code>"), "500 uses the common error page");
     check(deployment.contains("<exception-type>java.lang.Throwable</exception-type>"), "unexpected errors use the common error page");

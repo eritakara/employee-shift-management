@@ -42,6 +42,68 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', () => window.print());
   });
 
+  document.querySelectorAll('[data-preference-form]').forEach(form => {
+    const selects = [...form.querySelectorAll('[data-preference-select]')];
+    const summary = form.querySelector('[data-preference-summary]');
+    const empty = form.querySelector('[data-preference-empty]');
+    const totals = [...form.querySelectorAll('[data-preference-total]')];
+    const dialog = form.querySelector('[data-leave-reason-dialog]');
+    const reasonText = dialog?.querySelector('[data-leave-reason-text]');
+    const reasonDate = dialog?.querySelector('[data-leave-reason-date]');
+    let activeLeaveSelect = null;
+    const classes = ['day', 'night', 'off', 'leave', 'other'];
+    const classFor = value => ({DAY:'day', NIGHT:'night', OFF:'off', LEAVE:'leave'}[value] || 'other');
+    const reasonInput = select => select.closest('[data-preference-day]').querySelector('[data-preference-reason]');
+    const openLeaveReason = select => {
+      if (!dialog) return;
+      activeLeaveSelect = select;
+      reasonText.value = reasonInput(select).value;
+      reasonDate.textContent = select.name.replace('preference_', '');
+      dialog.showModal();
+      reasonText.focus();
+    };
+    const refresh = () => {
+      summary.replaceChildren();
+      selects.forEach(select => {
+        const card = select.closest('[data-preference-day]');
+        card.classList.remove(...classes);
+        card.classList.add(classFor(select.value));
+        if (select.value === 'NONE') return;
+        const item = document.createElement('li');
+        const date = select.name.replace('preference_', '');
+        const reason = reasonInput(select).value.trim();
+        item.append(document.createTextNode(`${date}：${select.options[select.selectedIndex].dataset.label}${select.value === 'LEAVE' && reason ? `（${reason}）` : ''}`));
+        if (select.value === 'LEAVE') {
+          const edit = document.createElement('button');
+          edit.type = 'button';
+          edit.className = 'link-button';
+          edit.textContent = reason ? '理由を編集' : '理由を追加';
+          edit.addEventListener('click', () => openLeaveReason(select));
+          item.append(' ', edit);
+        }
+        summary.appendChild(item);
+      });
+      totals.forEach(total => total.textContent = String(selects.filter(select => select.value === total.dataset.preferenceTotal).length));
+      empty.hidden = summary.children.length > 0;
+    };
+    selects.forEach(select => select.addEventListener('change', () => {
+      if (select.value !== 'LEAVE') reasonInput(select).value = '';
+      refresh();
+      if (select.value === 'LEAVE') openLeaveReason(select);
+    }));
+    dialog?.querySelector('[data-leave-reason-save]')?.addEventListener('click', () => {
+      if (activeLeaveSelect) reasonInput(activeLeaveSelect).value = reasonText.value.trim();
+      dialog.close(); refresh();
+    });
+    dialog?.querySelector('[data-leave-reason-clear]')?.addEventListener('click', () => {
+      if (activeLeaveSelect) reasonInput(activeLeaveSelect).value = '';
+      reasonText.value = ''; dialog.close(); refresh();
+    });
+    dialog?.querySelector('[data-leave-reason-cancel]')?.addEventListener('click', () => dialog.close());
+    dialog?.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+    refresh();
+  });
+
   const clock = document.querySelector('[data-clock]');
   if (clock) {
     const update = () => clock.textContent = new Intl.DateTimeFormat(document.documentElement.lang || 'ja', {

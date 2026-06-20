@@ -530,7 +530,7 @@ public class PortalService {
     String filter = viewer.isHr() ? "" : viewer.isManager() ? " AND u.branch_id=? AND u.department_id=?" : " AND a.user_id=?";
     Object[] scope = viewer.isHr() ? new Object[]{} : viewer.isManager()
         ? new Object[]{viewer.getBranchId(), viewer.getDepartmentId()} : new Object[]{viewer.getId()};
-    List<Map<String, Object>> rows = Sql.query("SELECT a.*,u.name,u.employee_number,s.work_type_code,wt.start_time,wt.end_time,wt.crosses_midnight,wt.break_minutes "
+    List<Map<String, Object>> rows = Sql.query("SELECT a.*,u.name,u.employee_number,s.work_type_code,wt.name_ja work_type,wt.start_time,wt.end_time,wt.crosses_midnight,wt.break_minutes "
         + "FROM attendance a JOIN users u ON u.id=a.user_id LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date LEFT JOIN work_types wt ON wt.code=s.work_type_code "
         + "WHERE a.work_date BETWEEN ? AND ?" + filter + " ORDER BY a.work_date DESC,u.name",
         join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scope));

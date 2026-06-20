@@ -37,6 +37,26 @@
     if ("LEAVE".equals(value)) return "有休希望";
     return "希望なし";
   }
+  private String workTypeLabel(Object code, Object name) {
+    if (name != null && !String.valueOf(name).isBlank()) return e(name);
+    String value = String.valueOf(code);
+    if ("DAY".equals(value)) return "日勤";
+    if ("NIGHT".equals(value)) return "夜勤";
+    if ("NIGHT_OFF".equals(value)) return "夜勤明け";
+    if ("OFF".equals(value)) return "休み";
+    if ("LEAVE".equals(value)) return "有休";
+    if ("AM_LEAVE".equals(value)) return "午前休";
+    if ("PM_LEAVE".equals(value)) return "午後休";
+    return e(code);
+  }
+  private String locationLabel(Object status) {
+    String value = String.valueOf(status);
+    if ("ACQUIRED".equals(value)) return "取得済み";
+    if ("DENIED".equals(value)) return "拒否";
+    if ("UNAVAILABLE".equals(value)) return "利用不可";
+    if ("UNKNOWN".equals(value) || status == null) return "不明";
+    return e(status);
+  }
   private String status(Object value) { return value == null ? "" : String.valueOf(value).toLowerCase(); }
   private boolean pageIs(String page, String prefix) { return page.equals(prefix) || page.startsWith(prefix + "/"); }
 %>
@@ -264,7 +284,7 @@ String ctx = request.getContextPath();
         <%if(pageKey.equals("attendance/manage")){%><section class="attendance-summary" aria-label="勤怠サマリー"><div><span>対象件数</span><strong><%=rows.size()%></strong></div><div><span>打刻完了</span><strong><%=completeCount%></strong></div><div class="<%=missingClockOut>0?"attention":""%>"><span>退勤漏れ</span><strong><%=missingClockOut%></strong></div><div><span>確定済み</span><strong><%=finalizedCount%></strong></div><div class="<%=pendingAdjustmentCount>0?"attention":""%>"><span>未処理修正</span><strong><%=pendingAdjustmentCount%></strong></div></section><%}%>
         <div class="toolbar"><form method="get"><label>対象月<input type="month" name="month" value="<%=month%>"></label><button>表示</button></form><%if(pageKey.equals("attendance/manage")){List<Map<String,Object>> attendancePeople=(List<Map<String,Object>>)request.getAttribute("people");%><div class="actions"><form method="post"><input type="hidden" name="action" value="finalizeAttendanceEmployeeMonth"><input type="hidden" name="returnPage" value="attendance/manage"><input type="hidden" name="month" value="<%=month%>"><select name="userId"><%for(Map<String,Object> person:attendancePeople){%><option value="<%=person.get("id")%>"><%=e(person.get("employee_number"))%> <%=e(person.get("name"))%></option><%}%></select><button class="primary" name="finalized" value="true">従業員別確定</button><button name="finalized" value="false">従業員別解除</button></form><form method="post"><input type="hidden" name="action" value="finalizeAttendanceMonth"><input type="hidden" name="returnPage" value="attendance/manage"><input type="hidden" name="month" value="<%=month%>"><button class="primary" name="finalized" value="true">月次一括確定</button><button name="finalized" value="false">月次確定解除</button></form></div><%}%></div>
         <section class="section"><div class="section-header"><h2>勤怠実績</h2><span class="muted"><%=rows.size()%>件</span></div><div class="table-wrap"><table><thead><tr><th>日付</th><th>氏名</th><th>勤務</th><th>出勤</th><th>退勤</th><th>遅刻</th><th>早退</th><th>残業</th><th>位置情報</th><%if(pageKey.equals("attendance/manage")){%><th>確定</th><%}%></tr></thead><tbody>
-          <%for(Map<String,Object> row:rows){boolean rowOpen=row.get("clock_in")!=null&&row.get("clock_out")==null; boolean rowFinalized=Boolean.TRUE.equals(row.get("finalized"));%><tr class="<%=rowOpen?"attendance-open":rowFinalized?"attendance-finalized":""%>"><td><%=e(row.get("work_date"))%></td><td><%=e(row.get("name"))%></td><td><%=e(row.get("work_type_code"))%></td><td><%=e(row.get("clock_in"))%></td><td><%=e(row.get("clock_out"))%></td><td><%=Boolean.TRUE.equals(row.get("late"))?"遅刻":"-"%></td><td><%=Boolean.TRUE.equals(row.get("early"))?"早退":"-"%></td><td><%=e(row.get("overtime_minutes"))%>分</td><td><%=e(row.get("location_status"))%></td><%if(pageKey.equals("attendance/manage")){%><td><form method="post"><input type="hidden" name="action" value="finalizeAttendance"><input type="hidden" name="returnPage" value="attendance/manage"><input type="hidden" name="id" value="<%=row.get("id")%>"><input type="hidden" name="finalized" value="<%=!rowFinalized%>"><button><%=rowFinalized?"解除":"確定"%></button></form></td><%}%></tr><%}%>
+          <%for(Map<String,Object> row:rows){boolean rowOpen=row.get("clock_in")!=null&&row.get("clock_out")==null; boolean rowFinalized=Boolean.TRUE.equals(row.get("finalized"));%><tr class="<%=rowOpen?"attendance-open":rowFinalized?"attendance-finalized":""%>"><td><%=e(row.get("work_date"))%></td><td><%=e(row.get("name"))%></td><td><%=workTypeLabel(row.get("work_type_code"), row.get("work_type"))%></td><td><%=e(row.get("clock_in"))%></td><td><%=e(row.get("clock_out"))%></td><td><%=Boolean.TRUE.equals(row.get("late"))?"遅刻":"-"%></td><td><%=Boolean.TRUE.equals(row.get("early"))?"早退":"-"%></td><td><%=e(row.get("overtime_minutes"))%>分</td><td><%=locationLabel(row.get("location_status"))%></td><%if(pageKey.equals("attendance/manage")){%><td><form method="post"><input type="hidden" name="action" value="finalizeAttendance"><input type="hidden" name="returnPage" value="attendance/manage"><input type="hidden" name="id" value="<%=row.get("id")%>"><input type="hidden" name="finalized" value="<%=!rowFinalized%>"><button><%=rowFinalized?"解除":"確定"%></button></form></td><%}%></tr><%}%>
           <%if(rows.isEmpty()){%><tr><td colspan="10" class="empty">勤怠データはありません。</td></tr><%}%></tbody></table></div></section>
 
       <% } else if(pageKey.equals("notifications")){ %>

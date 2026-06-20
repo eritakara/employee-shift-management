@@ -484,7 +484,6 @@ public class PortalService {
   }
 
   public void requestLeave(User user, LocalDate date, String unit, Integer hours, String reason) {
-    if (reason == null || reason.isBlank()) throw new IllegalArgumentException("理由を入力してください。");
     if (!settings.bool("LEAVE_ALLOW_PAST", false) && date.isBefore(LocalDate.now())) throw new IllegalArgumentException("過去日の有休は申請できません。");
     if (date.isBefore(LocalDate.now().plusDays(settings.integer("LEAVE_MIN_NOTICE_DAYS", 0)))) throw new IllegalArgumentException("有休申請の事前期限を満たしていません。");
     Map<String, Object> balance = leaveBalance(user.getId());
@@ -497,7 +496,7 @@ public class PortalService {
       if (hours == null || hours < 1 || hours > remainingHours) throw new IllegalArgumentException("時間単位有休の年間上限を超えています。");
     }
     long id = Sql.insert("INSERT INTO leave_requests(user_id,leave_date,leave_unit,hours,reason) VALUES(?,?,?,?,?)",
-        user.getId(), date, unit, hours, reason.trim());
+        user.getId(), date, unit, hours, reason == null ? "" : reason.trim());
     notifyLeaveApprovers(user, "LEAVE_REQUEST", "有休申請", user.getName() + "さんから有休申請があります。", "/app/leave/approvals");
     AuditService.record(user.getId(), "REQUEST_LEAVE", "LEAVE_REQUEST", String.valueOf(id), null, unit + ":" + date);
   }

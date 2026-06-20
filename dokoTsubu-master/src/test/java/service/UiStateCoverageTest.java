@@ -42,6 +42,8 @@ public class UiStateCoverageTest {
     check(application.contains("days(event.get(\"days\"))"), "leave ledger days use compact number formatting");
     check(application.contains("class=\"approver-panel\"") && application.contains("leaveApprovers"),
         "leave request form shows approver information");
+    check(application.contains("理由（任意）<textarea name=\"reason\" maxlength=\"1000\"></textarea>"),
+        "leave request reason is optional in the form");
     check(css.contains(".approver-panel") && css.contains(".approver-list"),
         "leave approver information has dedicated styles");
     check(servlet.contains("req.setAttribute(\"leaveApprovers\", portal.leaveApprovers(user))"),
@@ -52,6 +54,9 @@ public class UiStateCoverageTest {
         && portal.contains("role='MANAGER' AND branch_id=?")
         && portal.contains("notifyLeaveApprovers")
         && portal.contains("assertLeaveApprovalScope"), "employee leave approvers are branch managers");
+    check(portal.contains("reason == null ? \"\" : reason.trim()")
+        && !portal.contains("throw new IllegalArgumentException(\"理由を入力してください。\")"),
+        "leave request reason is optional on the server");
     check(application.contains("if (\"USE\".equals(type)) return \"取得\"")
         && application.contains("if (\"statutory expiry\".equals(note)) return \"法定失効\""),
         "leave ledger labels are localized");

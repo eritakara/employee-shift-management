@@ -60,7 +60,7 @@ String ctx = request.getContextPath();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= e(pageTitle) %> | ShiftFlow</title>
-  <link rel="stylesheet" href="<%= ctx %>/assets/app.css?v=20260620-1">
+  <link rel="stylesheet" href="<%= ctx %>/assets/app.css?v=20260620-2">
 </head>
 <body>
 <a class="skip-link" href="#main-content"><%=en?"Skip to main content":"本文へ移動"%></a>
@@ -72,10 +72,7 @@ String ctx = request.getContextPath();
       <a class="nav-link <%= pageKey.equals("notifications") ? "active" : "" %>" href="<%=ctx%>/app/notifications"><span aria-hidden="true">🔔</span> <%= en ? "Notifications" : "通知" %></a>
       <a class="nav-link <%= pageKey.equals("dashboard") ? "active" : "" %>" href="<%=ctx%>/app/dashboard">▦ <%= en ? "Dashboard" : "ダッシュボード" %></a>
       <p class="nav-label"><%= en ? "Schedule" : "シフト" %></p>
-      <a class="nav-link <%= pageKey.equals("shifts/mine") ? "active" : "" %>" href="<%=ctx%>/app/shifts/mine">□ <%= en ? "My schedule" : "シフト" %></a>
-      <a class="nav-link <%= pageKey.equals("shifts/request") ? "active" : "" %>" href="<%=ctx%>/app/shifts/request">＋ <%= en ? "Submit request" : "希望シフト提出" %></a>
-      <a class="nav-link <%= pageKey.equals("shifts/team") ? "active" : "" %>" href="<%=ctx%>/app/shifts/team">▤ <%= en ? "Team schedule" : "月間シフト表" %></a>
-      <a class="nav-link <%= pageKey.equals("shifts/change") ? "active" : "" %>" href="<%=ctx%>/app/shifts/change">↻ <%= en ? "Change request" : "変更・休み申請" %></a>
+      <a class="nav-link <%= List.of("shifts/mine","shifts/request","shifts/change").contains(pageKey) ? "active" : "" %>" href="<%=ctx%>/app/shifts/mine">□ <%= en ? "Schedule" : "シフト" %></a>
       <% if (manager) { %>
       <a class="nav-link <%= pageKey.equals("shifts/manage") ? "active" : "" %>" href="<%=ctx%>/app/shifts/manage">☷ <%= en ? "Schedule editor" : "シフト調整" %></a>
       <a class="nav-link <%= pageKey.equals("shifts/confirm") ? "active" : "" %>" href="<%=ctx%>/app/shifts/confirm">✓ <%= en ? "Confirm schedule" : "シフト確定" %></a>
@@ -112,6 +109,20 @@ String ctx = request.getContextPath();
     <main class="content" id="main-content" tabindex="-1">
       <% if (request.getAttribute("flash") != null) { %><div class="alert"><%=e(request.getAttribute("flash"))%></div><% } %>
       <% if (request.getAttribute("error") != null) { %><div class="alert danger"><%=e(request.getAttribute("error"))%></div><% } %>
+
+      <% if (List.of("shifts/mine","shifts/request","shifts/change").contains(pageKey)) { %>
+      <nav class="shift-tabs" aria-label="シフトメニュー">
+        <a class="shift-tab schedule <%=pageKey.equals("shifts/mine")?"active":""%>" href="<%=ctx%>/app/shifts/mine?month=<%=month%>" <%=pageKey.equals("shifts/mine")?"aria-current=\"page\"":""%>>
+          <span aria-hidden="true">▦</span><span><strong><%=en?"Schedule":"シフト"%></strong><small><%=en?"View monthly schedule":"月間シフトを確認"%></small></span>
+        </a>
+        <a class="shift-tab preference <%=pageKey.equals("shifts/request")?"active":""%>" href="<%=ctx%>/app/shifts/request?month=<%=month%>" <%=pageKey.equals("shifts/request")?"aria-current=\"page\"":""%>>
+          <span aria-hidden="true">＋</span><span><strong><%=en?"Shift preferences":"希望シフト提出"%></strong><small><%=en?"Submit monthly preferences":"希望日をまとめて提出"%></small></span>
+        </a>
+        <a class="shift-tab change <%=pageKey.equals("shifts/change")?"active":""%>" href="<%=ctx%>/app/shifts/change?month=<%=month%>" <%=pageKey.equals("shifts/change")?"aria-current=\"page\"":""%>>
+          <span aria-hidden="true">↻</span><span><strong><%=en?"Change / day off":"変更・休み申請"%></strong><small><%=en?"Request a schedule change":"確定後の変更を申請"%></small></span>
+        </a>
+      </nav>
+      <% } %>
 
       <% if (pageKey.equals("dashboard")) {
         Map<String,Object> stats = (Map<String,Object>) request.getAttribute("stats");

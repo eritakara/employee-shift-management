@@ -295,7 +295,7 @@ form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
 }
 
 @media print {
-  .sidebar, .topbar, .no-print, .alert, .shift-tabs, .app-footer { display: none !important; }
+  .sidebar, .topbar, .no-print, .alert, .shift-tabs, .shift-legend, .app-footer { display: none !important; }
   .app-shell { display: block; }
   body, .content { background: white; }
   .content { padding: 0; max-width: none; }

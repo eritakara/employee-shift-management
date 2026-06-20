@@ -190,9 +190,16 @@ tbody tr:hover { background: #f7fbfa; }
 .form-grid .span-all { grid-column: 1 / -1; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .actions form { margin: 0; }
-.leave-decision-actions { align-items: center; min-width: 300px; }
-.leave-reject-form { display: inline-flex; align-items: center; gap: 6px; }
-.leave-reject-form input { width: 150px; min-height: 40px; }
+.leave-decision-actions { align-items: center; min-width: 128px; }
+.leave-reject-dialog { width: min(560px,calc(100% - 28px)); padding: 0; border: 0; border-radius: 8px; box-shadow: 0 22px 60px rgba(20,35,45,.28); }
+.leave-reject-dialog::backdrop { background: rgba(15,29,38,.48); }
+.leave-reject-card { display: grid; gap: 16px; padding: 20px; background: white; }
+.decision-summary { display: grid; gap: 10px; margin: 0; padding: 14px; background: #f6fbfa; border-left: 4px solid var(--teal); }
+.decision-summary div { display: grid; grid-template-columns: 88px minmax(0,1fr); gap: 10px; }
+.decision-summary dt { color: var(--muted); font-size: 12px; font-weight: 800; }
+.decision-summary dd { margin: 0; white-space: normal; overflow-wrap: anywhere; }
+.form-error { margin: -8px 0 0; color: var(--red); font-size: 13px; font-weight: 800; }
+.dialog-actions { justify-content: flex-end; }
 .note { background: #f0f4f5; padding: 12px; color: #4c5b64; font-size: 13px; }
 .chart { height: 240px; display: flex; align-items: end; gap: 14px; padding: 22px 10px 30px; border-bottom: 1px solid var(--line); }
 .chart-column { flex: 1; min-width: 32px; height: 100%; display: flex; align-items: end; justify-content: center; position: relative; gap: 4px; }

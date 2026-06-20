@@ -44,11 +44,19 @@ public class UiStateCoverageTest {
         "leave request form shows approver information");
     check(application.contains("理由（任意）<textarea name=\"reason\" maxlength=\"1000\"></textarea>"),
         "leave request reason is optional in the form");
-    check(application.contains("name=\"rejectionReason\" required maxlength=\"500\" placeholder=\"却下理由\""),
-        "leave rejection requires a reason in the approval form");
+    check(application.contains("data-leave-reject-open") && application.contains("data-leave-reject-dialog")
+        && application.contains("name=\"rejectionReason\" required maxlength=\"500\" rows=\"4\" placeholder=\"却下理由を入力してください\""),
+        "leave rejection uses a reason dialog");
+    check(application.contains("data-leave-reject-requester") && application.contains("data-leave-reject-date")
+        && application.contains("data-leave-reject-reason") && application.contains("data-leave-reject-status"),
+        "leave rejection dialog shows request details");
+    check(!application.contains("class=\"leave-reject-form\""), "leave rejection reason is not shown inline");
     check(css.contains(".approver-panel") && css.contains(".approver-list"),
         "leave approver information has dedicated styles");
-    check(css.contains(".leave-reject-form"), "leave rejection reason has dedicated layout");
+    check(css.contains(".leave-reject-dialog") && css.contains(".decision-summary"),
+        "leave rejection dialog has dedicated layout");
+    check(script.contains("data-leave-reject-open") && script.contains("却下理由を入力してください"),
+        "leave rejection dialog is controlled by JavaScript");
     check(servlet.contains("req.setAttribute(\"leaveApprovers\", portal.leaveApprovers(user))"),
         "leave approver information is passed to the view");
     check(application.contains("店長が設定されていません") && portal.contains("'店長' approver_type"),

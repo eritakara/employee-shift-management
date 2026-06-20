@@ -39,7 +39,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.querySelectorAll('[data-print-page]').forEach(button => {
-    button.addEventListener('click', () => window.print());
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      window.focus();
+      window.print();
+    });
   });
 
   document.querySelectorAll('[data-preference-form]').forEach(form => {

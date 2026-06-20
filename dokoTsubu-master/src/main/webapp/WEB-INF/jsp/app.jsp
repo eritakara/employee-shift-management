@@ -86,9 +86,7 @@ String ctx = request.getContextPath();
       <a class="nav-link <%= pageKey.equals("leave/history") ? "active" : "" %>" href="<%=ctx%>/app/leave/history">▤ <%= en ? "Request history" : "申請履歴" %></a>
       <% if (manager) { %><a class="nav-link <%= pageKey.equals("leave/approvals") ? "active" : "" %>" href="<%=ctx%>/app/leave/approvals">✓ <%= en ? "Approvals" : "承認" %></a><% } %>
       <p class="nav-label"><%= en ? "Attendance" : "勤怠" %></p>
-      <a class="nav-link <%= pageKey.equals("attendance/clock") ? "active" : "" %>" href="<%=ctx%>/app/attendance/clock">◉ <%= en ? "Time clock" : "出退勤打刻" %></a>
-      <a class="nav-link <%= pageKey.equals("attendance/mine") ? "active" : "" %>" href="<%=ctx%>/app/attendance/mine">▤ <%= en ? "My attendance" : "自分の勤怠" %></a>
-      <a class="nav-link <%= pageKey.equals("attendance/adjust") ? "active" : "" %>" href="<%=ctx%>/app/attendance/adjust">↻ <%= en ? "Correction" : "打刻修正" %></a>
+      <a class="nav-link <%= (pageKey.equals("attendance/clock") || pageKey.equals("attendance/mine") || pageKey.equals("attendance/adjust") || pageKey.equals("attendance/history")) ? "active" : "" %>" href="<%=ctx%>/app/attendance/clock">◉ <%= en ? "Time clock" : "出退勤打刻" %></a>
       <% if (manager) { %><a class="nav-link <%= pageKey.equals("attendance/manage") ? "active" : "" %>" href="<%=ctx%>/app/attendance/manage">✓ <%= en ? "Monthly close" : "月次確定" %></a><% } %>
       <% if (user.isHr()) { %>
       <p class="nav-label"><%= en ? "Administration" : "管理" %></p>
@@ -225,6 +223,14 @@ String ctx = request.getContextPath();
           List<Map<String,Object>> adjustmentMetrics=(List<Map<String,Object>>)request.getAttribute("adjustments");
           if(adjustmentMetrics!=null) for(Map<String,Object> a:adjustmentMetrics) if("PENDING".equals(a.get("status"))) pendingAdjustmentCount++;
         %>
+        <%if(pageKey.equals("attendance/clock")||pageKey.equals("attendance/mine")||pageKey.equals("attendance/adjust")||pageKey.equals("attendance/history")){%>
+          <nav class="attendance-tabs" aria-label="勤怠画面">
+            <a class="<%=pageKey.equals("attendance/clock")?"active":""%>" href="<%=ctx%>/app/attendance/clock">出退勤打刻</a>
+            <a class="<%=pageKey.equals("attendance/mine")?"active":""%>" href="<%=ctx%>/app/attendance/mine">自分の勤怠</a>
+            <a class="<%=pageKey.equals("attendance/adjust")?"active":""%>" href="<%=ctx%>/app/attendance/adjust">打刻修正</a>
+            <a class="<%=pageKey.equals("attendance/history")?"active":""%>" href="<%=ctx%>/app/attendance/history">修正履歴</a>
+          </nav>
+        <%}%>
         <%if(pageKey.equals("attendance/clock")){%>
           <section class="section clock-panel">
             <div class="clock-status-grid">

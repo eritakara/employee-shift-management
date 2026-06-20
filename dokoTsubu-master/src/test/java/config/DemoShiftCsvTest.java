@@ -26,6 +26,19 @@ public class DemoShiftCsvTest {
       throw new AssertionError("Unexpected Naha demo data: users=" + addedUsers + ", staff=" + staff
           + ", managers=" + managers + ", shifts=" + clonedShifts);
     }
+    Number attendanceRows = (Number) Sql.one("SELECT COUNT(*) metric_value FROM attendance a JOIN users u ON u.id=a.user_id "
+        + "WHERE u.employee_number BETWEEN 'EM001' AND 'EM010' AND a.work_date BETWEEN DATE '2026-06-17' AND DATE '2026-06-20'")
+        .get("metric_value");
+    Number openAttendance = (Number) Sql.one("SELECT COUNT(*) metric_value FROM attendance a JOIN users u ON u.id=a.user_id "
+        + "WHERE u.employee_number='EM002' AND a.work_date=DATE '2026-06-20' AND a.clock_in IS NOT NULL AND a.clock_out IS NULL")
+        .get("metric_value");
+    Number finalizedAttendance = (Number) Sql.one("SELECT COUNT(*) metric_value FROM attendance a JOIN users u ON u.id=a.user_id "
+        + "WHERE u.employee_number='EM008' AND a.work_date=DATE '2026-06-20' AND a.finalized=TRUE")
+        .get("metric_value");
+    if (attendanceRows.intValue() != 11 || openAttendance.intValue() != 1 || finalizedAttendance.intValue() != 1) {
+      throw new AssertionError("Unexpected demo attendance data: rows=" + attendanceRows
+          + ", open=" + openAttendance + ", finalized=" + finalizedAttendance);
+    }
     int[] expectedBranchPeople = {6, 5, 6};
     for (int branch = 2; branch <= 4; branch++) {
       Number people = (Number) Sql.one("SELECT COUNT(*) metric_value FROM users WHERE branch_id=? AND employee_number IN "

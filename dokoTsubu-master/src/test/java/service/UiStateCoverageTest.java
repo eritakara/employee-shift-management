@@ -35,6 +35,7 @@ public class UiStateCoverageTest {
         && application.contains("if (\"FULL\".equals(unit)) return \"1日\""), "leave status and unit labels are localized");
     check(application.contains("leaveEventTypeLabel(event.get(\"event_type\"))")
         && application.contains("leaveNoteLabel(event.get(\"note\"))"), "leave ledger type and note use display labels");
+    check(application.contains("days(balance.get(\"days_remaining\"))"), "leave balance card uses compact day formatting");
     check(application.contains("days(event.get(\"days\"))"), "leave ledger days use compact number formatting");
     check(application.contains("if (\"USE\".equals(type)) return \"取得\"")
         && application.contains("if (\"statutory expiry\".equals(note)) return \"法定失効\""),

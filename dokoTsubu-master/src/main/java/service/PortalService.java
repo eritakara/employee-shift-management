@@ -109,6 +109,17 @@ public class PortalService {
         join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs(viewer)));
   }
 
+  public List<Map<String, Object>> branchShifts(YearMonth month, long branchId) {
+    return Sql.query("SELECT s.id,s.work_date,s.work_type_code,wt.name_ja work_type,u.id user_id,u.name,u.employee_number,s.status,s.note "
+        + "FROM shifts s JOIN users u ON u.id=s.user_id JOIN work_types wt ON wt.code=s.work_type_code "
+        + "WHERE s.work_date BETWEEN ? AND ? AND u.branch_id=? ORDER BY s.work_date,u.name",
+        month.atDay(1), month.atEndOfMonth(), branchId);
+  }
+
+  public List<Map<String, Object>> scheduleBranches() {
+    return Sql.query("SELECT id,name FROM branches WHERE active=TRUE ORDER BY name");
+  }
+
   public List<Map<String, Object>> dashboardShifts(User viewer, YearMonth month, long branchId) {
     if (!viewer.isManager() && !viewer.isHr()) return shifts(viewer, month);
     return Sql.query("SELECT s.id,s.work_date,s.work_type_code,wt.name_ja work_type,u.id user_id,u.name,u.employee_number,s.status,s.note "

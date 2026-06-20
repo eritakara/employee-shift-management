@@ -295,11 +295,20 @@ form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
 }
 
 @media print {
-  .sidebar, .topbar, .no-print, .alert { display: none !important; }
+  .sidebar, .topbar, .no-print, .alert, .shift-tabs { display: none !important; }
   .app-shell { display: block; }
   .content { padding: 0; max-width: none; }
   .section { border: 0; padding: 0; }
   .print-only { display: block; }
   table { font-size: 10px; }
   th, td { padding: 5px; }
+  .shift-roster-wrap { overflow: visible; }
+  .shift-roster { width: 100%; min-width: 0; table-layout: fixed; }
+  .shift-roster th, .shift-roster td { height: auto; padding: 2px 1px; font-size: 7px; }
+  .shift-roster .roster-number { position: static; width: 24px; min-width: 24px; max-width: 24px; }
+  .shift-roster .roster-name { position: static; width: 82px; min-width: 82px; max-width: 82px; }
+  .shift-roster .roster-date, .shift-roster .roster-cell { width: auto; min-width: 0; max-width: none; }
+  .shift-roster .roster-total { width: 28px; min-width: 28px; max-width: 28px; }
 }
+
+@page { size: landscape; margin: 8mm; }

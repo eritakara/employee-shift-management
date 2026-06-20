@@ -40,6 +40,30 @@ public class NotificationRoutingTest {
 
     Sql.update("DELETE FROM notifications");
     Sql.update("DELETE FROM mail_outbox");
+    LocalDate managerLeaveDate = today.plusDays(6);
+    portal.requestLeave(manager, managerLeaveDate, "FULL", null, "manager leave routing");
+    long managerLeaveId = ((Number) Sql.one("SELECT id FROM leave_requests WHERE user_id=? AND leave_date=?", manager.getId(), managerLeaveDate).get("id")).longValue();
+    check(notificationCount(hr.getId(), "LEAVE_REQUEST") == 1, "HR notified for manager leave");
+    check(notificationCount(manager.getId(), "LEAVE_REQUEST") == 0, "manager not notified for own leave approval");
+    expectDenied(() -> portal.decideLeave(manager, managerLeaveId, true), "manager cannot approve own leave");
+    portal.decideLeave(hr, managerLeaveId, false, "人事確認のため");
+    check(notificationMessage(manager.getId(), "LEAVE_DECISION").contains("却下理由: 人事確認のため"), "manager leave rejection reason notified");
+
+    Sql.update("DELETE FROM notifications");
+    Sql.update("DELETE FROM mail_outbox");
+    String passwordHash = String.valueOf(Sql.one("SELECT password_hash FROM users WHERE email='hr@example.com'").get("password_hash"));
+    long hr2 = Sql.insert("INSERT INTO users(employee_number,name,email,password_hash,hire_date,branch_id,department_id,employment_type_id,role) VALUES('HR002','人事 承認多','hr2@example.com',?,CURRENT_DATE,1,4,1,'HR')", passwordHash);
+    long hr3 = Sql.insert("INSERT INTO users(employee_number,name,email,password_hash,hire_date,branch_id,department_id,employment_type_id,role) VALUES('HR003','人事 承認少','hr3@example.com',?,CURRENT_DATE,1,4,1,'HR')", passwordHash);
+    Sql.update("INSERT INTO leave_requests(user_id,leave_date,leave_unit,reason,status,decided_by,decided_at) VALUES(?,?,'FULL','count','APPROVED',?,CURRENT_TIMESTAMP)", employee.getId(), today.minusDays(2), hr2);
+    Sql.update("INSERT INTO leave_requests(user_id,leave_date,leave_unit,reason,status,decided_by,decided_at) VALUES(?,?,'FULL','count','APPROVED',?,CURRENT_TIMESTAMP)", employee.getId(), today.minusDays(1), hr2);
+    check(((Number) portal.leaveApprovers(hr).get(0).get("id")).longValue() == hr3, "HR leave approver uses lowest recent approval count");
+    LocalDate hrLeaveDate = today.plusDays(7);
+    portal.requestLeave(hr, hrLeaveDate, "FULL", null, "HR leave routing");
+    check(notificationCount(hr3, "LEAVE_REQUEST") == 1, "selected HR approver notified");
+    check(notificationCount(hr.getId(), "LEAVE_REQUEST") == 0, "HR requester not self-notified");
+
+    Sql.update("DELETE FROM notifications");
+    Sql.update("DELETE FROM mail_outbox");
     LocalDate rejectedLeaveDate = today.plusDays(5);
     portal.requestLeave(employee, rejectedLeaveDate, "FULL", null, "reject routing");
     long leaveId = ((Number) Sql.one("SELECT id FROM leave_requests WHERE user_id=? AND leave_date=?", employee.getId(), rejectedLeaveDate).get("id")).longValue();
@@ -80,6 +104,12 @@ public class NotificationRoutingTest {
   private static void expectInvalid(Runnable action, String label) {
     try { action.run(); }
     catch (IllegalArgumentException expected) { return; }
+    throw new AssertionError("Failed: " + label);
+  }
+
+  private static void expectDenied(Runnable action, String label) {
+    try { action.run(); }
+    catch (SecurityException expected) { return; }
     throw new AssertionError("Failed: " + label);
   }
 

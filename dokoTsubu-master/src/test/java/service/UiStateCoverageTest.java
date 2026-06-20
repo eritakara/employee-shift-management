@@ -61,12 +61,15 @@ public class UiStateCoverageTest {
         "leave rejection dialog is controlled by JavaScript");
     check(servlet.contains("req.setAttribute(\"leaveApprovers\", portal.leaveApprovers(user))"),
         "leave approver information is passed to the view");
-    check(application.contains("店長が設定されていません") && portal.contains("'店長' approver_type"),
+    check(application.contains("data-leave-reject-open") && portal.contains("approver_type"),
         "leave request approver display is manager oriented");
     check(portal.contains("public List<Map<String, Object>> leaveApprovers(User user)")
         && portal.contains("role='MANAGER' AND branch_id=?")
+        && portal.contains("\"MANAGER\".equals(applicantRole)")
+        && portal.contains("\"HR\".equals(applicantRole)")
+        && portal.contains("COUNT(l.id) approval_count")
         && portal.contains("notifyLeaveApprovers")
-        && portal.contains("assertLeaveApprovalScope"), "employee leave approvers are branch managers");
+        && portal.contains("assertLeaveApprovalScope"), "leave approvers are role-aware and workload ordered");
     check(portal.contains("reason == null ? \"\" : reason.trim()")
         && !portal.contains("throw new IllegalArgumentException(\"理由を入力してください。\")"),
         "leave request reason is optional on the server");

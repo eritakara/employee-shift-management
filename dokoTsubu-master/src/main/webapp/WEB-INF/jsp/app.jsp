@@ -91,7 +91,7 @@ String ctx = request.getContextPath();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= e(pageTitle) %> | ShiftFlow</title>
-  <link rel="stylesheet" href="<%= ctx %>/assets/app.css?v=20260620-1">
+  <link rel="stylesheet" href="<%= ctx %>/assets/app.css?v=20260620-2">
 </head>
 <body>
 <a class="skip-link" href="#main-content"><%=en?"Skip to main content":"本文へ移動"%></a>
@@ -299,6 +299,6 @@ String ctx = request.getContextPath();
     <footer class="app-footer"><a href="<%=ctx%>/privacy"><%=en?"Privacy and location data":"個人情報・位置情報の取扱い"%></a></footer>
   </div>
 </div>
-<script src="<%=ctx%>/assets/app.js?v=20260620-1"></script>
+<script src="<%=ctx%>/assets/app.js?v=20260620-2"></script>
 </body>
 </html>

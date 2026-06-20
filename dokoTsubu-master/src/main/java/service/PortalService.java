@@ -502,11 +502,20 @@ public class PortalService {
   }
 
   public void decideLeave(User actor, long requestId, boolean approve) {
+    decideLeave(actor, requestId, approve, null);
+  }
+
+  public void decideLeave(User actor, long requestId, boolean approve, String rejectionReason) {
     requireManager(actor);
     Map<String, Object> request = Sql.one("SELECT l.*,u.branch_id,u.department_id,u.name FROM leave_requests l JOIN users u ON u.id=l.user_id WHERE l.id=?", requestId);
     if (request.isEmpty()) throw new IllegalArgumentException("申請が見つかりません。");
     assertLeaveApprovalScope(actor, ((Number) request.get("branch_id")).longValue());
     if (!"PENDING".equals(request.get("status"))) throw new IllegalArgumentException("処理済みの申請です。");
+    String decisionMessage = request.get("leave_date") + "の申請結果を確認してください。";
+    if (!approve) {
+      if (rejectionReason == null || rejectionReason.isBlank()) throw new IllegalArgumentException("却下理由を入力してください。");
+      decisionMessage += " 却下理由: " + rejectionReason.trim();
+    }
     if (approve) {
       leaveLedger.consume(requestId);
     }
@@ -514,7 +523,7 @@ public class PortalService {
         approve ? "APPROVED" : "REJECTED", actor.getId(), requestId);
     long userId = ((Number) request.get("user_id")).longValue();
     notify(userId, "LEAVE_DECISION", approve ? "有休申請が承認されました" : "有休申請が却下されました",
-        request.get("leave_date") + "の申請結果を確認してください。", "/app/leave/history");
+        decisionMessage, "/app/leave/history");
     AuditService.record(actor.getId(), approve ? "APPROVE_LEAVE" : "REJECT_LEAVE", "LEAVE_REQUEST", String.valueOf(requestId), "PENDING", approve ? "APPROVED" : "REJECTED");
   }
 

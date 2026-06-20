@@ -44,8 +44,11 @@ public class UiStateCoverageTest {
         "leave request form shows approver information");
     check(application.contains("理由（任意）<textarea name=\"reason\" maxlength=\"1000\"></textarea>"),
         "leave request reason is optional in the form");
+    check(application.contains("name=\"rejectionReason\" required maxlength=\"500\" placeholder=\"却下理由\""),
+        "leave rejection requires a reason in the approval form");
     check(css.contains(".approver-panel") && css.contains(".approver-list"),
         "leave approver information has dedicated styles");
+    check(css.contains(".leave-reject-form"), "leave rejection reason has dedicated layout");
     check(servlet.contains("req.setAttribute(\"leaveApprovers\", portal.leaveApprovers(user))"),
         "leave approver information is passed to the view");
     check(application.contains("店長が設定されていません") && portal.contains("'店長' approver_type"),
@@ -57,6 +60,8 @@ public class UiStateCoverageTest {
     check(portal.contains("reason == null ? \"\" : reason.trim()")
         && !portal.contains("throw new IllegalArgumentException(\"理由を入力してください。\")"),
         "leave request reason is optional on the server");
+    check(portal.contains("throw new IllegalArgumentException(\"却下理由を入力してください。\")")
+        && portal.contains("却下理由: "), "leave rejection reason is required and included in notification");
     check(application.contains("if (\"USE\".equals(type)) return \"取得\"")
         && application.contains("if (\"statutory expiry\".equals(note)) return \"法定失効\""),
         "leave ledger labels are localized");

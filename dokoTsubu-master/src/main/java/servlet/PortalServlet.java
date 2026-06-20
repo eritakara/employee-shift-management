@@ -173,7 +173,8 @@ public class PortalServlet extends HttpServlet {
         case "decideShiftChange" -> portal.decideShiftChange(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
         case "requestLeave" -> portal.requestLeave(user, LocalDate.parse(req.getParameter("date")),
             req.getParameter("unit"), integer(req.getParameter("hours")), req.getParameter("reason"));
-        case "decideLeave" -> portal.decideLeave(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
+        case "decideLeave" -> portal.decideLeave(user, Long.parseLong(req.getParameter("id")),
+            "approve".equals(req.getParameter("decision")), req.getParameter("rejectionReason"));
         case "cancelLeave" -> portal.cancelLeave(user, Long.parseLong(req.getParameter("id")));
         case "clock" -> portal.clock(user, "in".equals(req.getParameter("direction")), req.getParameter("lat"), req.getParameter("lng"), value(req, "locationStatus", "UNKNOWN"));
         case "finalizeAttendance" -> portal.finalizeAttendance(user, Long.parseLong(req.getParameter("id")), Boolean.parseBoolean(req.getParameter("finalized")));

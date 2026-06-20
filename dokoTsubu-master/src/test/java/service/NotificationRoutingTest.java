@@ -40,6 +40,18 @@ public class NotificationRoutingTest {
 
     Sql.update("DELETE FROM notifications");
     Sql.update("DELETE FROM mail_outbox");
+    LocalDate rejectedLeaveDate = today.plusDays(5);
+    portal.requestLeave(employee, rejectedLeaveDate, "FULL", null, "reject routing");
+    long leaveId = ((Number) Sql.one("SELECT id FROM leave_requests WHERE user_id=? AND leave_date=?", employee.getId(), rejectedLeaveDate).get("id")).longValue();
+    expectInvalid(() -> portal.decideLeave(manager, leaveId, false, ""), "leave rejection reason required");
+    check("PENDING".equals(Sql.one("SELECT status FROM leave_requests WHERE id=?", leaveId).get("status")), "blank leave rejection stays pending");
+    Sql.update("DELETE FROM notifications");
+    Sql.update("DELETE FROM mail_outbox");
+    portal.decideLeave(manager, leaveId, false, "繁忙日のため");
+    check(notificationMessage(employee.getId(), "LEAVE_DECISION").contains("却下理由: 繁忙日のため"), "leave rejection reason notified");
+
+    Sql.update("DELETE FROM notifications");
+    Sql.update("DELETE FROM mail_outbox");
     LocalDate reminderDay = LocalDate.of(2026, 6, 14);
     LocalDate submittedDate = reminderDay.plusMonths(1).withDayOfMonth(1);
     Sql.update("INSERT INTO shifts(user_id,work_date,work_type_code,status,updated_by) VALUES(?,?,'DAY','SUBMITTED',?)",
@@ -59,6 +71,16 @@ public class NotificationRoutingTest {
 
   private static int mailCount(String email, String subject) {
     return ((Number) Sql.one("SELECT COUNT(*) count_value FROM mail_outbox WHERE recipient=? AND subject=?", email, subject).get("count_value")).intValue();
+  }
+
+  private static String notificationMessage(long userId, String type) {
+    return String.valueOf(Sql.one("SELECT message FROM notifications WHERE user_id=? AND type=? ORDER BY id DESC LIMIT 1", userId, type).get("message"));
+  }
+
+  private static void expectInvalid(Runnable action, String label) {
+    try { action.run(); }
+    catch (IllegalArgumentException expected) { return; }
+    throw new AssertionError("Failed: " + label);
   }
 
   private static void check(boolean condition, String label) {

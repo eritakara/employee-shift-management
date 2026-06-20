@@ -38,14 +38,20 @@ document.addEventListener('DOMContentLoaded', () => {
     input.addEventListener('change', () => input.form?.requestSubmit());
   });
 
-  document.querySelectorAll('[data-print-page]').forEach(button => {
-    button.addEventListener('click', event => {
-      event.preventDefault();
-      event.stopPropagation();
-      window.focus();
-      window.print();
+  const autoPrint = document.querySelector('[data-print-on-load]');
+  if (autoPrint) {
+    let printStarted = false;
+    window.addEventListener('beforeprint', () => { printStarted = true; }, {once:true});
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        window.focus();
+        window.print();
+        window.setTimeout(() => {
+          if (!printStarted) autoPrint.hidden = false;
+        }, 400);
+      }, 100);
     });
-  });
+  }
 
   document.querySelectorAll('[data-preference-form]').forEach(form => {
     const selects = [...form.querySelectorAll('[data-preference-select]')];

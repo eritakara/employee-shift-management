@@ -66,6 +66,24 @@ button:hover, .button:hover { border-color: var(--teal); }
 .menu-button { display: none; width: 42px; padding: 0; }
 .content { padding: 28px; max-width: 1500px; margin: 0 auto; }
 
+.shift-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 22px; }
+.shift-tab { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 13px 16px; border: 1px solid var(--line); border-bottom-width: 4px; border-radius: 7px; background: white; color: var(--ink); text-decoration: none; transition: transform .15s, box-shadow .15s, background .15s; }
+.shift-tab > span:first-child { flex: 0 0 34px; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; font-size: 18px; font-weight: 900; }
+.shift-tab strong, .shift-tab small { display: block; }
+.shift-tab strong { font-size: 15px; }
+.shift-tab small { margin-top: 3px; color: var(--muted); font-size: 11px; }
+.shift-tab:hover { transform: translateY(-1px); box-shadow: 0 5px 14px rgba(23,32,42,.08); }
+.shift-tab.schedule { border-bottom-color: #168f87; }
+.shift-tab.schedule > span:first-child { background: #dff4f1; color: #087f78; }
+.shift-tab.preference { border-bottom-color: #e49a24; }
+.shift-tab.preference > span:first-child { background: #fff0d8; color: #a45c00; }
+.shift-tab.change { border-bottom-color: #397db5; }
+.shift-tab.change > span:first-child { background: #e1effa; color: #28699a; }
+.shift-tab.schedule.active { background: #eaf8f6; border-color: #168f87; }
+.shift-tab.preference.active { background: #fff7e9; border-color: #e49a24; }
+.shift-tab.change.active { background: #eef6fc; border-color: #397db5; }
+.shift-tab.active { box-shadow: inset 0 0 0 1px currentColor; }
+
 .alert { padding: 12px 14px; border-left: 4px solid var(--teal); background: var(--green-soft); margin-bottom: 20px; }
 .alert.danger { background: var(--red-soft); border-color: var(--red); }
 .overtime-alert { display: flex; align-items: center; gap: 14px; padding: 15px 18px; margin-bottom: 20px; border: 1px solid #b9ddd5; border-left: 5px solid var(--teal); border-radius: 6px; background: var(--green-soft); }
@@ -258,6 +276,9 @@ form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
   .topbar h1 { font-size: 17px; }
   .user-chip { display: none; }
   .content { padding: 18px 12px; }
+  .shift-tabs { grid-template-columns: repeat(3, minmax(150px, 1fr)); overflow-x: auto; padding-bottom: 4px; }
+  .shift-tab { min-height: 64px; padding: 10px 12px; }
+  .shift-tab small { display: none; }
   .app-footer { padding: 0 12px 18px; }
   .metric-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
   .metric { padding: 14px; }
@@ -274,11 +295,22 @@ form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
 }
 
 @media print {
-  .sidebar, .topbar, .no-print, .alert { display: none !important; }
+  .sidebar, .topbar, .no-print, .alert, .shift-tabs, .shift-legend, .app-footer { display: none !important; }
   .app-shell { display: block; }
+  body, .content { background: white; }
   .content { padding: 0; max-width: none; }
-  .section { border: 0; padding: 0; }
+  .section { border: 0; padding: 0; margin: 0; }
   .print-only { display: block; }
+  .roster-print-branch { margin-top: 3px; color: var(--ink); font-size: 11px; font-weight: 700; }
   table { font-size: 10px; }
   th, td { padding: 5px; }
+  .shift-roster-wrap { overflow: visible; }
+  .shift-roster { width: 100%; min-width: 0; table-layout: fixed; }
+  .shift-roster th, .shift-roster td { height: auto; padding: 2px 1px; font-size: 7px; }
+  .shift-roster .roster-number { position: static; width: 24px; min-width: 24px; max-width: 24px; }
+  .shift-roster .roster-name { position: static; width: 82px; min-width: 82px; max-width: 82px; }
+  .shift-roster .roster-date, .shift-roster .roster-cell { width: auto; min-width: 0; max-width: none; }
+  .shift-roster .roster-total { width: 28px; min-width: 28px; max-width: 28px; }
 }
+
+@page { size: landscape; margin: 8mm; }

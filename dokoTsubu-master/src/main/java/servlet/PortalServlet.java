@@ -28,7 +28,7 @@ public class PortalServlet extends HttpServlet {
     TITLES.put("shifts/mine", "シフト"); TITLES.put("shifts/request", "希望シフト提出");
     TITLES.put("shifts/team", "月間シフト表"); TITLES.put("shifts/change", "シフト変更・休み申請");
     TITLES.put("shifts/history", "シフト申請履歴"); TITLES.put("shifts/manage", "シフト調整");
-    TITLES.put("shifts/confirm", "シフト確定確認"); TITLES.put("shifts/print", "月間シフト印刷");
+    TITLES.put("shifts/confirm", "シフト確定確認"); TITLES.put("shifts/print", "シフト印刷");
     TITLES.put("leave/balance", "有休残数・取得履歴"); TITLES.put("leave/request", "有休申請");
     TITLES.put("leave/history", "有休申請履歴"); TITLES.put("leave/approvals", "有休承認");
     TITLES.put("attendance/clock", "出勤・退勤打刻"); TITLES.put("attendance/mine", "自分の勤怠");
@@ -73,7 +73,22 @@ public class PortalServlet extends HttpServlet {
       req.setAttribute("dashboardBranches", dashboardBranches);
       req.setAttribute("dashboardBranchId", dashboardBranchId);
     } else if (page.startsWith("shifts/")) {
-      req.setAttribute("rows", portal.shifts(user, month));
+      if ("shifts/mine".equals(page) || "shifts/print".equals(page)) {
+        java.util.List<Map<String, Object>> shiftBranches = portal.scheduleBranches();
+        long shiftBranchId = longValue(req, "branchId", user.getBranchId());
+        boolean shiftBranchExists = false;
+        for (Map<String, Object> branch : shiftBranches) {
+          if (((Number) branch.get("id")).longValue() == shiftBranchId) shiftBranchExists = true;
+        }
+        if (!shiftBranchExists && !shiftBranches.isEmpty()) {
+          shiftBranchId = ((Number) shiftBranches.get(0).get("id")).longValue();
+        }
+        req.setAttribute("rows", shiftBranches.isEmpty() ? java.util.List.of() : portal.branchShifts(month, shiftBranchId));
+        req.setAttribute("shiftBranches", shiftBranches);
+        req.setAttribute("shiftBranchId", shiftBranchId);
+      } else {
+        req.setAttribute("rows", portal.shifts(user, month));
+      }
       req.setAttribute("people", portal.users(user));
       req.setAttribute("requests", portal.shiftChangeRequests(user));
       if ("shifts/confirm".equals(page) || "shifts/manage".equals(page)) req.setAttribute("warnings", portal.shiftWarnings(user, month));

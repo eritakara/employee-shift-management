@@ -90,6 +90,7 @@ public class PortalServlet extends HttpServlet {
       req.setAttribute("rows", portal.leaveRequests(user));
       req.setAttribute("balance", portal.leaveBalance(user.getId()));
       req.setAttribute("leaveLedger", portal.leaveHistory(user));
+      req.setAttribute("leaveApprovers", portal.leaveApprovers(user));
     } else if (page.startsWith("attendance/")) {
       req.setAttribute("rows", portal.attendance(user, month));
       req.setAttribute("adjustments", portal.attendanceAdjustments(user));

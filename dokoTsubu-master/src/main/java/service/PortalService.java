@@ -466,6 +466,17 @@ public class PortalService {
         + ownOrScope + " ORDER BY l.created_at DESC", args);
   }
 
+  public List<Map<String, Object>> leaveApprovers(User user) {
+    return Sql.query("SELECT id,name,role,approver_type FROM ("
+        + "SELECT u.id,u.name,u.role,'承認者' approver_type,CASE WHEN u.role='MANAGER' THEN 0 ELSE 2 END sort_order,u.employee_number "
+        + "FROM users u WHERE u.active=TRUE AND u.id<>? AND ((u.role='MANAGER' AND u.branch_id=? AND u.department_id=?) OR u.role='HR') "
+        + "UNION SELECT u.id,u.name,u.role,'代理承認者' approver_type,1 sort_order,u.employee_number "
+        + "FROM delegations d JOIN users m ON m.id=d.manager_id JOIN users u ON u.id=d.delegate_id "
+        + "WHERE d.active=TRUE AND u.active=TRUE AND u.id<>? AND CURRENT_DATE BETWEEN d.starts_on AND d.ends_on AND m.branch_id=? AND m.department_id=?"
+        + ") ORDER BY sort_order,employee_number",
+        user.getId(), user.getBranchId(), user.getDepartmentId(), user.getId(), user.getBranchId(), user.getDepartmentId());
+  }
+
   public Map<String, Object> leaveBalance(long userId) {
     return leaveLedger.balance(userId, LocalDate.now());
   }

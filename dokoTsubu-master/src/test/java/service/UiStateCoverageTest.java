@@ -6,11 +6,14 @@ import java.nio.file.Path;
 public class UiStateCoverageTest {
   public static void main(String[] args) throws Exception {
     Path web = Path.of("src/main/webapp");
+    Path main = Path.of("src/main/java");
     String script = Files.readString(web.resolve("assets/app.js"));
     String css = Files.readString(web.resolve("assets/app.css"));
     String application = Files.readString(web.resolve("WEB-INF/jsp/app.jsp"));
     String error = Files.readString(web.resolve("WEB-INF/jsp/error.jsp"));
     String deployment = Files.readString(web.resolve("WEB-INF/web.xml"));
+    String portal = Files.readString(main.resolve("service/PortalService.java"));
+    String servlet = Files.readString(main.resolve("servlet/PortalServlet.java"));
 
     check(script.contains("form.dataset.submitting === 'true'"), "forms prevent duplicate submission");
     check(script.contains("aria-busy"), "forms expose loading state");
@@ -37,6 +40,14 @@ public class UiStateCoverageTest {
         && application.contains("leaveNoteLabel(event.get(\"note\"))"), "leave ledger type and note use display labels");
     check(application.contains("days(balance.get(\"days_remaining\"))"), "leave balance card uses compact day formatting");
     check(application.contains("days(event.get(\"days\"))"), "leave ledger days use compact number formatting");
+    check(application.contains("class=\"approver-panel\"") && application.contains("leaveApprovers"),
+        "leave request form shows approver information");
+    check(css.contains(".approver-panel") && css.contains(".approver-list"),
+        "leave approver information has dedicated styles");
+    check(servlet.contains("req.setAttribute(\"leaveApprovers\", portal.leaveApprovers(user))"),
+        "leave approver information is passed to the view");
+    check(portal.contains("public List<Map<String, Object>> leaveApprovers(User user)")
+        && portal.contains("'代理承認者' approver_type"), "leave approvers include managers, HR, and active delegates");
     check(application.contains("if (\"USE\".equals(type)) return \"取得\"")
         && application.contains("if (\"statutory expiry\".equals(note)) return \"法定失効\""),
         "leave ledger labels are localized");

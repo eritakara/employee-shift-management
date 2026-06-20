@@ -467,7 +467,7 @@ public class PortalService {
   }
 
   public List<Map<String, Object>> leaveApprovers(User user) {
-    return Sql.query("SELECT id,name,role,'支店長' approver_type FROM users "
+    return Sql.query("SELECT id,name,role,'店長' approver_type FROM users "
         + "WHERE active=TRUE AND role='MANAGER' AND branch_id=? AND id<>? ORDER BY employee_number",
         user.getBranchId(), user.getId());
   }

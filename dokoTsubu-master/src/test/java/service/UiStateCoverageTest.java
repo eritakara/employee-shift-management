@@ -46,8 +46,8 @@ public class UiStateCoverageTest {
         "leave approver information has dedicated styles");
     check(servlet.contains("req.setAttribute(\"leaveApprovers\", portal.leaveApprovers(user))"),
         "leave approver information is passed to the view");
-    check(application.contains("支店の店長が設定されていません") && portal.contains("'支店長' approver_type"),
-        "leave request approver display is branch-manager oriented");
+    check(application.contains("店長が設定されていません") && portal.contains("'店長' approver_type"),
+        "leave request approver display is manager oriented");
     check(portal.contains("public List<Map<String, Object>> leaveApprovers(User user)")
         && portal.contains("role='MANAGER' AND branch_id=?")
         && portal.contains("notifyLeaveApprovers")

@@ -459,22 +459,17 @@ public class PortalService {
   }
 
   public List<Map<String, Object>> leaveRequests(User viewer) {
-    String ownOrScope = viewer.isHr() ? "" : viewer.isManager() ? " AND u.branch_id=? AND u.department_id=?" : " AND l.user_id=?";
+    String ownOrScope = viewer.isHr() ? "" : viewer.isManager() ? " AND u.branch_id=?" : " AND l.user_id=?";
     Object[] args = viewer.isHr() ? new Object[]{} : viewer.isManager()
-        ? new Object[]{viewer.getBranchId(), viewer.getDepartmentId()} : new Object[]{viewer.getId()};
+        ? new Object[]{viewer.getBranchId()} : new Object[]{viewer.getId()};
     return Sql.query("SELECT l.*,u.name,u.employee_number FROM leave_requests l JOIN users u ON u.id=l.user_id WHERE 1=1"
         + ownOrScope + " ORDER BY l.created_at DESC", args);
   }
 
   public List<Map<String, Object>> leaveApprovers(User user) {
-    return Sql.query("SELECT id,name,role,approver_type FROM ("
-        + "SELECT u.id,u.name,u.role,'承認者' approver_type,CASE WHEN u.role='MANAGER' THEN 0 ELSE 2 END sort_order,u.employee_number "
-        + "FROM users u WHERE u.active=TRUE AND u.id<>? AND ((u.role='MANAGER' AND u.branch_id=? AND u.department_id=?) OR u.role='HR') "
-        + "UNION SELECT u.id,u.name,u.role,'代理承認者' approver_type,1 sort_order,u.employee_number "
-        + "FROM delegations d JOIN users m ON m.id=d.manager_id JOIN users u ON u.id=d.delegate_id "
-        + "WHERE d.active=TRUE AND u.active=TRUE AND u.id<>? AND CURRENT_DATE BETWEEN d.starts_on AND d.ends_on AND m.branch_id=? AND m.department_id=?"
-        + ") ORDER BY sort_order,employee_number",
-        user.getId(), user.getBranchId(), user.getDepartmentId(), user.getId(), user.getBranchId(), user.getDepartmentId());
+    return Sql.query("SELECT id,name,role,'支店長' approver_type FROM users "
+        + "WHERE active=TRUE AND role='MANAGER' AND branch_id=? AND id<>? ORDER BY employee_number",
+        user.getBranchId(), user.getId());
   }
 
   public Map<String, Object> leaveBalance(long userId) {
@@ -482,9 +477,9 @@ public class PortalService {
   }
 
   public List<Map<String, Object>> leaveHistory(User viewer) {
-    String filter = viewer.isHr() ? "" : viewer.isManager() ? " AND u.branch_id=? AND u.department_id=?" : " AND h.user_id=?";
+    String filter = viewer.isHr() ? "" : viewer.isManager() ? " AND u.branch_id=?" : " AND h.user_id=?";
     Object[] args = viewer.isHr() ? new Object[]{} : viewer.isManager()
-        ? new Object[]{viewer.getBranchId(), viewer.getDepartmentId()} : new Object[]{viewer.getId()};
+        ? new Object[]{viewer.getBranchId()} : new Object[]{viewer.getId()};
     return Sql.query("SELECT h.*,u.name,u.employee_number FROM leave_history h JOIN users u ON u.id=h.user_id WHERE 1=1" + filter + " ORDER BY h.event_date DESC,h.id DESC", args);
   }
 
@@ -503,7 +498,7 @@ public class PortalService {
     }
     long id = Sql.insert("INSERT INTO leave_requests(user_id,leave_date,leave_unit,hours,reason) VALUES(?,?,?,?,?)",
         user.getId(), date, unit, hours, reason.trim());
-    notifyManagers(user, "LEAVE_REQUEST", "有休申請", user.getName() + "さんから有休申請があります。", "/app/leave/approvals");
+    notifyLeaveApprovers(user, "LEAVE_REQUEST", "有休申請", user.getName() + "さんから有休申請があります。", "/app/leave/approvals");
     AuditService.record(user.getId(), "REQUEST_LEAVE", "LEAVE_REQUEST", String.valueOf(id), null, unit + ":" + date);
   }
 
@@ -511,7 +506,7 @@ public class PortalService {
     requireManager(actor);
     Map<String, Object> request = Sql.one("SELECT l.*,u.branch_id,u.department_id,u.name FROM leave_requests l JOIN users u ON u.id=l.user_id WHERE l.id=?", requestId);
     if (request.isEmpty()) throw new IllegalArgumentException("申請が見つかりません。");
-    assertScope(actor, ((Number) request.get("branch_id")).longValue(), ((Number) request.get("department_id")).longValue());
+    assertLeaveApprovalScope(actor, ((Number) request.get("branch_id")).longValue());
     if (!"PENDING".equals(request.get("status"))) throw new IllegalArgumentException("処理済みの申請です。");
     if (approve) {
       leaveLedger.consume(requestId);
@@ -533,7 +528,7 @@ public class PortalService {
     if (!leaveDate.isAfter(LocalDate.now())) throw new IllegalArgumentException("当日・過去日の有休は取り消せません。");
     if ("APPROVED".equals(currentStatus)) leaveLedger.restore(requestId, LocalDate.now());
     Sql.update("UPDATE leave_requests SET status='CANCELLED' WHERE id=?", requestId);
-    notifyManagers(actor, "LEAVE_CANCELLED", "有休申請の取消", actor.getName() + "さんが有休申請を取り消しました。", "/app/leave/approvals");
+    notifyLeaveApprovers(actor, "LEAVE_CANCELLED", "有休申請の取消", actor.getName() + "さんが有休申請を取り消しました。", "/app/leave/approvals");
     AuditService.record(actor.getId(), "CANCEL_LEAVE", "LEAVE_REQUEST", String.valueOf(requestId), currentStatus, "CANCELLED");
   }
 
@@ -844,6 +839,12 @@ public class PortalService {
     for (Map<String, Object> manager : managers) notify(((Number) manager.get("id")).longValue(), type, title, message, url);
   }
 
+  private void notifyLeaveApprovers(User user, String type, String title, String message, String url) {
+    List<Map<String, Object>> managers = Sql.query("SELECT id FROM users WHERE active=TRUE AND role='MANAGER' AND branch_id=? AND id<>?",
+        user.getBranchId(), user.getId());
+    for (Map<String, Object> manager : managers) notify(((Number) manager.get("id")).longValue(), type, title, message, url);
+  }
+
   private Object value(String sql, Object... args) { return Sql.one(sql, args).getOrDefault("metric_value", 0); }
 
   private double monthHours(User user) {
@@ -904,6 +905,11 @@ public class PortalService {
     if (!actor.isHr() && (actor.getBranchId() != branch || actor.getDepartmentId() != department)) {
       throw new SecurityException("担当外のデータです。");
     }
+  }
+
+  private void assertLeaveApprovalScope(User actor, long branch) {
+    if (actor.isHr()) return;
+    if (!actor.isManager() || actor.getBranchId() != branch) throw new SecurityException("担当外のデータです。");
   }
 
   private BigDecimal number(String value) {

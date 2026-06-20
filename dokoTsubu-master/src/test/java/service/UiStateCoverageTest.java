@@ -46,8 +46,12 @@ public class UiStateCoverageTest {
         "leave approver information has dedicated styles");
     check(servlet.contains("req.setAttribute(\"leaveApprovers\", portal.leaveApprovers(user))"),
         "leave approver information is passed to the view");
+    check(application.contains("支店の店長が設定されていません") && portal.contains("'支店長' approver_type"),
+        "leave request approver display is branch-manager oriented");
     check(portal.contains("public List<Map<String, Object>> leaveApprovers(User user)")
-        && portal.contains("'代理承認者' approver_type"), "leave approvers include managers, HR, and active delegates");
+        && portal.contains("role='MANAGER' AND branch_id=?")
+        && portal.contains("notifyLeaveApprovers")
+        && portal.contains("assertLeaveApprovalScope"), "employee leave approvers are branch managers");
     check(application.contains("if (\"USE\".equals(type)) return \"取得\"")
         && application.contains("if (\"statutory expiry\".equals(note)) return \"法定失効\""),
         "leave ledger labels are localized");

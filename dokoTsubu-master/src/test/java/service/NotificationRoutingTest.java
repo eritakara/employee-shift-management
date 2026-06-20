@@ -31,6 +31,15 @@ public class NotificationRoutingTest {
 
     Sql.update("DELETE FROM notifications");
     Sql.update("DELETE FROM mail_outbox");
+    portal.requestLeave(employee, today.plusDays(4), "FULL", null, "leave notification routing");
+    check(notificationCount(manager.getId(), "LEAVE_REQUEST") == 1, "branch manager notified for leave");
+    check(notificationCount(hr.getId(), "LEAVE_REQUEST") == 0, "HR not notified as employee leave approver");
+    check(notificationCount(delegate.getId(), "LEAVE_REQUEST") == 0, "delegate not notified as employee leave approver");
+    check(notificationCount(employee.getId(), "LEAVE_REQUEST") == 0, "requester not notified for own leave");
+    check(mailCount(manager.getEmail(), "有休申請") == 1, "branch manager leave mail queued");
+
+    Sql.update("DELETE FROM notifications");
+    Sql.update("DELETE FROM mail_outbox");
     LocalDate reminderDay = LocalDate.of(2026, 6, 14);
     LocalDate submittedDate = reminderDay.plusMonths(1).withDayOfMonth(1);
     Sql.update("INSERT INTO shifts(user_id,work_date,work_type_code,status,updated_by) VALUES(?,?,'DAY','SUBMITTED',?)",

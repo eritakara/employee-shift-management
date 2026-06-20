@@ -295,11 +295,13 @@ form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
 }
 
 @media print {
-  .sidebar, .topbar, .no-print, .alert, .shift-tabs { display: none !important; }
+  .sidebar, .topbar, .no-print, .alert, .shift-tabs, .app-footer { display: none !important; }
   .app-shell { display: block; }
+  body, .content { background: white; }
   .content { padding: 0; max-width: none; }
-  .section { border: 0; padding: 0; }
+  .section { border: 0; padding: 0; margin: 0; }
   .print-only { display: block; }
+  .roster-print-branch { margin-top: 3px; color: var(--ink); font-size: 11px; font-weight: 700; }
   table { font-size: 10px; }
   th, td { padding: 5px; }
   .shift-roster-wrap { overflow: visible; }

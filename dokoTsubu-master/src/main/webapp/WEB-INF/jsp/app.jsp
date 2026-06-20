@@ -60,7 +60,7 @@ String ctx = request.getContextPath();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= e(pageTitle) %> | ShiftFlow</title>
-  <link rel="stylesheet" href="<%= ctx %>/assets/app.css?v=20260620-3">
+  <link rel="stylesheet" href="<%= ctx %>/assets/app.css?v=20260620-4">
 </head>
 <body>
 <a class="skip-link" href="#main-content"><%=en?"Skip to main content":"本文へ移動"%></a>
@@ -161,7 +161,7 @@ String ctx = request.getContextPath();
       <% } else if (pageKey.startsWith("shifts/")) { Number selectedShiftBranch=(Number)request.getAttribute("shiftBranchId"); String selectedShiftBranchQuery=selectedShiftBranch==null?"":"&amp;branchId="+selectedShiftBranch.longValue(); boolean printDialogRequested=pageKey.equals("shifts/print")&&"1".equals(request.getParameter("printDialog")); %>
         <div class="toolbar no-print">
           <form method="get"><%if(selectedShiftBranch!=null){%><input type="hidden" name="branchId" value="<%=selectedShiftBranch%>"><%}%><label>対象月<input type="month" name="month" value="<%=month%>" <%=pageKey.equals("shifts/mine")?"data-auto-submit":""%>></label><%if(!pageKey.equals("shifts/mine")){%><button type="submit">表示</button><%}%></form>
-          <div class="actions"><%if(pageKey.equals("shifts/print")){%><a class="button" href="<%=ctx%>/app/shifts/mine?month=<%=month%><%=selectedShiftBranchQuery%>">シフトへ戻る</a><a class="button primary" href="<%=ctx%>/app/shifts/print?month=<%=month%><%=selectedShiftBranchQuery%>&amp;printDialog=1">印刷する</a><%}else{%><a class="button" href="<%=ctx%>/app/shifts/print?month=<%=month%><%=selectedShiftBranchQuery%>">印刷</a><% if(manager){ %><a class="button primary" href="<%=ctx%>/app/shifts/manage?month=<%=month%>">調整する</a><% }} %></div>
+          <div class="actions"><%if(pageKey.equals("shifts/print")){%><a class="button" href="<%=ctx%>/app/shifts/mine?month=<%=month%><%=selectedShiftBranchQuery%>">シフトへ戻る</a><%if(!printDialogRequested){%><a class="button primary" href="<%=ctx%>/app/shifts/print?month=<%=month%><%=selectedShiftBranchQuery%>&amp;printDialog=1">印刷する</a><%}%><%}else{%><a class="button" href="<%=ctx%>/app/shifts/print?month=<%=month%><%=selectedShiftBranchQuery%>&amp;printDialog=1">印刷</a><% if(manager){ %><a class="button primary" href="<%=ctx%>/app/shifts/manage?month=<%=month%>">調整する</a><% }} %></div>
         </div>
         <%if(printDialogRequested){%><div class="alert no-print" hidden data-print-on-load>印刷ダイアログを表示できませんでした。ブラウザの <strong>Ctrl+P</strong>（Macは <strong>⌘+P</strong>）を押してください。</div><%}%>
         <% if (pageKey.equals("shifts/request")) { Map<String,Object> submissionWindow=(Map<String,Object>)request.getAttribute("submissionWindow"); boolean submissionOpen=Boolean.TRUE.equals(submissionWindow.get("open")); Map<String,Object> preferenceSubmission=(Map<String,Object>)request.getAttribute("preferenceSubmission"); List<Map<String,Object>> preferenceRows=(List<Map<String,Object>>)request.getAttribute("preferenceRows"); Map<String,String> preferenceByDate=new HashMap<>(); Map<String,String> preferenceReasonByDate=new HashMap<>(); for(Map<String,Object> preference:preferenceRows){String preferenceDate=String.valueOf(preference.get("preference_date"));preferenceByDate.put(preferenceDate,String.valueOf(preference.get("request_type")));if(preference.get("note")!=null)preferenceReasonByDate.put(preferenceDate,String.valueOf(preference.get("note")));} %>

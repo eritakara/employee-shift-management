@@ -109,6 +109,10 @@ public class PortalService {
     return shiftService.shiftSubmissionWindow();
   }
 
+  public Map<String, Object> shiftSubmissionWindow(YearMonth targetMonth) {
+    return shiftService.shiftSubmissionWindow(targetMonth);
+  }
+
   public void confirmMonth(User actor, YearMonth month, String warningReason) {
     shiftService.confirmMonth(actor, month, warningReason);
   }

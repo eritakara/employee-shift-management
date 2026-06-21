@@ -14,11 +14,15 @@ public class ShiftSubmissionPolicy {
   }
 
   public void validate(LocalDate today, LocalDate workDate, int deadlineDay) {
-    if (!YearMonth.from(workDate).equals(targetMonth(today))) {
-      throw new IllegalArgumentException("希望シフトは翌月分だけ提出できます。");
+    YearMonth targetMonth = YearMonth.from(workDate);
+    YearMonth deadlineMonth = targetMonth.minusMonths(1);
+    LocalDate deadline = deadlineMonth.atDay(Math.min(Math.max(deadlineDay, 1), deadlineMonth.lengthOfMonth()));
+
+    if (targetMonth.isBefore(YearMonth.from(today))) {
+      throw new IllegalArgumentException("過去の月の希望シフトは提出できません。");
     }
-    if (today.isAfter(deadline(today, deadlineDay))) {
-      throw new IllegalArgumentException("今月の希望シフト提出期限を過ぎています。");
+    if (today.isAfter(deadline)) {
+      throw new IllegalArgumentException("希望シフトの提出期限（" + deadline + "）を過ぎています。");
     }
   }
 }

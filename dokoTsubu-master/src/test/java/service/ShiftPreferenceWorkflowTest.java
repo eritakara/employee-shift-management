@@ -27,33 +27,34 @@ public class ShiftPreferenceWorkflowTest {
     preferences.put(month.atDay(3), "NONE");
     preferences.put(month.atDay(8), "NIGHT");
     preferences.put(month.atDay(14), "OFF");
-    preferences.put(month.atDay(21), "LEAVE");
     Map<LocalDate, String> reasons = new LinkedHashMap<>();
     reasons.put(month.atDay(2), "日勤には保存しない理由");
-    reasons.put(month.atDay(21), "家族行事のため");
     portal.submitMonthlyPreferences(employee, month, preferences, reasons, policyToday);
 
     Map<String, Object> submission = portal.preferenceSubmission(employee, month);
     check("SUBMITTED".equals(submission.get("status")), "monthly submission status");
     List<Map<String, Object>> saved = portal.preferences(employee, month);
-    check(saved.size() == 4, "only selected preference days saved");
+    check(saved.size() == 3, "only selected preference days saved (excluding NONE and LEAVE)");
     check(saved.stream().noneMatch(row -> "NONE".equals(row.get("request_type"))), "none is not stored");
-    check(saved.stream().anyMatch(row -> "LEAVE".equals(row.get("request_type")) && "家族行事のため".equals(row.get("note"))),
-        "optional leave reason saved");
-    check(saved.stream().filter(row -> !"LEAVE".equals(row.get("request_type"))).allMatch(row -> row.get("note") == null),
-        "reason is ignored for non-leave preferences");
+    check(saved.stream().allMatch(row -> row.get("note") == null), "reason is ignored for non-leave preferences");
     check(portal.preferenceSubmissionSummaries(manager, month).stream()
         .anyMatch(row -> employee.getEmployeeNumber().equals(row.get("employee_number"))
-            && "SUBMITTED".equals(row.get("status")) && ((Number) row.get("preference_count")).intValue() == 4),
+            && "SUBMITTED".equals(row.get("status")) && ((Number) row.get("preference_count")).intValue() == 3),
         "manager sees submission summary");
     List<Map<String, Object>> managerDetails = portal.preferenceDetails(manager, month);
-    check(managerDetails.size() == 4, "manager sees preference details: " + managerDetails);
-    check(managerDetails.stream().anyMatch(row -> "LEAVE".equals(row.get("request_type")) && "家族行事のため".equals(row.get("note"))),
-        "manager sees optional leave reason");
-    Map<LocalDate, String> tooLongPreference = Map.of(month.atDay(22), "LEAVE");
-    Map<LocalDate, String> tooLongReason = Map.of(month.atDay(22), "あ".repeat(501));
-    expectFailure(() -> portal.submitMonthlyPreferences(employee, month, tooLongPreference, tooLongReason, policyToday),
-        "leave reason length limit");
+    check(managerDetails.size() == 3, "manager sees preference details");
+
+    // 希望シフトとしてLEAVE（有休）を送信した場合はエラーになることの検証
+    Map<LocalDate, String> leavePreference = Map.of(month.atDay(21), "LEAVE");
+    expectFailure(() -> portal.submitMonthlyPreferences(employee, month, leavePreference, Map.of(), policyToday),
+        "leave preference submission is blocked");
+
+    // 有休の申請と承認
+    portal.requestLeave(employee, month.atDay(21), "FULL", null, "家族行事のため");
+    long leaveId = ((Number) portal.leaveRequests(manager).get(0).get("id")).longValue();
+    portal.decideLeave(manager, leaveId, true);
+    check("APPROVED".equals(portal.leaveRequests(employee).get(0).get("status")), "leave request approved");
+
     long submissionId = ((Number) submission.get("id")).longValue();
     portal.reviewPreferenceSubmission(manager, submissionId, true);
     check("APPROVED".equals(portal.preferenceSubmission(employee, month).get("status")), "manager approves monthly submission");
@@ -71,7 +72,7 @@ public class ShiftPreferenceWorkflowTest {
     check("NIGHT".equals(nightPreferenceResult), "night preference prioritized: " + nightPreferenceResult);
     check("NIGHT_OFF".equals(type(employee, month.atDay(9))), "night is followed by night-off");
     check("OFF".equals(type(employee, month.atDay(14))), "off preference prioritized");
-    check("LEAVE".equals(type(employee, month.atDay(21))), "leave preference prioritized");
+    check("LEAVE".equals(type(employee, month.atDay(21))), "leave from approved leave request prioritized");
 
     Map<LocalDate, String> revised = new LinkedHashMap<>();
     revised.put(month.atDay(5), "OFF");

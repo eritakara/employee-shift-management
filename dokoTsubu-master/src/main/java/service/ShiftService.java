@@ -217,6 +217,32 @@ public class ShiftService {
     List<Map<String, Object>> people = Sql.query("SELECT id,employee_number,role,weekly_work_days FROM users WHERE active=TRUE AND role<>'HR'" + userScope
         + " ORDER BY CASE WHEN role='MANAGER' THEN 0 ELSE 1 END,employee_number", userArgs);
     int assigned = 0;
+
+    // 1. 承認済み有休の事前反映
+    for (Map<String, Object> person : people) {
+      long userId = ((Number) person.get("id")).longValue();
+      for (int day = 1; day <= month.lengthOfMonth(); day++) {
+        LocalDate date = month.atDay(day);
+        if (shiftMissing(userId, date)) {
+          Map<String, Object> leaveReq = Sql.one("SELECT leave_unit FROM leave_requests WHERE user_id=? AND leave_date=? AND status='APPROVED'", userId, date);
+          if (!leaveReq.isEmpty()) {
+            String leaveUnit = String.valueOf(leaveReq.get("leave_unit"));
+            String leaveType = switch (leaveUnit) {
+              case "FULL" -> "LEAVE";
+              case "AM" -> "AM_LEAVE";
+              case "PM" -> "PM_LEAVE";
+              default -> null;
+            };
+            if (leaveType != null) {
+              saveShift(actor, userId, date, leaveType, "DRAFT", "承認済み有休を優先して自動反映");
+              assigned++;
+            }
+          }
+        }
+      }
+    }
+
+    // 2. 希望シフトの反映（すでに有休等が割り当てられている場合はスキップ）
     List<Map<String, Object>> preferred = preferenceDetails(actor, month);
     Map<String, Long> employeeIds = new LinkedHashMap<>();
     for (Map<String, Object> person : people) employeeIds.put(String.valueOf(person.get("employee_number")), ((Number) person.get("id")).longValue());
@@ -232,6 +258,8 @@ public class ShiftService {
         }
       }
     }
+
+    // 3. 人員必要数に応じた自動割り当て
     int dayRequired = requiredStaff("DAY");
     int nightRequired = requiredStaff("NIGHT");
     for (int day = 1; day <= month.lengthOfMonth(); day++) {
@@ -263,10 +291,15 @@ public class ShiftService {
 
   private boolean canAutoAssign(long userId, LocalDate date, int maxConsecutive) {
     if (isShiftAlreadyAssigned(userId, date)) return false;
+    if (hasApprovedLeave(userId, date)) return false; // 優先度1: 承認済み有休がある日は勤務割当不可
     if (wasOnNightShiftYesterday(userId, date)) return false;
-    if (hasPreferredOffOrLeave(userId, date)) return false;
+    if (hasPreferredOffOrLeave(userId, date)) return false; // 優先度2: 希望休
     if (exceedsMaxConsecutiveWorkDays(userId, date, maxConsecutive)) return false;
     return true;
+  }
+
+  private boolean hasApprovedLeave(long userId, LocalDate date) {
+    return !Sql.query("SELECT id FROM leave_requests WHERE user_id=? AND leave_date=? AND status='APPROVED' AND leave_unit IN ('FULL','AM','PM')", userId, date).isEmpty();
   }
 
   private boolean isShiftAlreadyAssigned(long userId, LocalDate date) {
@@ -298,10 +331,16 @@ public class ShiftService {
   }
 
   public Map<String, Object> shiftSubmissionWindow() {
+    return shiftSubmissionWindow(shiftSubmissionPolicy.targetMonth(LocalDate.now()));
+  }
+
+  public Map<String, Object> shiftSubmissionWindow(YearMonth targetMonth) {
     LocalDate today = LocalDate.now();
-    LocalDate deadline = shiftSubmissionPolicy.deadline(today, settings.integer("SHIFT_SUBMISSION_DAY", 15));
+    int submissionDay = settings.integer("SHIFT_SUBMISSION_DAY", 15);
+    YearMonth deadlineMonth = targetMonth.minusMonths(1);
+    LocalDate deadline = deadlineMonth.atDay(Math.min(Math.max(submissionDay, 1), deadlineMonth.lengthOfMonth()));
     Map<String, Object> result = new java.util.LinkedHashMap<>();
-    result.put("target_month", shiftSubmissionPolicy.targetMonth(today));
+    result.put("target_month", targetMonth);
     result.put("deadline", deadline);
     result.put("open", !today.isAfter(deadline));
     return result;
@@ -464,13 +503,8 @@ public class ShiftService {
     if (type == null || type.isBlank() || "NONE".equals(type)) {
       return;
     }
-    if (!List.of("DAY", "NIGHT", "OFF", "LEAVE").contains(type)) {
+    if (!List.of("DAY", "NIGHT", "OFF").contains(type)) {
       throw new IllegalArgumentException("希望勤務区分が不正です。");
-    }
-    if ("LEAVE".equals(type) && reason != null && !reason.isBlank()) {
-      if (reason.trim().length() > 500) {
-        throw new IllegalArgumentException("有休希望の理由は500文字以内で入力してください。");
-      }
     }
   }
 }

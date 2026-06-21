@@ -12,7 +12,8 @@ public class UiStateCoverageTest {
     String application = Files.readString(web.resolve("WEB-INF/jsp/app.jsp"));
     String error = Files.readString(web.resolve("WEB-INF/jsp/error.jsp"));
     String deployment = Files.readString(web.resolve("WEB-INF/web.xml"));
-    String portal = Files.readString(main.resolve("service/PortalService.java"));
+    String leaveService = Files.readString(main.resolve("service/LeaveService.java"));
+    String notificationService = Files.readString(main.resolve("service/NotificationService.java"));
     String servlet = Files.readString(main.resolve("servlet/PortalServlet.java"));
 
     check(script.contains("form.dataset.submitting === 'true'"), "forms prevent duplicate submission");
@@ -59,22 +60,22 @@ public class UiStateCoverageTest {
         "leave rejection dialog has dedicated layout");
     check(script.contains("data-leave-reject-open") && script.contains("却下理由を入力してください"),
         "leave rejection dialog is controlled by JavaScript");
-    check(servlet.contains("req.setAttribute(\"leaveApprovers\", portal.leaveApprovers(user))"),
+    check(servlet.contains("req.setAttribute(\"leaveApprovers\", leaveService.leaveApprovers(user))"),
         "leave approver information is passed to the view");
-    check(application.contains("data-leave-reject-open") && portal.contains("approver_type"),
+    check(application.contains("data-leave-reject-open") && leaveService.contains("approver_type"),
         "leave request approver display is manager oriented");
-    check(portal.contains("public List<Map<String, Object>> leaveApprovers(User user)")
-        && portal.contains("role='MANAGER' AND branch_id=?")
-        && portal.contains("\"MANAGER\".equals(applicantRole)")
-        && portal.contains("\"HR\".equals(applicantRole)")
-        && portal.contains("COUNT(l.id) approval_count")
-        && portal.contains("notifyLeaveApprovers")
-        && portal.contains("assertLeaveApprovalScope"), "leave approvers are role-aware and workload ordered");
-    check(portal.contains("reason == null ? \"\" : reason.trim()")
-        && !portal.contains("throw new IllegalArgumentException(\"理由を入力してください。\")"),
+    check(leaveService.contains("public List<Map<String, Object>> leaveApprovers(User user)")
+        && notificationService.contains("role='MANAGER' AND branch_id=?")
+        && leaveService.contains("\"MANAGER\".equals(applicantRole)")
+        && leaveService.contains("\"HR\".equals(applicantRole)")
+        && leaveService.contains("COUNT(l.id) approval_count")
+        && notificationService.contains("notifyLeaveApprovers")
+        && leaveService.contains("assertLeaveApprovalScope"), "leave approvers are role-aware and workload ordered");
+    check(leaveService.contains("reason == null ? \"\" : reason.trim()")
+        && !leaveService.contains("throw new IllegalArgumentException(\"理由を入力してください。\")"),
         "leave request reason is optional on the server");
-    check(portal.contains("throw new IllegalArgumentException(\"却下理由を入力してください。\")")
-        && portal.contains("却下理由: "), "leave rejection reason is required and included in notification");
+    check(leaveService.contains("throw new IllegalArgumentException(\"却下理由を入力してください。\")")
+        && leaveService.contains("却下理由: "), "leave rejection reason is required and included in notification");
     check(application.contains("if (\"USE\".equals(type)) return \"取得\"")
         && application.contains("if (\"statutory expiry\".equals(note)) return \"法定失効\""),
         "leave ledger labels are localized");

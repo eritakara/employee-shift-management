@@ -27,7 +27,7 @@ public class PerformanceTest {
         "100 shift records prepared");
 
     measure("dashboard display", () -> check(!portal.dashboard(manager).isEmpty(), "dashboard result"));
-    measure("employee list display", () -> check(portal.users(manager).size() == 99, "scoped employee list"));
+    measure("employee list display", () -> check(portal.findEmployees(manager).size() == 99, "scoped employee list"));
     measure("shift list display", () -> check(portal.shifts(manager, month).size() == 99, "scoped shift list"));
     measure("employee search", () -> {
       List<Map<String, Object>> rows = Sql.query(

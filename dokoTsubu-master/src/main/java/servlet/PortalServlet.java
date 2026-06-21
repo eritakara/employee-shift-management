@@ -12,12 +12,18 @@ import java.time.YearMonth;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import model.User;
-import service.PortalService;
 
 @WebServlet("/app/*")
 public class PortalServlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
-  private final PortalService portal = new PortalService();
+  private final service.ShiftService shiftService = new service.ShiftService();
+  private final service.LeaveService leaveService = new service.LeaveService();
+  private final service.AttendanceService attendanceService = new service.AttendanceService();
+  private final service.EmployeeService employeeService = new service.EmployeeService();
+  private final service.MasterDataService masterDataService = new service.MasterDataService();
+  private final service.NotificationService notificationService = new service.NotificationService();
+  private final service.DashboardService dashboardService = new service.DashboardService();
+  private final service.AuditLogService auditLogService = new service.AuditLogService();
   private final service.SettingsService settings = new service.SettingsService();
   private final service.LeavePolicyService leavePolicy = new service.LeavePolicyService();
 
@@ -56,26 +62,26 @@ public class PortalServlet extends HttpServlet {
     req.setAttribute("page", page);
     req.setAttribute("pageTitle", TITLES.get(page));
     req.setAttribute("month", month);
-    req.setAttribute("workTypes", portal.workTypes());
+    req.setAttribute("workTypes", shiftService.workTypes());
     req.setAttribute("flash", takeFlash(req, "flash"));
     req.setAttribute("error", takeFlash(req, "error"));
 
     if ("dashboard".equals(page)) {
       long dashboardBranchId = longValue(req, "branchId", user.getBranchId());
-      java.util.List<Map<String, Object>> dashboardBranches = portal.dashboardBranches(month);
+      java.util.List<Map<String, Object>> dashboardBranches = shiftService.dashboardBranches(month);
       boolean dashboardBranchExists = false;
       for (Map<String, Object> branch : dashboardBranches) {
         if (((Number) branch.get("id")).longValue() == dashboardBranchId) dashboardBranchExists = true;
       }
       if (!dashboardBranchExists && !dashboardBranches.isEmpty()) dashboardBranchId = ((Number) dashboardBranches.get(0).get("id")).longValue();
-      req.setAttribute("stats", portal.dashboard(user));
-      req.setAttribute("chart", portal.chart(user));
-      req.setAttribute("rows", portal.dashboardShifts(user, month, dashboardBranchId));
+      req.setAttribute("stats", dashboardService.dashboard(user));
+      req.setAttribute("chart", dashboardService.chart(user));
+      req.setAttribute("rows", shiftService.dashboardShifts(user, month, dashboardBranchId));
       req.setAttribute("dashboardBranches", dashboardBranches);
       req.setAttribute("dashboardBranchId", dashboardBranchId);
     } else if (page.startsWith("shifts/")) {
       if ("shifts/mine".equals(page) || "shifts/print".equals(page)) {
-        java.util.List<Map<String, Object>> shiftBranches = portal.scheduleBranches();
+        java.util.List<Map<String, Object>> shiftBranches = shiftService.scheduleBranches();
         long shiftBranchId = longValue(req, "branchId", user.getBranchId());
         boolean shiftBranchExists = false;
         for (Map<String, Object> branch : shiftBranches) {
@@ -84,73 +90,73 @@ public class PortalServlet extends HttpServlet {
         if (!shiftBranchExists && !shiftBranches.isEmpty()) {
           shiftBranchId = ((Number) shiftBranches.get(0).get("id")).longValue();
         }
-        req.setAttribute("rows", shiftBranches.isEmpty() ? java.util.List.of() : portal.branchShifts(month, shiftBranchId));
+        req.setAttribute("rows", shiftBranches.isEmpty() ? java.util.List.of() : shiftService.branchShifts(month, shiftBranchId));
         req.setAttribute("shiftBranches", shiftBranches);
         req.setAttribute("shiftBranchId", shiftBranchId);
       } else {
-        req.setAttribute("rows", portal.shifts(user, month));
+        req.setAttribute("rows", shiftService.shifts(user, month));
       }
-      req.setAttribute("people", portal.users(user));
-      req.setAttribute("requests", portal.shiftChangeRequests(user));
-      if ("shifts/confirm".equals(page) || "shifts/manage".equals(page)) req.setAttribute("warnings", portal.shiftWarnings(user, month));
+      req.setAttribute("people", employeeService.findEmployees(user));
+      req.setAttribute("requests", shiftService.shiftChangeRequests(user));
+      if ("shifts/confirm".equals(page) || "shifts/manage".equals(page)) req.setAttribute("warnings", shiftService.shiftWarnings(user, month));
       if ("shifts/request".equals(page)) {
-        req.setAttribute("submissionWindow", portal.shiftSubmissionWindow());
-        req.setAttribute("preferenceRows", portal.preferences(user, month));
-        req.setAttribute("preferenceSubmission", portal.preferenceSubmission(user, month));
+        req.setAttribute("submissionWindow", shiftService.shiftSubmissionWindow());
+        req.setAttribute("preferenceRows", shiftService.preferences(user, month));
+        req.setAttribute("preferenceSubmission", shiftService.preferenceSubmission(user, month));
       }
       if ("shifts/manage".equals(page)) {
-        req.setAttribute("preferenceSubmissions", portal.preferenceSubmissionSummaries(user, month));
-        req.setAttribute("preferenceDetails", portal.preferenceDetails(user, month));
+        req.setAttribute("preferenceSubmissions", shiftService.preferenceSubmissionSummaries(user, month));
+        req.setAttribute("preferenceDetails", shiftService.preferenceDetails(user, month));
       }
     } else if ("leave".equals(page) || page.startsWith("leave/")) {
-      req.setAttribute("rows", portal.leaveRequests(user));
-      req.setAttribute("balance", portal.leaveBalance(user.getId()));
-      req.setAttribute("leaveLedger", portal.leaveHistory(user));
-      req.setAttribute("leaveApprovers", portal.leaveApprovers(user));
+      req.setAttribute("rows", leaveService.leaveRequests(user));
+      req.setAttribute("balance", leaveService.leaveBalance(user.getId()));
+      req.setAttribute("leaveLedger", leaveService.leaveHistory(user));
+      req.setAttribute("leaveApprovers", leaveService.leaveApprovers(user));
     } else if (page.startsWith("attendance/")) {
-      req.setAttribute("rows", portal.attendance(user, month));
-      req.setAttribute("adjustments", portal.attendanceAdjustments(user));
-      if ("attendance/clock".equals(page)) req.setAttribute("clockSummary", portal.attendanceClockSummary(user));
-      if ("attendance/manage".equals(page)) req.setAttribute("people", portal.users(user));
+      req.setAttribute("rows", attendanceService.attendance(user, month));
+      req.setAttribute("adjustments", attendanceService.attendanceAdjustments(user));
+      if ("attendance/clock".equals(page)) req.setAttribute("clockSummary", attendanceService.attendanceClockSummary(user));
+      if ("attendance/manage".equals(page)) req.setAttribute("people", employeeService.findEmployees(user));
     } else if ("notifications".equals(page)) {
-      req.setAttribute("rows", portal.notifications(user));
-      if (user.isHr()) req.setAttribute("mailRows", portal.mailOutbox(user));
+      req.setAttribute("rows", notificationService.notifications(user));
+      if (user.isHr()) req.setAttribute("mailRows", notificationService.mailOutbox(user));
     } else if ("employees".equals(page) || "employees/edit".equals(page)) {
-      java.util.List<Map<String,Object>> employeeRows = portal.users(user);
+      java.util.List<Map<String,Object>> employeeRows = employeeService.findEmployees(user);
       req.setAttribute("rows", employeeRows);
       if (req.getParameter("id") != null) {
         long selectedId = longValue(req, "id", 0);
         employeeRows.stream().filter(row -> ((Number) row.get("id")).longValue() == selectedId).findFirst().ifPresent(row -> req.setAttribute("selectedEmployee", row));
       }
-      req.setAttribute("branches", portal.master("branches"));
-      req.setAttribute("departments", portal.master("departments"));
-      req.setAttribute("employment", portal.master("employment"));
+      req.setAttribute("branches", masterDataService.getMasterData("branches"));
+      req.setAttribute("departments", masterDataService.getMasterData("departments"));
+      req.setAttribute("employment", masterDataService.getMasterData("employment"));
     } else if ("qualifications".equals(page)) {
-      req.setAttribute("rows", portal.qualifications(user));
-      req.setAttribute("people", portal.users(user));
-      req.setAttribute("qualificationTypes", portal.master("qualifications"));
+      req.setAttribute("rows", employeeService.qualifications(user));
+      req.setAttribute("people", employeeService.findEmployees(user));
+      req.setAttribute("qualificationTypes", masterDataService.getMasterData("qualifications"));
     } else if ("delegations".equals(page)) {
-      req.setAttribute("rows", portal.delegations(user));
-      req.setAttribute("people", portal.users(user));
+      req.setAttribute("rows", employeeService.delegations(user));
+      req.setAttribute("people", employeeService.findEmployees(user));
     } else if (page.startsWith("masters/")) {
       String type = page.endsWith("branches") ? "branches" : page.endsWith("departments")
           ? "departments" : page.endsWith("catalogs") ? "employment" : "work_types";
       req.setAttribute("masterType", type);
-      req.setAttribute("rows", portal.master(type));
+      req.setAttribute("rows", masterDataService.getMasterData(type));
       if (page.endsWith("catalogs")) {
-        req.setAttribute("qualificationTypes", portal.master("qualifications"));
+        req.setAttribute("qualificationTypes", masterDataService.getMasterData("qualifications"));
         req.setAttribute("appSettings", settings.all(user));
         req.setAttribute("leaveRules", leavePolicy.rules(user));
       }
     } else if ("audit".equals(page)) {
-      req.setAttribute("rows", portal.audit(user, localDate(req.getParameter("from")), localDate(req.getParameter("to")),
+      req.setAttribute("rows", auditLogService.audit(user, localDate(req.getParameter("from")), localDate(req.getParameter("to")),
           nullableLong(req.getParameter("actorId")), req.getParameter("operation"), nullableLong(req.getParameter("targetUserId"))));
-      req.setAttribute("people", portal.users(user));
-      req.setAttribute("auditActions", portal.auditActions(user));
+      req.setAttribute("people", employeeService.findEmployees(user));
+      req.setAttribute("auditActions", auditLogService.auditActions(user));
     } else if ("exports".equals(page)) {
-      req.setAttribute("branches", portal.master("branches"));
-      req.setAttribute("departments", portal.master("departments"));
-      req.setAttribute("people", portal.users(user));
+      req.setAttribute("branches", masterDataService.getMasterData("branches"));
+      req.setAttribute("departments", masterDataService.getMasterData("departments"));
+      req.setAttribute("people", employeeService.findEmployees(user));
     }
     req.getRequestDispatcher("/WEB-INF/jsp/app.jsp").forward(req, res);
   }
@@ -165,9 +171,9 @@ public class PortalServlet extends HttpServlet {
       switch (action == null ? "" : action) {
         case "saveShift" -> {
           LocalDate date = LocalDate.parse(req.getParameter("date"));
-          if (user.isManager() || user.isHr()) portal.saveShift(user, longValue(req, "userId", user.getId()), date,
+          if (user.isManager() || user.isHr()) shiftService.saveShift(user, longValue(req, "userId", user.getId()), date,
               req.getParameter("workType"), value(req, "status", "DRAFT"), req.getParameter("note"));
-          else portal.submitPreferredShift(user, date, req.getParameter("workType"), req.getParameter("note"));
+          else shiftService.submitPreferredShift(user, date, req.getParameter("workType"), req.getParameter("note"));
         }
         case "submitMonthlyPreferences" -> {
           YearMonth preferenceMonth = parseMonth(req.getParameter("month"));
@@ -181,48 +187,48 @@ public class PortalServlet extends HttpServlet {
               if ("LEAVE".equals(selected)) reasons.put(date, req.getParameter("reason_" + date));
             }
           }
-          portal.submitMonthlyPreferences(user, preferenceMonth, preferences, reasons);
+          shiftService.submitMonthlyPreferences(user, preferenceMonth, preferences, reasons);
         }
-        case "autoAssignShifts" -> portal.autoAssignShifts(user, parseMonth(req.getParameter("month")));
-        case "reviewShiftPreferences" -> portal.reviewPreferenceSubmission(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
-        case "confirmShifts" -> portal.confirmMonth(user, parseMonth(req.getParameter("month")), req.getParameter("warningReason"));
-        case "requestShiftChange" -> portal.requestShiftChange(user, LocalDate.parse(req.getParameter("date")), req.getParameter("workType"), req.getParameter("reason"));
-        case "decideShiftChange" -> portal.decideShiftChange(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
-        case "requestLeave" -> portal.requestLeave(user, LocalDate.parse(req.getParameter("date")),
+        case "autoAssignShifts" -> shiftService.autoAssignShifts(user, parseMonth(req.getParameter("month")));
+        case "reviewShiftPreferences" -> shiftService.reviewPreferenceSubmission(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
+        case "confirmShifts" -> shiftService.confirmMonth(user, parseMonth(req.getParameter("month")), req.getParameter("warningReason"));
+        case "requestShiftChange" -> shiftService.requestShiftChange(user, LocalDate.parse(req.getParameter("date")), req.getParameter("workType"), req.getParameter("reason"));
+        case "decideShiftChange" -> shiftService.decideShiftChange(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
+        case "requestLeave" -> leaveService.requestLeave(user, LocalDate.parse(req.getParameter("date")),
             req.getParameter("unit"), integer(req.getParameter("hours")), req.getParameter("reason"));
-        case "decideLeave" -> portal.decideLeave(user, Long.parseLong(req.getParameter("id")),
+        case "decideLeave" -> leaveService.decideLeave(user, Long.parseLong(req.getParameter("id")),
             "approve".equals(req.getParameter("decision")), req.getParameter("rejectionReason"));
-        case "cancelLeave" -> portal.cancelLeave(user, Long.parseLong(req.getParameter("id")));
-        case "clock" -> portal.clock(user, "in".equals(req.getParameter("direction")), req.getParameter("lat"), req.getParameter("lng"), value(req, "locationStatus", "UNKNOWN"));
-        case "finalizeAttendance" -> portal.finalizeAttendance(user, Long.parseLong(req.getParameter("id")), Boolean.parseBoolean(req.getParameter("finalized")));
-        case "finalizeAttendanceMonth" -> portal.finalizeAttendanceMonth(user, parseMonth(req.getParameter("month")), Boolean.parseBoolean(req.getParameter("finalized")));
-        case "finalizeAttendanceEmployeeMonth" -> portal.finalizeAttendanceEmployeeMonth(user, Long.parseLong(req.getParameter("userId")),
+        case "cancelLeave" -> leaveService.cancelLeave(user, Long.parseLong(req.getParameter("id")));
+        case "clock" -> attendanceService.clock(user, "in".equals(req.getParameter("direction")), req.getParameter("lat"), req.getParameter("lng"), value(req, "locationStatus", "UNKNOWN"));
+        case "finalizeAttendance" -> attendanceService.finalizeAttendance(user, Long.parseLong(req.getParameter("id")), Boolean.parseBoolean(req.getParameter("finalized")));
+        case "finalizeAttendanceMonth" -> attendanceService.finalizeAttendanceMonth(user, parseMonth(req.getParameter("month")), Boolean.parseBoolean(req.getParameter("finalized")));
+        case "finalizeAttendanceEmployeeMonth" -> attendanceService.finalizeAttendanceEmployeeMonth(user, Long.parseLong(req.getParameter("userId")),
             parseMonth(req.getParameter("month")), Boolean.parseBoolean(req.getParameter("finalized")));
-        case "requestAttendanceAdjustment" -> portal.requestAttendanceAdjustment(user, Long.parseLong(req.getParameter("attendanceId")),
+        case "requestAttendanceAdjustment" -> attendanceService.requestAttendanceAdjustment(user, Long.parseLong(req.getParameter("attendanceId")),
             LocalDateTime.parse(req.getParameter("requestedIn")), LocalDateTime.parse(req.getParameter("requestedOut")), req.getParameter("reason"));
-        case "decideAttendanceAdjustment" -> portal.decideAttendanceAdjustment(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
-        case "markNotificationsRead" -> portal.markNotificationsRead(user);
-        case "retryMail" -> portal.retryMail(user, Long.parseLong(req.getParameter("id")));
-        case "addEmployee" -> portal.addEmployee(user, req.getParameter("employeeNumber"), req.getParameter("name"), req.getParameter("email"),
+        case "decideAttendanceAdjustment" -> attendanceService.decideAttendanceAdjustment(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
+        case "markNotificationsRead" -> notificationService.markNotificationsRead(user);
+        case "retryMail" -> notificationService.retryMail(user, Long.parseLong(req.getParameter("id")));
+        case "addEmployee" -> employeeService.addEmployee(user, req.getParameter("employeeNumber"), req.getParameter("name"), req.getParameter("email"),
             LocalDate.parse(req.getParameter("hireDate")), Long.parseLong(req.getParameter("branchId")), Long.parseLong(req.getParameter("departmentId")),
-            Long.parseLong(req.getParameter("employmentId")), req.getParameter("role"), baseUrl(req));
-        case "reissueInvite" -> portal.reissueInvite(user, Long.parseLong(req.getParameter("id")), baseUrl(req));
-        case "updateEmployee" -> portal.updateEmployee(user, Long.parseLong(req.getParameter("id")), req.getParameter("employeeNumber"), req.getParameter("name"), req.getParameter("email"),
+            Long.parseLong(req.getParameter("employmentId")), req.getParameter("role"), util.ServletUtil.baseUrl(req));
+        case "reissueInvite" -> employeeService.reissueInvite(user, Long.parseLong(req.getParameter("id")), util.ServletUtil.baseUrl(req));
+        case "updateEmployee" -> employeeService.updateEmployee(user, Long.parseLong(req.getParameter("id")), req.getParameter("employeeNumber"), req.getParameter("name"), req.getParameter("email"),
             LocalDate.parse(req.getParameter("hireDate")), Long.parseLong(req.getParameter("branchId")), Long.parseLong(req.getParameter("departmentId")),
             Long.parseLong(req.getParameter("employmentId")), req.getParameter("role"), Boolean.parseBoolean(req.getParameter("active")));
-        case "addQualification" -> portal.addQualification(user, Long.parseLong(req.getParameter("userId")), req.getParameter("name"),
+        case "addQualification" -> employeeService.addQualification(user, Long.parseLong(req.getParameter("userId")), req.getParameter("name"),
             req.getParameter("expiresOn").isBlank() ? null : LocalDate.parse(req.getParameter("expiresOn")));
-        case "updateQualification" -> portal.updateQualification(user, Long.parseLong(req.getParameter("id")), req.getParameter("name"),
+        case "updateQualification" -> employeeService.updateQualification(user, Long.parseLong(req.getParameter("id")), req.getParameter("name"),
             req.getParameter("expiresOn").isBlank() ? null : LocalDate.parse(req.getParameter("expiresOn")), Boolean.parseBoolean(req.getParameter("active")));
-        case "addDelegation" -> portal.addDelegation(user, longValue(req, "managerId", user.getId()), Long.parseLong(req.getParameter("delegateId")),
+        case "addDelegation" -> employeeService.addDelegation(user, longValue(req, "managerId", user.getId()), Long.parseLong(req.getParameter("delegateId")),
             LocalDate.parse(req.getParameter("startsOn")), LocalDate.parse(req.getParameter("endsOn")));
-        case "updateDelegation" -> portal.updateDelegation(user, Long.parseLong(req.getParameter("id")),
+        case "updateDelegation" -> employeeService.updateDelegation(user, Long.parseLong(req.getParameter("id")),
             LocalDate.parse(req.getParameter("startsOn")), LocalDate.parse(req.getParameter("endsOn")), Boolean.parseBoolean(req.getParameter("active")));
-        case "addMaster" -> portal.addMaster(user, req.getParameter("type"), req.getParameter("name"));
-        case "toggleMaster" -> portal.toggleMaster(user, req.getParameter("type"), Long.parseLong(req.getParameter("id")), Boolean.parseBoolean(req.getParameter("active")));
-        case "updateMaster" -> portal.updateMaster(user, req.getParameter("type"), Long.parseLong(req.getParameter("id")),
+        case "addMaster" -> masterDataService.addMaster(user, req.getParameter("type"), req.getParameter("name"));
+        case "toggleMaster" -> masterDataService.toggleMaster(user, req.getParameter("type"), Long.parseLong(req.getParameter("id")), Boolean.parseBoolean(req.getParameter("active")));
+        case "updateMaster" -> masterDataService.updateMaster(user, req.getParameter("type"), Long.parseLong(req.getParameter("id")),
             req.getParameter("name"), Boolean.parseBoolean(req.getParameter("active")));
-        case "updateWorkType" -> portal.updateWorkType(user, req.getParameter("code"), req.getParameter("nameJa"), req.getParameter("nameEn"), req.getParameter("start"), req.getParameter("end"),
+        case "updateWorkType" -> masterDataService.updateWorkType(user, req.getParameter("code"), req.getParameter("nameJa"), req.getParameter("nameEn"), req.getParameter("start"), req.getParameter("end"),
             Integer.parseInt(req.getParameter("breakMinutes")), Integer.parseInt(req.getParameter("requiredStaff")), Boolean.parseBoolean(req.getParameter("active")));
         case "updateSetting" -> settings.update(user, req.getParameter("key"), req.getParameter("value"));
         case "addLeaveRule" -> leavePolicy.addRule(user, LocalDate.parse(req.getParameter("effectiveFrom")),
@@ -281,9 +287,5 @@ public class PortalServlet extends HttpServlet {
   private Object takeFlash(HttpServletRequest req, String key) {
     Object value = req.getSession().getAttribute(key); req.getSession().removeAttribute(key); return value;
   }
-  private String baseUrl(HttpServletRequest req) {
-    int port = req.getServerPort();
-    String portPart = ("http".equals(req.getScheme()) && port == 80) || ("https".equals(req.getScheme()) && port == 443) ? "" : ":" + port;
-    return req.getScheme() + "://" + req.getServerName() + portPart + req.getContextPath();
-  }
+
 }

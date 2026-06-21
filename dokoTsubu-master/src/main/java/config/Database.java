@@ -99,12 +99,12 @@ public final class Database {
     if (count(c, "work_types") == 0) {
       String sql = "INSERT INTO work_types(code,name_ja,name_en,start_time,end_time,crosses_midnight,break_minutes,required_staff) VALUES(?,?,?,?,?,?,?,?)";
       try (PreparedStatement p = c.prepareStatement(sql)) {
-        workType(p, "DAY", "日勤", "Day", "08:00:00", "17:00:00", false, 60, 5);
-        workType(p, "NIGHT", "夜勤", "Night", "17:00:00", "08:00:00", true, 120, 7);
-        workType(p, "OFF", "休み", "Off", null, null, false, 0, 0);
-        workType(p, "LEAVE", "有休", "Paid leave", null, null, false, 0, 0);
-        workType(p, "AM_LEAVE", "午前休", "AM leave", "13:00:00", "17:00:00", false, 0, 0);
-        workType(p, "PM_LEAVE", "午後休", "PM leave", "08:00:00", "12:00:00", false, 0, 0);
+        insertWorkType(p, "DAY", "日勤", "Day", "08:00:00", "17:00:00", false, 60, 5);
+        insertWorkType(p, "NIGHT", "夜勤", "Night", "17:00:00", "08:00:00", true, 120, 7);
+        insertWorkType(p, "OFF", "休み", "Off", null, null, false, 0, 0);
+        insertWorkType(p, "LEAVE", "有休", "Paid leave", null, null, false, 0, 0);
+        insertWorkType(p, "AM_LEAVE", "午前休", "AM leave", "13:00:00", "17:00:00", false, 0, 0);
+        insertWorkType(p, "PM_LEAVE", "午後休", "PM leave", "08:00:00", "12:00:00", false, 0, 0);
       }
     }
     try (Statement s = c.createStatement()) {
@@ -128,14 +128,14 @@ public final class Database {
     if (count(c, "app_settings") == 0) {
       String sql = "INSERT INTO app_settings(setting_key,setting_value,description) VALUES(?,?,?)";
       try (PreparedStatement p = c.prepareStatement(sql)) {
-        setting(p, "SHIFT_SUBMISSION_DAY", "15", "翌月希望シフトの提出締切日");
-        setting(p, "ALLOW_CONFIRM_WITH_WARNINGS", "true", "理由入力により警告付き確定を許可");
-        setting(p, "LEAVE_ALLOW_PAST", "false", "過去日の有休申請を許可");
-        setting(p, "LEAVE_MIN_NOTICE_DAYS", "1", "有休申請の最低事前日数");
-        setting(p, "MONTHLY_CLOSE_DAY", "5", "翌月の勤怠締切日");
-        setting(p, "RETENTION_YEARS", "5", "業務データ保存年数");
-        setting(p, "LOCATION_REQUIRED", "false", "位置情報なしの打刻を禁止");
-        setting(p, "MAX_CONCURRENT_USERS", "100", "想定最大同時利用者数");
+        insertSetting(p, "SHIFT_SUBMISSION_DAY", "15", "翌月希望シフトの提出締切日");
+        insertSetting(p, "ALLOW_CONFIRM_WITH_WARNINGS", "true", "理由入力により警告付き確定を許可");
+        insertSetting(p, "LEAVE_ALLOW_PAST", "false", "過去日の有休申請を許可");
+        insertSetting(p, "LEAVE_MIN_NOTICE_DAYS", "1", "有休申請の最低事前日数");
+        insertSetting(p, "MONTHLY_CLOSE_DAY", "5", "翌月の勤怠締切日");
+        insertSetting(p, "RETENTION_YEARS", "5", "業務データ保存年数");
+        insertSetting(p, "LOCATION_REQUIRED", "false", "位置情報なしの打刻を禁止");
+        insertSetting(p, "MAX_CONCURRENT_USERS", "100", "想定最大同時利用者数");
       }
     }
     if (Boolean.parseBoolean(System.getProperty("shiftapp.seedDemoShifts", "false"))) {
@@ -272,7 +272,7 @@ public final class Database {
     }
   }
 
-  private static void workType(PreparedStatement p, String code, String ja, String en,
+  private static void insertWorkType(PreparedStatement p, String code, String ja, String en,
       String start, String end, boolean overnight, int breakMinutes, int required) throws SQLException {
     p.setString(1, code); p.setString(2, ja); p.setString(3, en);
     p.setString(4, start); p.setString(5, end); p.setBoolean(6, overnight);
@@ -290,7 +290,7 @@ public final class Database {
     }
   }
 
-  private static void setting(PreparedStatement p, String key, String value, String description) throws SQLException {
+  private static void insertSetting(PreparedStatement p, String key, String value, String description) throws SQLException {
     p.setString(1, key); p.setString(2, value); p.setString(3, description); p.executeUpdate();
   }
 

@@ -53,7 +53,7 @@ public class SmokeTest {
     check(settings.integer("SHIFT_SUBMISSION_DAY", 0) == 20, "HR setting update");
 
     portal.addMaster(hr, "qualifications", "テスト資格");
-    long qualificationTypeId = ((Number) portal.master("qualifications").get(0).get("id")).longValue();
+    long qualificationTypeId = ((Number) portal.getMasterData("qualifications").get(0).get("id")).longValue();
     portal.updateMaster(hr, "qualifications", qualificationTypeId, "更新資格", false);
     Map<String, Object> qualificationType = Sql.one("SELECT name,active FROM qualification_types WHERE id=?", qualificationTypeId);
     check("更新資格".equals(qualificationType.get("name")) && Boolean.FALSE.equals(qualificationType.get("active")), "qualification type update");

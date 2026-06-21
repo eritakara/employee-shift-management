@@ -44,11 +44,11 @@ public class ExportService {
     StringBuilder out = new StringBuilder("<html><head><meta charset=\"UTF-8\"></head><body><table border=\"1\">");
     if (!rows.isEmpty()) {
       out.append("<tr>");
-      for (String key : rows.get(0).keySet()) out.append("<th>").append(html(key)).append("</th>");
+      for (String key : rows.get(0).keySet()) out.append("<th>").append(util.HtmlEscaper.escape(key)).append("</th>");
       out.append("</tr>");
       for (Map<String, Object> row : rows) {
         out.append("<tr>");
-        for (Object value : row.values()) out.append("<td>").append(html(value == null ? "" : String.valueOf(value))).append("</td>");
+        for (Object value : row.values()) out.append("<td>").append(util.HtmlEscaper.escape(value)).append("</td>");
         out.append("</tr>");
       }
     }
@@ -62,7 +62,5 @@ public class ExportService {
     return "\"" + text.replace("\"", "\"\"") + "\"";
   }
 
-  private String html(String value) {
-    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
-  }
+
 }

@@ -53,9 +53,9 @@ public class AuthServlet extends HttpServlet {
       return;
     }
     if ("/forgot".equals(path)) {
-      String token = tokens.issue(req.getParameter("email"), "RESET", baseUrl(req));
+      String token = tokens.issue(req.getParameter("email"), "RESET", util.ServletUtil.baseUrl(req));
       req.setAttribute("sent", true);
-      if (isLocal(req) && token != null) req.setAttribute("devLink", req.getContextPath() + "/reset?token=" + token);
+      if (util.ServletUtil.isLocal(req) && token != null) req.setAttribute("devLink", req.getContextPath() + "/reset?token=" + token);
       try { req.getRequestDispatcher("/WEB-INF/jsp/forgot.jsp").forward(req, res); } catch (ServletException e) { throw new IOException(e); }
       return;
     }
@@ -110,13 +110,5 @@ public class AuthServlet extends HttpServlet {
     }
   }
 
-  private String baseUrl(HttpServletRequest req) {
-    int port = req.getServerPort();
-    String portPart = ("http".equals(req.getScheme()) && port == 80) || ("https".equals(req.getScheme()) && port == 443) ? "" : ":" + port;
-    return req.getScheme() + "://" + req.getServerName() + portPart + req.getContextPath();
-  }
 
-  private boolean isLocal(HttpServletRequest req) {
-    String host = req.getServerName(); return "localhost".equals(host) || "127.0.0.1".equals(host);
-  }
 }

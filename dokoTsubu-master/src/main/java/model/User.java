@@ -8,7 +8,7 @@ public class User implements Serializable {
   private String employeeNumber;
   private String name;
   private String email;
-  private String pass;
+
   private String role;
   private long branchId;
   private long departmentId;
@@ -17,10 +17,7 @@ public class User implements Serializable {
   private String locale;
 
   public User() { }
-  public User(String name, String pass) {
-    this.name = name;
-    this.pass = pass;
-  }
+
   public User(long id, String employeeNumber, String name, String email, String role,
       long branchId, long departmentId, String branchName, String departmentName, String locale) {
     this.id = id;
@@ -38,7 +35,7 @@ public class User implements Serializable {
   public String getEmployeeNumber() { return employeeNumber; }
   public String getName() { return name; }
   public String getEmail() { return email; }
-  public String getPass() { return pass; }
+
   public String getRole() { return role; }
   public long getBranchId() { return branchId; }
   public long getDepartmentId() { return departmentId; }

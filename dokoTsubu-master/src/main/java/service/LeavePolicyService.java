@@ -8,6 +8,7 @@ import java.time.Period;
 import java.util.List;
 import java.util.Map;
 import model.User;
+import static util.DateUtil.toDate;
 
 public class LeavePolicyService {
   private static final int[] FULL_TIME = {10, 11, 12, 14, 16, 18, 20};
@@ -148,9 +149,5 @@ public class LeavePolicyService {
         System.getenv().getOrDefault("SHIFTFLOW_ASSUME_FULL_ATTENDANCE_WITHOUT_DATA", "false")));
   }
 
-  private LocalDate toDate(Object value) {
-    if (value instanceof LocalDate date) return date;
-    if (value instanceof java.sql.Date date) return date.toLocalDate();
-    return LocalDate.parse(String.valueOf(value));
-  }
+
 }

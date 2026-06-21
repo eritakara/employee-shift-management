@@ -205,7 +205,11 @@ String ctx = request.getContextPath();
               <div class="chart-column"><span class="bar" style="height:<%=Math.min(100,hours/2)%>%" title="勤務 <%=hours%>時間"></span><span class="bar overtime" style="height:<%=Math.min(100,overtime*2)%>%" title="残業 <%=overtime%>時間"></span><span class="bar leave" style="height:<%=Math.min(100,leave*12)%>%" title="<%=en?"Leave":"有休"%> <%=leave%>日"></span><small><%=e(item.get("month_label"))%></small></div>
             <% } %></div><% } %>
           </section>
-          <% { String rosterTitle="今月のシフト"; String rosterLink=ctx+"/app/shifts/mine"; List<Map<String,Object>> rosterBranches=(List<Map<String,Object>>)request.getAttribute("dashboardBranches"); Number selectedRosterBranch=(Number)request.getAttribute("dashboardBranchId"); Long rosterBranchId=selectedRosterBranch==null?user.getBranchId():selectedRosterBranch.longValue(); if(rosterBranches==null)rosterBranches=Collections.emptyList(); %>
+          <% { String rosterTitle="シフト"; String rosterLink=null; List<Map<String,Object>> rosterBranches=(List<Map<String,Object>>)request.getAttribute("dashboardBranches"); Number selectedRosterBranch=(Number)request.getAttribute("dashboardBranchId"); Long rosterBranchId=selectedRosterBranch==null?user.getBranchId():selectedRosterBranch.longValue(); if(rosterBranches==null)rosterBranches=Collections.emptyList(); String selectedRosterBranchQuery=rosterBranchId==null?"":"&amp;branchId="+rosterBranchId; %>
+            <div class="toolbar no-print">
+              <form method="get"><%if(rosterBranchId!=null){%><input type="hidden" name="branchId" value="<%=rosterBranchId%>"><%}%><label>対象月<input type="month" name="month" value="<%=month%>" data-auto-submit></label></form>
+              <div class="actions"><a class="button" href="<%=ctx%>/app/shifts/print?month=<%=month%><%=selectedRosterBranchQuery%>&amp;printDialog=1">印刷</a></div>
+            </div>
             <%@ include file="_shiftRoster.jspf" %>
           <% } %>
         </div>

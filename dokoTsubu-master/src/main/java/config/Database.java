@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -140,6 +141,7 @@ public final class Database {
     if (Boolean.parseBoolean(System.getProperty("shiftapp.seedDemoShifts", "false"))) {
       importDemoUsers(c);
       importDemoShifts(c);
+      importDemoAttendance(c);
     }
     if (count(c, "leave_grants") == 0 && count(c, "users") > 0) {
       try (Statement s = c.createStatement()) {
@@ -221,6 +223,42 @@ public final class Database {
     }
   }
 
+  private static void importDemoAttendance(Connection c) throws SQLException, IOException {
+    InputStream input = Database.class.getResourceAsStream("/data/demo-attendance.csv");
+    if (input == null) throw new IOException("Demo attendance CSV was not found: /data/demo-attendance.csv");
+
+    String sql = "MERGE INTO attendance(user_id,work_date,clock_in,clock_out,in_lat,in_lng,out_lat,out_lng,location_status,status,finalized) "
+        + "KEY(user_id,work_date) SELECT u.id,?,?,?,?,?,?,?,?,?,? FROM users u WHERE u.employee_number=?";
+    try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
+         PreparedStatement p = c.prepareStatement(sql)) {
+      String header = reader.readLine();
+      if (!"employee_number,work_date,clock_in,clock_out,in_lat,in_lng,out_lat,out_lng,location_status,status,finalized".equals(header)) {
+        throw new IOException("Unexpected demo attendance CSV header");
+      }
+      String line;
+      int lineNumber = 1;
+      while ((line = reader.readLine()) != null) {
+        lineNumber++;
+        if (line.isBlank() || line.startsWith("#")) continue;
+        String[] values = line.split(",", -1);
+        if (values.length != 11) throw new IOException("Invalid demo attendance CSV at line " + lineNumber);
+        p.setObject(1, LocalDate.parse(values[1]));
+        p.setObject(2, values[2].isBlank() ? null : java.time.LocalDateTime.parse(values[2]));
+        p.setObject(3, values[3].isBlank() ? null : java.time.LocalDateTime.parse(values[3]));
+        p.setBigDecimal(4, number(values[4]));
+        p.setBigDecimal(5, number(values[5]));
+        p.setBigDecimal(6, number(values[6]));
+        p.setBigDecimal(7, number(values[7]));
+        p.setString(8, values[8].isBlank() ? null : values[8]);
+        p.setString(9, values[9].isBlank() ? "OPEN" : values[9]);
+        p.setBoolean(10, Boolean.parseBoolean(values[10]));
+        p.setString(11, values[0]);
+        p.addBatch();
+      }
+      p.executeBatch();
+    }
+  }
+
   private static int count(Connection c, String table) throws SQLException {
     try (Statement s = c.createStatement(); ResultSet rs = s.executeQuery("SELECT COUNT(*) FROM " + table)) {
       rs.next(); return rs.getInt(1);
@@ -254,5 +292,9 @@ public final class Database {
 
   private static void setting(PreparedStatement p, String key, String value, String description) throws SQLException {
     p.setString(1, key); p.setString(2, value); p.setString(3, description); p.executeUpdate();
+  }
+
+  private static BigDecimal number(String value) {
+    return value == null || value.isBlank() ? null : new BigDecimal(value);
   }
 }

@@ -225,10 +225,29 @@ tbody tr:hover { background: #f7fbfa; }
 .bar.overtime { background: var(--yellow); }
 .bar.leave { background: #7c5ce7; }
 .chart-column small { position: absolute; bottom: -24px; font-size: 10px; color: var(--muted); }
+.attendance-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
+.attendance-tabs a { min-height: 42px; padding: 10px 16px; border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0; color: #42505a; text-decoration: none; font-weight: 800; }
+.attendance-tabs a:hover { border-color: var(--line); background: white; color: var(--teal-dark); }
+.attendance-tabs a.active { background: white; border-color: var(--line); color: var(--teal-dark); box-shadow: inset 0 3px 0 var(--teal); }
 .clock-panel { text-align: center; padding: 30px; }
+.clock-status-grid { display: grid; grid-template-columns: minmax(260px, 1.2fr) minmax(260px, .8fr); gap: 22px; align-items: stretch; text-align: left; }
+.clock-live { display: grid; align-content: center; justify-items: center; min-height: 190px; text-align: center; background: #f6f9fa; border: 1px solid var(--line); border-radius: 6px; padding: 22px; }
 .clock-time { font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.clock-guidance, .clock-note { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+.clock-summary { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+.clock-summary div { min-height: 82px; border: 1px solid var(--line); border-radius: 6px; padding: 14px; background: white; }
+.clock-summary .span-all { grid-column: 1 / -1; }
+.clock-summary span, .attendance-summary span { display: block; color: var(--muted); font-size: 12px; font-weight: 800; }
+.clock-summary strong { display: block; overflow-wrap: anywhere; margin-top: 8px; font-size: 15px; }
 .clock-actions { display: flex; justify-content: center; gap: 14px; margin-top: 22px; }
 .clock-actions button { min-width: 150px; min-height: 54px; }
+.clock-actions button:disabled { cursor: not-allowed; opacity: .45; }
+.attendance-summary { display: grid; grid-template-columns: repeat(5, minmax(130px,1fr)); gap: 12px; margin-bottom: 20px; }
+.attendance-summary div { min-height: 82px; border: 1px solid var(--line); border-radius: 6px; background: white; padding: 14px; }
+.attendance-summary strong { display: block; margin-top: 6px; font-size: 24px; }
+.attendance-summary .attention { border-color: #e4c45d; background: var(--yellow-soft); }
+tr.attendance-open { background: var(--yellow-soft); }
+tr.attendance-finalized td:first-child { border-left: 4px solid var(--teal); }
 .notification { border-bottom: 1px solid var(--line); padding: 16px 2px; display: grid; grid-template-columns: 1fr auto; gap: 12px; }
 .notification.unread { border-left: 4px solid var(--teal); padding-left: 12px; background: #f6fbfa; }
 .notification h3 { margin: 0 0 5px; }
@@ -314,6 +333,11 @@ form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
   .metric strong { font-size: 23px; }
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .span-2, .form-grid .span-all { grid-column: auto; }
+  .attendance-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--line); }
+  .attendance-tabs a { border: 0; border-radius: 0; text-align: center; }
+  .attendance-tabs a.active { box-shadow: inset 0 -3px 0 var(--teal); }
+  .clock-status-grid { grid-template-columns: 1fr; }
+  .attendance-summary { grid-template-columns: 1fr 1fr; }
   .clock-actions { flex-direction: column; }
   .clock-actions button { width: 100%; }
   .preference-matrix .preference-person { width: 112px; min-width: 112px; }

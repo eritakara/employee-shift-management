@@ -110,6 +110,7 @@ public class PortalServlet extends HttpServlet {
     } else if (page.startsWith("attendance/")) {
       req.setAttribute("rows", portal.attendance(user, month));
       req.setAttribute("adjustments", portal.attendanceAdjustments(user));
+      if ("attendance/clock".equals(page)) req.setAttribute("clockSummary", portal.attendanceClockSummary(user));
       if ("attendance/manage".equals(page)) req.setAttribute("people", portal.users(user));
     } else if ("notifications".equals(page)) {
       req.setAttribute("rows", portal.notifications(user));

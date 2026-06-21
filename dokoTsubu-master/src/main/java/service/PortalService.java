@@ -568,7 +568,7 @@ public class PortalService {
     String filter = viewer.isHr() ? "" : viewer.isManager() ? " AND u.branch_id=? AND u.department_id=?" : " AND a.user_id=?";
     Object[] scope = viewer.isHr() ? new Object[]{} : viewer.isManager()
         ? new Object[]{viewer.getBranchId(), viewer.getDepartmentId()} : new Object[]{viewer.getId()};
-    List<Map<String, Object>> rows = Sql.query("SELECT a.*,u.name,u.employee_number,s.work_type_code,wt.start_time,wt.end_time,wt.crosses_midnight,wt.break_minutes "
+    List<Map<String, Object>> rows = Sql.query("SELECT a.*,u.name,u.employee_number,s.work_type_code,wt.name_ja work_type,wt.start_time,wt.end_time,wt.crosses_midnight,wt.break_minutes "
         + "FROM attendance a JOIN users u ON u.id=a.user_id LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date LEFT JOIN work_types wt ON wt.code=s.work_type_code "
         + "WHERE a.work_date BETWEEN ? AND ?" + filter + " ORDER BY a.work_date DESC,u.name",
         join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scope));
@@ -582,6 +582,30 @@ public class PortalService {
     return rows;
   }
 
+  public Map<String, Object> attendanceClockSummary(User user) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    Map<String, Object> today = Sql.one("SELECT a.id,a.work_date,a.clock_in,a.clock_out,a.status,a.finalized,a.location_status,"
+        + "s.work_type_code,wt.name_ja work_type,wt.start_time,wt.end_time "
+        + "FROM users u LEFT JOIN attendance a ON a.user_id=u.id AND a.work_date=CURRENT_DATE "
+        + "LEFT JOIN shifts s ON s.user_id=u.id AND s.work_date=CURRENT_DATE "
+        + "LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE u.id=?", user.getId());
+    if (!today.isEmpty()) result.putAll(today);
+    Map<String, Object> open = Sql.one("SELECT id,work_date,clock_in,finalized FROM attendance "
+        + "WHERE user_id=? AND clock_in IS NOT NULL AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1", user.getId());
+    boolean hasOpen = !open.isEmpty();
+    boolean todayHasClockIn = result.get("clock_in") != null;
+    boolean todayComplete = result.get("clock_in") != null && result.get("clock_out") != null;
+    result.put("has_open_clock", hasOpen);
+    result.put("open_attendance_id", open.get("id"));
+    result.put("open_work_date", open.get("work_date"));
+    result.put("open_clock_in", open.get("clock_in"));
+    result.put("open_finalized", open.get("finalized"));
+    result.put("can_clock_in", !hasOpen && !todayHasClockIn);
+    result.put("can_clock_out", hasOpen && !Boolean.TRUE.equals(open.get("finalized")));
+    result.put("today_complete", todayComplete);
+    return result;
+  }
+
   public void clock(User user, boolean clockIn, String lat, String lng, String locationStatus) {
     if (settings.bool("LOCATION_REQUIRED", false) && !"ACQUIRED".equals(locationStatus)) throw new IllegalArgumentException("位置情報を取得できないため打刻できません。");
     LocalDate workDate = LocalDate.now();
@@ -589,12 +613,25 @@ public class PortalService {
       throw new IllegalArgumentException("確定済み勤怠は変更できません。店長へ確定解除を依頼してください。");
     }
     if (clockIn) {
+      if (!Sql.query("SELECT id FROM attendance WHERE user_id=? AND clock_in IS NOT NULL AND clock_out IS NULL", user.getId()).isEmpty()) {
+        throw new IllegalArgumentException("すでに出勤打刻済みです。退勤打刻を行ってください。");
+      }
+      Map<String, Object> today = Sql.one("SELECT clock_in,clock_out FROM attendance WHERE user_id=? AND work_date=?", user.getId(), workDate);
+      if (today.get("clock_in") != null && today.get("clock_out") == null) {
+        throw new IllegalArgumentException("すでに出勤打刻済みです。退勤打刻を行ってください。");
+      }
+      if (today.get("clock_in") != null) {
+        throw new IllegalArgumentException("本日の打刻は完了しています。時刻の変更は打刻修正から申請してください。");
+      }
       Sql.update("MERGE INTO attendance(user_id,work_date,clock_in,in_lat,in_lng,location_status,status) KEY(user_id,work_date) VALUES(?,?,CURRENT_TIMESTAMP,?,?,?,'OPEN')",
           user.getId(), workDate, number(lat), number(lng), locationStatus);
     } else {
-      Map<String, Object> open = Sql.one("SELECT id,work_date FROM attendance WHERE user_id=? AND clock_in IS NOT NULL AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1", user.getId());
+      Map<String, Object> open = Sql.one("SELECT id,work_date,finalized FROM attendance WHERE user_id=? AND clock_in IS NOT NULL AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1", user.getId());
       if (open.isEmpty()) throw new IllegalArgumentException("先に出勤打刻を行ってください。");
-      int updated = Sql.update("UPDATE attendance SET clock_out=CURRENT_TIMESTAMP,out_lat=?,out_lng=?,location_status=?,status='COMPLETE' WHERE id=?",
+      if (Boolean.TRUE.equals(open.get("finalized"))) {
+        throw new IllegalArgumentException("確定済み勤怠は変更できません。店長へ確定解除を依頼してください。");
+      }
+      int updated = Sql.update("UPDATE attendance SET clock_out=CURRENT_TIMESTAMP,out_lat=?,out_lng=?,location_status=?,status='COMPLETE' WHERE id=? AND finalized=FALSE",
           number(lat), number(lng), locationStatus, open.get("id"));
       workDate = toDate(open.get("work_date"));
       if (updated == 0) throw new IllegalArgumentException("先に出勤打刻を行ってください。");

@@ -29,6 +29,7 @@ public class PortalServlet extends HttpServlet {
     TITLES.put("shifts/team", "月間シフト表"); TITLES.put("shifts/change", "シフト変更・休み申請");
     TITLES.put("shifts/history", "シフト申請履歴"); TITLES.put("shifts/manage", "シフト調整");
     TITLES.put("shifts/confirm", "シフト確定確認"); TITLES.put("shifts/print", "シフト印刷");
+    TITLES.put("leave", "有休");
     TITLES.put("leave/balance", "有休残数・取得履歴"); TITLES.put("leave/request", "有休申請");
     TITLES.put("leave/history", "有休申請履歴"); TITLES.put("leave/approvals", "有休承認");
     TITLES.put("attendance/clock", "出勤・退勤打刻"); TITLES.put("attendance/mine", "自分の勤怠");
@@ -101,10 +102,11 @@ public class PortalServlet extends HttpServlet {
         req.setAttribute("preferenceSubmissions", portal.preferenceSubmissionSummaries(user, month));
         req.setAttribute("preferenceDetails", portal.preferenceDetails(user, month));
       }
-    } else if (page.startsWith("leave/")) {
+    } else if ("leave".equals(page) || page.startsWith("leave/")) {
       req.setAttribute("rows", portal.leaveRequests(user));
       req.setAttribute("balance", portal.leaveBalance(user.getId()));
       req.setAttribute("leaveLedger", portal.leaveHistory(user));
+      req.setAttribute("leaveApprovers", portal.leaveApprovers(user));
     } else if (page.startsWith("attendance/")) {
       req.setAttribute("rows", portal.attendance(user, month));
       req.setAttribute("adjustments", portal.attendanceAdjustments(user));
@@ -187,7 +189,8 @@ public class PortalServlet extends HttpServlet {
         case "decideShiftChange" -> portal.decideShiftChange(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
         case "requestLeave" -> portal.requestLeave(user, LocalDate.parse(req.getParameter("date")),
             req.getParameter("unit"), integer(req.getParameter("hours")), req.getParameter("reason"));
-        case "decideLeave" -> portal.decideLeave(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
+        case "decideLeave" -> portal.decideLeave(user, Long.parseLong(req.getParameter("id")),
+            "approve".equals(req.getParameter("decision")), req.getParameter("rejectionReason"));
         case "cancelLeave" -> portal.cancelLeave(user, Long.parseLong(req.getParameter("id")));
         case "clock" -> portal.clock(user, "in".equals(req.getParameter("direction")), req.getParameter("lat"), req.getParameter("lng"), value(req, "locationStatus", "UNKNOWN"));
         case "finalizeAttendance" -> portal.finalizeAttendance(user, Long.parseLong(req.getParameter("id")), Boolean.parseBoolean(req.getParameter("finalized")));

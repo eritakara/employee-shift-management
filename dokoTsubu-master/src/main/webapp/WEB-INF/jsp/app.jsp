@@ -38,6 +38,37 @@
     return "希望なし";
   }
   private String status(Object value) { return value == null ? "" : String.valueOf(value).toLowerCase(); }
+  private String statusLabel(Object value) {
+    String status = String.valueOf(value);
+    if ("PENDING".equals(status)) return "申請中";
+    if ("APPROVED".equals(status)) return "承認済み";
+    if ("REJECTED".equals(status)) return "却下";
+    if ("CANCELLED".equals(status)) return "取消済み";
+    return e(value);
+  }
+  private String leaveUnitLabel(Object value) {
+    String unit = String.valueOf(value);
+    if ("FULL".equals(unit)) return "1日";
+    if ("AM".equals(unit)) return "午前休";
+    if ("PM".equals(unit)) return "午後休";
+    if ("HOURLY".equals(unit)) return "時間単位";
+    return e(value);
+  }
+  private String leaveEventTypeLabel(Object value) {
+    String type = String.valueOf(value);
+    if ("GRANT".equals(type)) return "付与";
+    if ("USE".equals(type)) return "取得";
+    if ("RESTORE".equals(type)) return "取消戻し";
+    if ("EXPIRE".equals(type)) return "失効";
+    if ("INELIGIBLE".equals(type)) return "付与対象外";
+    return e(value);
+  }
+  private String leaveNoteLabel(Object value) {
+    String note = String.valueOf(value);
+    if ("FULL".equals(note) || "AM".equals(note) || "PM".equals(note) || "HOURLY".equals(note)) return leaveUnitLabel(note);
+    if ("statutory expiry".equals(note)) return "法定失効";
+    return e(value);
+  }
   private boolean pageIs(String page, String prefix) { return page.equals(prefix) || page.startsWith(prefix + "/"); }
 %>
 <%
@@ -78,9 +109,7 @@ String ctx = request.getContextPath();
       <a class="nav-link <%= pageKey.equals("shifts/confirm") ? "active" : "" %>" href="<%=ctx%>/app/shifts/confirm">✓ <%= en ? "Confirm schedule" : "シフト確定" %></a>
       <% } %>
       <p class="nav-label"><%= en ? "Leave" : "有休" %></p>
-      <a class="nav-link <%= pageKey.equals("leave/balance") ? "active" : "" %>" href="<%=ctx%>/app/leave/balance">◷ <%= en ? "Balance" : "残数・履歴" %></a>
-      <a class="nav-link <%= pageKey.equals("leave/request") ? "active" : "" %>" href="<%=ctx%>/app/leave/request">＋ <%= en ? "Leave request" : "有休申請" %></a>
-      <a class="nav-link <%= pageKey.equals("leave/history") ? "active" : "" %>" href="<%=ctx%>/app/leave/history">▤ <%= en ? "Request history" : "申請履歴" %></a>
+      <a class="nav-link <%= (pageKey.equals("leave") || pageKey.equals("leave/balance") || pageKey.equals("leave/request") || pageKey.equals("leave/history")) ? "active" : "" %>" href="<%=ctx%>/app/leave">◷ <%= en ? "Leave" : "有休" %></a>
       <% if (manager) { %><a class="nav-link <%= pageKey.equals("leave/approvals") ? "active" : "" %>" href="<%=ctx%>/app/leave/approvals">✓ <%= en ? "Approvals" : "承認" %></a><% } %>
       <p class="nav-label"><%= en ? "Attendance" : "勤怠" %></p>
       <a class="nav-link <%= pageKey.equals("attendance/clock") ? "active" : "" %>" href="<%=ctx%>/app/attendance/clock">◉ <%= en ? "Time clock" : "出退勤打刻" %></a>
@@ -215,14 +244,26 @@ String ctx = request.getContextPath();
         </section>
         <% } %>
 
-      <% } else if (pageKey.startsWith("leave/")) {
-        Map<String,Object> balance=(Map<String,Object>)request.getAttribute("balance"); %>
-        <div class="metric-grid"><div class="metric"><span class="label">有休残日数</span><strong><%=e(balance.get("days_remaining"))%><small>日</small></strong></div><div class="metric"><span class="label">時間有休残</span><strong><%=e(balance.get("hourly_remaining"))%><small>時間</small></strong></div></div>
-        <% if(pageKey.equals("leave/request")){ %><section class="section"><h2>有休を申請</h2><form method="post" class="form-grid"><input type="hidden" name="action" value="requestLeave"><input type="hidden" name="returnPage" value="leave/history"><label>取得日<input type="date" name="date" required></label><label>取得単位<select name="unit"><option value="FULL">1日</option><option value="AM">午前休</option><option value="PM">午後休</option><option value="HOURLY">時間単位</option></select></label><label>時間数<input type="number" name="hours" min="1" max="8" placeholder="時間単位の場合"></label><label class="span-all">理由<textarea name="reason" required maxlength="1000"></textarea></label><div class="span-all"><button class="primary" type="submit">申請する</button></div></form></section><% } %>
-        <section class="section"><div class="section-header"><h2>有休申請</h2><span class="muted"><%=rows.size()%>件</span></div><div class="table-wrap"><table><thead><tr><th>取得日</th><th>申請者</th><th>単位</th><th>時間</th><th>理由</th><th>状態</th><%if(pageKey.equals("leave/approvals")||pageKey.equals("leave/history")){%><th>操作</th><%}%></tr></thead><tbody>
-          <%for(Map<String,Object> row:rows){%><tr><td><%=e(row.get("leave_date"))%></td><td><%=e(row.get("name"))%></td><td><%=e(row.get("leave_unit"))%></td><td><%=e(row.get("hours"))%></td><td><%=e(row.get("reason"))%></td><td><span class="status <%=status(row.get("status"))%>"><%=e(row.get("status"))%></span></td><%if(pageKey.equals("leave/approvals")){%><td><%if("PENDING".equals(row.get("status"))){%><div class="actions"><form method="post"><input type="hidden" name="action" value="decideLeave"><input type="hidden" name="returnPage" value="leave/approvals"><input type="hidden" name="id" value="<%=row.get("id")%>"><button class="primary" name="decision" value="approve">承認</button><button class="danger-button" name="decision" value="reject">却下</button></form></div><%}%></td><%}else if(pageKey.equals("leave/history")){%><td><%if("PENDING".equals(row.get("status"))||"APPROVED".equals(row.get("status"))){%><form method="post"><input type="hidden" name="action" value="cancelLeave"><input type="hidden" name="returnPage" value="leave/history"><input type="hidden" name="id" value="<%=row.get("id")%>"><button class="danger-button">取消</button></form><%}%></td><%}%></tr><%}%>
+      <% } else if (pageKey.equals("leave") || pageKey.startsWith("leave/")) {
+        Map<String,Object> balance=(Map<String,Object>)request.getAttribute("balance");
+        List<Map<String,Object>> leaveApprovers=(List<Map<String,Object>>)request.getAttribute("leaveApprovers");
+        if(leaveApprovers==null) leaveApprovers=Collections.emptyList();
+        String leaveTab=request.getParameter("tab");
+        if(pageKey.equals("leave/request")) leaveTab="request";
+        else if(pageKey.equals("leave/history")) leaveTab="history";
+        else if(pageKey.equals("leave/balance")) leaveTab="balance";
+        else if(leaveTab==null || leaveTab.isBlank()) leaveTab="balance";
+        boolean leaveApprovals=pageKey.equals("leave/approvals");
+      %>
+        <div class="metric-grid"><div class="metric"><span class="label">有休残日数</span><strong><%=days(balance.get("days_remaining"))%><small>日</small></strong></div><div class="metric"><span class="label">時間有休残</span><strong><%=e(balance.get("hourly_remaining"))%><small>時間</small></strong></div></div>
+        <% if(!leaveApprovals){ %><nav class="page-tabs leave-tabs" aria-label="有休メニュー"><a class="leave-tab-request <%="request".equals(leaveTab)?"active":""%>" href="<%=ctx%>/app/leave?tab=request">有給申請</a><a class="leave-tab-history <%="history".equals(leaveTab)?"active":""%>" href="<%=ctx%>/app/leave?tab=history">申請履歴</a><a class="leave-tab-balance <%="balance".equals(leaveTab)?"active":""%>" href="<%=ctx%>/app/leave?tab=balance">残数・履歴</a></nav><% } %>
+        <% if("request".equals(leaveTab) && !leaveApprovals){ %><section class="section"><h2>有休を申請</h2><div class="approver-panel"><span class="label">承認者</span><%if(leaveApprovers.isEmpty()){%><strong>承認者が設定されていません</strong><small>有休承認権限を持つ上長または人事担当者の設定を確認してください。</small><%}else{%><div class="approver-list"><%for(Map<String,Object> approver:leaveApprovers){%><span><strong><%=e(approver.get("name"))%></strong><small><%=e(approver.get("approver_type"))%></small></span><%}%></div><%}%></div><form method="post" class="form-grid"><input type="hidden" name="action" value="requestLeave"><input type="hidden" name="returnPage" value="leave?tab=history"><label>取得日<input type="date" name="date" required></label><label>取得単位<select name="unit"><option value="FULL">1日</option><option value="AM">午前休</option><option value="PM">午後休</option><option value="HOURLY">時間単位</option></select></label><label>時間数<input type="number" name="hours" min="1" max="8" placeholder="時間単位の場合"></label><label class="span-all">理由（任意）<textarea name="reason" maxlength="1000"></textarea></label><div class="span-all"><button class="primary" type="submit">申請する</button></div></form></section><% } %>
+        <% if("history".equals(leaveTab) || leaveApprovals){ %><section class="section"><div class="section-header"><h2><%=leaveApprovals?"有休承認":"申請履歴"%></h2><span class="muted"><%=rows.size()%>件</span></div><div class="table-wrap"><table><thead><tr><th>取得日</th><th>申請者</th><th>単位</th><th>時間</th><th>理由</th><th>状態</th><th>操作</th></tr></thead><tbody>
+          <%for(Map<String,Object> row:rows){%><tr><td><%=e(row.get("leave_date"))%></td><td><%=e(row.get("name"))%></td><td><%=leaveUnitLabel(row.get("leave_unit"))%></td><td><%=e(row.get("hours"))%></td><td><%=e(row.get("reason"))%></td><td><span class="status <%=status(row.get("status"))%>"><%=statusLabel(row.get("status"))%></span></td><%if(leaveApprovals){%><td><%if("PENDING".equals(row.get("status")) && Boolean.TRUE.equals(row.get("can_decide_leave"))){%><div class="actions leave-decision-actions"><form method="post"><input type="hidden" name="action" value="decideLeave"><input type="hidden" name="returnPage" value="leave/approvals"><input type="hidden" name="id" value="<%=row.get("id")%>"><button class="primary" name="decision" value="approve">承認</button></form><button type="button" class="danger-button" data-leave-reject-open data-request-id="<%=row.get("id")%>" data-requester="<%=e(row.get("name"))%>" data-leave-date="<%=e(row.get("leave_date"))%>" data-reason="<%=e(row.get("reason"))%>" data-status="<%=statusLabel(row.get("status"))%>">却下</button></div><%}%></td><%}else{%><td><%if("PENDING".equals(row.get("status"))||"APPROVED".equals(row.get("status"))){%><form method="post"><input type="hidden" name="action" value="cancelLeave"><input type="hidden" name="returnPage" value="leave?tab=history"><input type="hidden" name="id" value="<%=row.get("id")%>"><button class="danger-button">取消</button></form><%}%></td><%}%></tr><%}%>
           <%if(rows.isEmpty()){%><tr><td colspan="7" class="empty">申請はありません。</td></tr><%}%></tbody></table></div></section>
-        <%if(pageKey.equals("leave/balance")||pageKey.equals("leave/history")){List<Map<String,Object>> ledger=(List<Map<String,Object>>)request.getAttribute("leaveLedger");%><section class="section"><div class="section-header"><h2>有休台帳</h2><span class="muted">付与・取得・取消・失効</span></div><div class="table-wrap"><table><thead><tr><th>日付</th><th>種類</th><th>日数</th><th>時間</th><th>備考</th></tr></thead><tbody><%for(Map<String,Object> event:ledger){%><tr><td><%=e(event.get("event_date"))%></td><td><%=e(event.get("event_type"))%></td><td><%=e(event.get("days"))%></td><td><%=e(event.get("hours"))%></td><td><%=e(event.get("note"))%></td></tr><%}%><%if(ledger.isEmpty()){%><tr><td colspan="5" class="empty">台帳履歴はありません。</td></tr><%}%></tbody></table></div></section><%}%>
+          <%if(leaveApprovals){%><dialog class="leave-reject-dialog" data-leave-reject-dialog><form method="post" class="leave-reject-card" data-leave-reject-form novalidate><input type="hidden" name="action" value="decideLeave"><input type="hidden" name="returnPage" value="leave/approvals"><input type="hidden" name="id" data-leave-reject-id><input type="hidden" name="decision" value="reject"><div class="section-header"><h2>有休申請を却下</h2></div><dl class="decision-summary"><div><dt>申請者</dt><dd data-leave-reject-requester></dd></div><div><dt>取得日</dt><dd data-leave-reject-date></dd></div><div><dt>申請理由</dt><dd data-leave-reject-reason></dd></div><div><dt>現在の状態</dt><dd data-leave-reject-status></dd></div></dl><label>却下理由<textarea name="rejectionReason" required maxlength="500" rows="4" placeholder="却下理由を入力してください" data-leave-reject-reason-input></textarea></label><p class="form-error" data-leave-reject-error hidden>却下理由を入力してください</p><div class="actions dialog-actions"><button type="button" data-leave-reject-cancel>キャンセル</button><button class="danger-button" type="submit">却下して送信</button></div></form></dialog><%}%>
+        <% } %>
+        <%if("balance".equals(leaveTab) && !leaveApprovals){List<Map<String,Object>> ledger=(List<Map<String,Object>>)request.getAttribute("leaveLedger");%><section class="section"><div class="section-header"><h2>有休台帳</h2><span class="muted">付与・取得・取消・失効</span></div><div class="table-wrap"><table><thead><tr><th>日付</th><th>種類</th><th>日数</th><th>時間</th><th>備考</th></tr></thead><tbody><%for(Map<String,Object> event:ledger){%><tr><td><%=e(event.get("event_date"))%></td><td><%=leaveEventTypeLabel(event.get("event_type"))%></td><td><%=days(event.get("days"))%></td><td><%=e(event.get("hours"))%></td><td><%=leaveNoteLabel(event.get("note"))%></td></tr><%}%><%if(ledger.isEmpty()){%><tr><td colspan="5" class="empty">台帳履歴はありません。</td></tr><%}%></tbody></table></div></section><%}%>
 
       <% } else if(pageKey.startsWith("attendance/")){ %>
         <%if(pageKey.equals("attendance/clock")){%><section class="section clock-panel"><p class="muted"><%=LocalDate.now()%></p><div class="clock-time" data-clock>--:--:--</div><p>打刻時に端末の位置情報を記録します。場所による打刻制限はありません。</p><div class="clock-actions"><form method="post" data-clock-form><input type="hidden" name="action" value="clock"><input type="hidden" name="returnPage" value="attendance/clock"><input type="hidden" name="direction" value="in"><input type="hidden" name="lat"><input type="hidden" name="lng"><input type="hidden" name="locationStatus"><button class="primary" type="submit">出勤</button></form><form method="post" data-clock-form><input type="hidden" name="action" value="clock"><input type="hidden" name="returnPage" value="attendance/clock"><input type="hidden" name="direction" value="out"><input type="hidden" name="lat"><input type="hidden" name="lng"><input type="hidden" name="locationStatus"><button type="submit">退勤</button></form></div></section><%}%>
@@ -270,6 +311,6 @@ String ctx = request.getContextPath();
     <footer class="app-footer"><a href="<%=ctx%>/privacy"><%=en?"Privacy and location data":"個人情報・位置情報の取扱い"%></a></footer>
   </div>
 </div>
-<script src="<%=ctx%>/assets/app.js?v=20260620-3"></script>
+<script src="<%=ctx%>/assets/app.js?v=20260620-6"></script>
 </body>
 </html>

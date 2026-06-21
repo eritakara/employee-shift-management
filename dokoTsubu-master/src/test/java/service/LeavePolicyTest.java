@@ -49,6 +49,10 @@ public class LeavePolicyTest {
     ledger.restore(requestId, today.plusDays(1));
     Sql.update("UPDATE leave_requests SET status='CANCELLED' WHERE id=?", requestId);
     check(((BigDecimal) ledger.balance(employeeId, today).get("days_remaining")).compareTo(new BigDecimal("10.00")) == 0, "cancellation restores balance");
+    User employee = new UserDAO().authenticate("employee@example.com", "Password1!");
+    new PortalService().requestLeave(employee, leaveDate.plusDays(20), "FULL", null, "");
+    check("".equals(Sql.one("SELECT reason FROM leave_requests WHERE user_id=? AND leave_date=?", employeeId, leaveDate.plusDays(20)).get("reason")),
+        "leave request reason is optional");
 
     long halfDayId = Sql.insert("INSERT INTO leave_requests(user_id,leave_date,leave_unit,reason) VALUES(?,?,'AM','half day')", employeeId, leaveDate.plusDays(1));
     ledger.consume(halfDayId);

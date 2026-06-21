@@ -38,6 +38,53 @@ document.addEventListener('DOMContentLoaded', () => {
     input.addEventListener('change', () => input.form?.requestSubmit());
   });
 
+  const leaveRejectDialog = document.querySelector('[data-leave-reject-dialog]');
+  if (leaveRejectDialog) {
+    const rejectForm = leaveRejectDialog.querySelector('[data-leave-reject-form]');
+    const reasonInput = leaveRejectDialog.querySelector('[data-leave-reject-reason-input]');
+    const error = leaveRejectDialog.querySelector('[data-leave-reject-error]');
+    const setText = (selector, value) => {
+      const target = leaveRejectDialog.querySelector(selector);
+      if (target) target.textContent = value?.trim() || '-';
+    };
+    document.querySelectorAll('[data-leave-reject-open]').forEach(button => {
+      button.addEventListener('click', () => {
+        rejectForm.reset();
+        rejectForm.querySelector('[data-leave-reject-id]').value = button.dataset.requestId;
+        setText('[data-leave-reject-requester]', button.dataset.requester);
+        setText('[data-leave-reject-date]', button.dataset.leaveDate);
+        setText('[data-leave-reject-reason]', button.dataset.reason);
+        setText('[data-leave-reject-status]', button.dataset.status);
+        error.hidden = true;
+        reasonInput.setCustomValidity('');
+        leaveRejectDialog.showModal();
+        reasonInput.focus();
+      });
+    });
+    leaveRejectDialog.querySelector('[data-leave-reject-cancel]')?.addEventListener('click', () => leaveRejectDialog.close());
+    leaveRejectDialog.addEventListener('click', event => { if (event.target === leaveRejectDialog) leaveRejectDialog.close(); });
+    reasonInput.addEventListener('input', () => {
+      if (reasonInput.value.trim()) {
+        error.hidden = true;
+        reasonInput.setCustomValidity('');
+      }
+    });
+    rejectForm.addEventListener('submit', event => {
+      if (reasonInput.value.trim()) return;
+      event.preventDefault();
+      rejectForm.dataset.submitting = 'false';
+      rejectForm.removeAttribute('aria-busy');
+      rejectForm.querySelector('.loading-indicator')?.remove();
+      error.hidden = false;
+      reasonInput.setCustomValidity('却下理由を入力してください');
+      reasonInput.reportValidity();
+    });
+  }
+
+  document.querySelectorAll('[data-print-page]').forEach(button => {
+    button.addEventListener('click', () => window.print());
+  });
+
   const autoPrint = document.querySelector('[data-print-on-load]');
   if (autoPrint) {
     let printStarted = false;

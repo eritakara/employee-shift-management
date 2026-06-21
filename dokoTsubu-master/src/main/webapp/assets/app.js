@@ -85,6 +85,21 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', () => window.print());
   });
 
+  const autoPrint = document.querySelector('[data-print-on-load]');
+  if (autoPrint) {
+    let printStarted = false;
+    window.addEventListener('beforeprint', () => { printStarted = true; }, {once:true});
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        window.focus();
+        window.print();
+        window.setTimeout(() => {
+          if (!printStarted) autoPrint.hidden = false;
+        }, 400);
+      }, 100);
+    });
+  }
+
   document.querySelectorAll('[data-preference-form]').forEach(form => {
     const selects = [...form.querySelectorAll('[data-preference-select]')];
     const summary = form.querySelector('[data-preference-summary]');

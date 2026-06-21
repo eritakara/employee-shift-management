@@ -100,7 +100,7 @@ public class PortalServlet extends HttpServlet {
       req.setAttribute("requests", shiftService.shiftChangeRequests(user));
       if ("shifts/confirm".equals(page) || "shifts/manage".equals(page)) req.setAttribute("warnings", shiftService.shiftWarnings(user, month));
       if ("shifts/request".equals(page)) {
-        req.setAttribute("submissionWindow", shiftService.shiftSubmissionWindow());
+        req.setAttribute("submissionWindow", shiftService.shiftSubmissionWindow(month));
         req.setAttribute("preferenceRows", shiftService.preferences(user, month));
         req.setAttribute("preferenceSubmission", shiftService.preferenceSubmission(user, month));
       }

@@ -31,7 +31,7 @@ public class ShiftWorkflowTest {
     Map<String, Object> submitted = Sql.one("SELECT status,work_type_code FROM shifts WHERE user_id=? AND work_date=?", employee.getId(), targetDate);
     check("SUBMITTED".equals(submitted.get("status")), "preferred shift submitted");
     expectFailure(() -> portal.submitPreferredShift(employee, targetMonth.atDay(2), "DAY", "late", afterDeadline), "submission deadline");
-    expectFailure(() -> portal.submitPreferredShift(employee, targetMonth.plusMonths(1).atDay(1), "DAY", "wrong month", beforeDeadline), "submission month");
+    expectFailure(() -> portal.submitPreferredShift(employee, targetMonth.minusMonths(2).atDay(1), "DAY", "past month", beforeDeadline), "past month block");
 
     settings.update(hr, "ALLOW_CONFIRM_WITH_WARNINGS", "false");
     expectFailure(() -> portal.confirmMonth(manager, targetMonth, "blocked"), "warnings block confirmation");

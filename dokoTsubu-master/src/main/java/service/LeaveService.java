@@ -92,6 +92,40 @@ public class LeaveService {
     }
     if (approve) {
       leaveLedger.consume(requestId);
+      
+      // 有休承認時のシフト上書きと警告処理
+      LocalDate leaveDate = toDate(request.get("leave_date"));
+      long userId = ((Number) request.get("user_id")).longValue();
+      String leaveUnit = String.valueOf(request.get("leave_unit"));
+      String leaveType = switch (leaveUnit) {
+        case "FULL" -> "LEAVE";
+        case "AM" -> "AM_LEAVE";
+        case "PM" -> "PM_LEAVE";
+        default -> null;
+      };
+      
+      if (leaveType != null) {
+        Map<String, Object> existingShift = Sql.one("SELECT id, work_type_code, status FROM shifts WHERE user_id=? AND work_date=?", userId, leaveDate);
+        if (!existingShift.isEmpty()) {
+          String currentTypeCode = String.valueOf(existingShift.get("work_type_code"));
+          if (!leaveType.equals(currentTypeCode)) {
+            Sql.update("UPDATE shifts SET work_type_code=?, updated_by=?, updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND work_date=?",
+                leaveType, actor.getId(), userId, leaveDate);
+            
+            // 元のシフトが勤務（DAY/NIGHT）だった場合、必要人員の不足が発生する可能性があるため管理者に警告通知を送信する
+            if (List.of("DAY", "NIGHT").contains(currentTypeCode)) {
+              NotificationService warningNotification = new NotificationService();
+              warningNotification.notify(actor.getId(), "SHIFT_RECHECK", "有休承認に伴うシフト再調整警告",
+                  request.get("name") + "さんの有休承認に伴い、" + leaveDate + " のシフトが有休に更新されました。人員不足等の警告がないか確認し、必要に応じて再調整を行ってください。",
+                  "/app/shifts/manage?month=" + java.time.YearMonth.from(leaveDate));
+            }
+          }
+        } else {
+          // シフトがまだ登録されていなければ、有休シフトを新規登録する
+          Sql.update("INSERT INTO shifts(user_id,work_date,work_type_code,status,updated_by,updated_at) VALUES(?,?,?,'DRAFT',?,CURRENT_TIMESTAMP)",
+              userId, leaveDate, leaveType, actor.getId());
+        }
+      }
     }
     Sql.update("UPDATE leave_requests SET status=?,decided_by=?,decided_at=CURRENT_TIMESTAMP WHERE id=?",
         approve ? "APPROVED" : "REJECTED", actor.getId(), requestId);

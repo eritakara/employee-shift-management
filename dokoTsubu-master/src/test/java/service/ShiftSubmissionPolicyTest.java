@@ -16,7 +16,9 @@ public class ShiftSubmissionPolicyTest {
     policy.validate(before, july, 15);
     policy.validate(deadline, july, 15);
     expectFailure(() -> policy.validate(after, july, 15), "after deadline");
-    expectFailure(() -> policy.validate(before, LocalDate.of(2026, 8, 1), 15), "non-target month");
+    policy.validate(before, LocalDate.of(2026, 8, 1), 15);
+    expectFailure(() -> policy.validate(before, LocalDate.of(2026, 5, 1), 15), "past month");
+    expectFailure(() -> policy.validate(LocalDate.of(2026, 7, 16), LocalDate.of(2026, 8, 1), 15), "future month after deadline");
     check(policy.deadline(LocalDate.of(2026, 2, 1), 31).equals(LocalDate.of(2026, 2, 28)), "short month clamp");
     check(policy.deadline(LocalDate.of(2028, 2, 1), 31).equals(LocalDate.of(2028, 2, 29)), "leap year clamp");
     System.out.println("ShiftSubmissionPolicyTest: all checks passed");

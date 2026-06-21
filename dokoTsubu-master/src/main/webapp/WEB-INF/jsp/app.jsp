@@ -71,6 +71,23 @@
     if ("CANCELLED".equals(status)) return "取消済み";
     return e(value);
   }
+  private String shiftStatusLabel(Object value) {
+    if (value == null) return "-";
+    String status = String.valueOf(value);
+    if ("DRAFT".equals(status)) return "下書き";
+    if ("CONFIRMED".equals(status)) return "確定";
+    if ("SUBMITTED".equals(status)) return "提出済み";
+    return e(value);
+  }
+  private String submissionStatusLabel(Object value) {
+    if (value == null || String.valueOf(value).isBlank()) return "未提出";
+    String status = String.valueOf(value);
+    if ("SUBMITTED".equals(status)) return "提出済み";
+    if ("APPROVED".equals(status)) return "承認済み";
+    if ("RETURNED".equals(status)) return "差戻し";
+    if ("DRAFT".equals(status)) return "下書き";
+    return e(value);
+  }
   private String leaveUnitLabel(Object value) {
     String unit = String.valueOf(value);
     if ("FULL".equals(unit)) return "1日";
@@ -221,7 +238,7 @@ String ctx = request.getContextPath();
         </div>
         <%if(printDialogRequested){%><div class="alert no-print" hidden data-print-on-load>印刷ダイアログを表示できませんでした。ブラウザの <strong>Ctrl+P</strong>（Macは <strong>⌘+P</strong>）を押してください。</div><%}%>
         <% if (pageKey.equals("shifts/request")) { Map<String,Object> submissionWindow=(Map<String,Object>)request.getAttribute("submissionWindow"); boolean submissionOpen=Boolean.TRUE.equals(submissionWindow.get("open")); Map<String,Object> preferenceSubmission=(Map<String,Object>)request.getAttribute("preferenceSubmission"); List<Map<String,Object>> preferenceRows=(List<Map<String,Object>>)request.getAttribute("preferenceRows"); Map<String,String> preferenceByDate=new HashMap<>(); Map<String,String> preferenceReasonByDate=new HashMap<>(); for(Map<String,Object> preference:preferenceRows){String preferenceDate=String.valueOf(preference.get("preference_date"));preferenceByDate.put(preferenceDate,String.valueOf(preference.get("request_type")));if(preference.get("note")!=null)preferenceReasonByDate.put(preferenceDate,String.valueOf(preference.get("note")));} %>
-        <div class="<%=submissionOpen?"alert":"error-banner"%>">対象月: <strong><%=e(submissionWindow.get("target_month"))%></strong> / 提出期限: <strong><%=e(submissionWindow.get("deadline"))%></strong><%=submissionOpen?"":"（受付終了）"%> / 状態: <strong><%=preferenceSubmission.isEmpty()?"未提出":"提出済み"%></strong></div>
+        <div class="<%=submissionOpen?"alert":"error-banner"%>">対象月: <strong><%=e(submissionWindow.get("target_month"))%></strong> / 提出期限: <strong><%=e(submissionWindow.get("deadline"))%></strong><%=submissionOpen?"":"（受付終了）"%> / 状態: <strong><%=submissionStatusLabel(preferenceSubmission.get("status"))%></strong></div>
         <section class="section preference-section"><div class="section-header"><div><h2>希望日をまとめて選択</h2><p class="muted">希望がある日だけ選択してください。未選択日は自動割当の対象になります。</p></div></div>
           <div class="alert info-banner" style="margin-bottom: 1.5rem; background: #f0f9ff; border-left: 4px solid #0284c7; padding: 1rem; border-radius: 4px;">
             <strong style="color: #0369a1;">【有給休暇の申請について】</strong><br>
@@ -262,7 +279,7 @@ String ctx = request.getContextPath();
           <h3>提出された希望日</h3><div class="table-wrap"><table><thead><tr><th>日付</th><th>社員番号</th><th>氏名</th><th>希望</th><th>有休希望の理由</th></tr></thead><tbody><%for(Map<String,Object> detail:preferenceDetails){%><tr><td><%=e(detail.get("preference_date"))%></td><td><%=e(detail.get("employee_number"))%></td><td><%=e(detail.get("name"))%></td><td><span class="preference-label <%=shiftClass(detail.get("request_type"))%>"><%=preferenceLabel(detail.get("request_type"))%></span></td><td><%="LEAVE".equals(String.valueOf(detail.get("request_type")))?e(detail.get("note")):"-"%></td></tr><%}%><%if(preferenceDetails.isEmpty()){%><tr><td colspan="5" class="empty">提出された希望日はありません。</td></tr><%}%></tbody></table></div>
         </section><%}%>
         <% if (pageKey.equals("shifts/confirm") || pageKey.equals("shifts/manage")) { List<Map<String,Object>> warnings=(List<Map<String,Object>>)request.getAttribute("warnings"); %><section class="section no-print"><h2>確定前チェック</h2><%if(warnings==null||warnings.isEmpty()){%><p class="alert">警告はありません。</p><%}else{%><div class="table-wrap"><table><thead><tr><th>種類</th><th>日付</th><th>内容</th><th>必要</th><th>実績</th></tr></thead><tbody><%for(Map<String,Object>w:warnings){%><tr><td class="warning-text"><%=e(w.get("warning"))%></td><td><%=e(w.get("work_date"))%></td><td><%=e(w.get("detail"))%></td><td><%=e(w.get("required"))%></td><td><%=e(w.get("actual"))%></td></tr><%}%></tbody></table></div><%}%><%if(pageKey.equals("shifts/confirm")){%><form method="post" class="stack-form"><input type="hidden" name="action" value="confirmShifts"><input type="hidden" name="returnPage" value="shifts/confirm"><input type="hidden" name="month" value="<%=month%>"><%if(warnings!=null&&!warnings.isEmpty()){%><label>警告付きで確定する理由<textarea name="warningReason" required maxlength="500"></textarea></label><%}%><button class="primary" type="submit">警告を確認して確定</button></form><%}%></section><% } %>
-        <% if(pageKey.equals("shifts/history") || pageKey.equals("shifts/change") || pageKey.equals("shifts/manage")){ List<Map<String,Object>> requests=(List<Map<String,Object>>)request.getAttribute("requests"); %><section class="section"><div class="section-header"><h2>変更・休み申請</h2><span class="muted"><%=requests.size()%>件</span></div><div class="table-wrap"><table><thead><tr><th>日付</th><th>申請者</th><th>変更前</th><th>変更後</th><th>理由</th><th>緊急</th><th>状態</th><%if(manager){%><th>操作</th><%}%></tr></thead><tbody><%for(Map<String,Object>r:requests){%><tr><td><%=e(r.get("work_date"))%></td><td><%=e(r.get("name"))%></td><td><%=e(r.get("current_type"))%></td><td><%=e(r.get("requested_name"))%></td><td><%=e(r.get("reason"))%></td><td><%=Boolean.TRUE.equals(r.get("urgent"))?"緊急":"-"%></td><td><span class="status <%=status(r.get("status"))%>"><%=e(r.get("status"))%></span></td><%if(manager){%><td><%if("PENDING".equals(r.get("status"))){%><form method="post"><input type="hidden" name="action" value="decideShiftChange"><input type="hidden" name="returnPage" value="<%=pageKey%>"><input type="hidden" name="id" value="<%=r.get("id")%>"><button class="primary" name="decision" value="approve">承認</button><button class="danger-button" name="decision" value="reject">却下</button></form><%}%></td><%}%></tr><%}%><%if(requests.isEmpty()){%><tr><td colspan="8" class="empty">申請はありません。</td></tr><%}%></tbody></table></div></section><%}%>
+        <% if(pageKey.equals("shifts/history") || pageKey.equals("shifts/change") || pageKey.equals("shifts/manage")){ List<Map<String,Object>> requests=(List<Map<String,Object>>)request.getAttribute("requests"); %><section class="section"><div class="section-header"><h2>変更・休み申請</h2><span class="muted"><%=requests.size()%>件</span></div><div class="table-wrap"><table><thead><tr><th>日付</th><th>申請者</th><th>変更前</th><th>変更後</th><th>理由</th><th>緊急</th><th>状態</th><%if(manager){%><th>操作</th><%}%></tr></thead><tbody><%for(Map<String,Object>r:requests){%><tr><td><%=e(r.get("work_date"))%></td><td><%=e(r.get("name"))%></td><td><%=e(r.get("current_type"))%></td><td><%=e(r.get("requested_name"))%></td><td><%=e(r.get("reason"))%></td><td><%=Boolean.TRUE.equals(r.get("urgent"))?"緊急":"-"%></td><td><span class="status <%=status(r.get("status"))%>"><%=statusLabel(r.get("status"))%></span></td><%if(manager){%><td><%if("PENDING".equals(r.get("status"))){%><form method="post"><input type="hidden" name="action" value="decideShiftChange"><input type="hidden" name="returnPage" value="<%=pageKey%>"><input type="hidden" name="id" value="<%=r.get("id")%>"><button class="primary" name="decision" value="approve">承認</button><button class="danger-button" name="decision" value="reject">却下</button></form><%}%></td><%}%></tr><%}%><%if(requests.isEmpty()){%><tr><td colspan="8" class="empty">申請はありません。</td></tr><%}%></tbody></table></div></section><%}%>
         <% if(pageKey.equals("shifts/mine") || pageKey.equals("shifts/print")){ %>
           <% { String rosterTitle="シフト"; String rosterLink=null; List<Map<String,Object>> rosterBranches=(List<Map<String,Object>>)request.getAttribute("shiftBranches"); Long rosterBranchId=selectedShiftBranch==null?user.getBranchId():selectedShiftBranch.longValue(); %>
             <%@ include file="_shiftRoster.jspf" %>
@@ -270,7 +287,7 @@ String ctx = request.getContextPath();
         <% } else { %>
         <section class="section"><div class="section-header"><h2><%=month%> 月間シフト</h2><span class="muted"><%=rows.size()%>件</span></div>
           <div class="table-wrap"><table><thead><tr><th>日付</th><th>社員番号</th><th>氏名</th><th>勤務区分</th><th>状態</th><th>備考</th></tr></thead><tbody>
-          <% for(Map<String,Object> row:rows){ %><tr><td><%=e(row.get("work_date"))%></td><td><%=e(row.get("employee_number"))%></td><td><%=e(row.get("name"))%></td><td><%=e(row.get("work_type"))%></td><td><span class="status <%=status(row.get("status"))%>"><%=e(row.get("status"))%></span></td><td><%=e(row.get("note"))%></td></tr><% } %>
+          <% for(Map<String,Object> row:rows){ %><tr><td><%=e(row.get("work_date"))%></td><td><%=e(row.get("employee_number"))%></td><td><%=e(row.get("name"))%></td><td><%=e(row.get("work_type"))%></td><td><span class="status <%=status(row.get("status"))%>"><%=shiftStatusLabel(row.get("status"))%></span></td><td><%=e(row.get("note"))%></td></tr><% } %>
           <% if(rows.isEmpty()){%><tr><td colspan="6" class="empty">対象月のシフトはありません。</td></tr><%}%></tbody></table></div>
         </section>
         <% } %>

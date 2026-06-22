@@ -124,6 +124,7 @@ button:hover, .button:hover { border-color: var(--teal); }
 .section h2 { margin: 0; font-size: 17px; }
 .section h3 { font-size: 15px; }
 .metric-grid { display: grid; grid-template-columns: repeat(5, minmax(150px,1fr)); gap: 14px; margin-bottom: 22px; }
+.metric-grid.employee-metrics { grid-template-columns: repeat(3, minmax(150px,1fr)); }
 .metric { background: white; border: 1px solid var(--line); border-radius: 6px; padding: 18px; }
 .metric .label { color: var(--muted); font-size: 12px; font-weight: 700; }
 .metric strong { display: block; font-size: 28px; margin-top: 8px; }

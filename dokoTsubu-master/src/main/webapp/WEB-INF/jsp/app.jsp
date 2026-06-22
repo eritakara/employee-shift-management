@@ -207,11 +207,15 @@ String ctx = request.getContextPath();
             </p>
           </div>
         </div>
-        <div class="metric-grid">
+        <div class="metric-grid <%= manager ? "" : "employee-metrics" %>">
+          <% if (manager) { %>
           <div class="metric"><span class="label">今日の勤務者</span><strong><%=e(stats.get("todayWorkers"))%><small>名</small></strong></div>
+          <% } %>
           <div class="metric"><span class="label">未承認申請</span><strong><%=e(stats.get("pending"))%><small>件</small></strong></div>
           <div class="metric"><span class="label">有休残日数</span><strong><%=days(stats.get("leave"))%><small>日</small></strong></div>
+          <% if (manager) { %>
           <div class="metric"><span class="label">人員不足</span><div class="staffing-shortage"><span>日勤<strong><%=e(stats.get("dayShortagePercent"))%>%</strong></span><span>夜勤<strong><%=e(stats.get("nightShortagePercent"))%>%</strong></span></div></div>
+          <% } %>
           <div class="metric"><span class="label">今月の実勤務</span><strong><%=String.format("%.1f",stats.get("monthHours"))%><small>時間</small></strong></div>
         </div>
         <div class="dashboard-grid">

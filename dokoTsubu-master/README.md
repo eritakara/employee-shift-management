@@ -65,3 +65,35 @@ $env:CATALINA_BASE=(Resolve-Path '.tomcat').Path
 ## メール
 
 招待、パスワード再設定、申請通知メールは `mail_outbox` に送信待ちとして登録されます。実運用前に利用するメールサービスを決め、送信処理へ接続してください。ローカル環境では再設定画面への確認用リンクを画面に表示します。
+
+## Docker / Render デプロイ
+
+このプロジェクトは Spring Boot、Quarkus、Micronaut ではなく、Jakarta Servlet / JSP を Tomcat 10.1 に配備する Java Web アプリです。Dockerfile は Tomcat 10.1 + Java 21 上で WAR をビルドし、`/shiftflow` コンテキストに配備します。
+
+### ローカルでDocker起動
+
+```powershell
+docker build -t shiftflow .
+docker run --rm -p 8080:8080 -e PORT=8080 shiftflow
+```
+
+起動後に `http://localhost:8080/shiftflow/` を開きます。
+
+H2データベースはコンテナ内の `/opt/shiftflow/data` に保存されます。ローカルでデータを残したい場合は、次のようにボリュームを割り当てます。
+
+```powershell
+docker run --rm -p 8080:8080 -e PORT=8080 -v shiftflow-data:/opt/shiftflow/data shiftflow
+```
+
+### Renderへのデプロイ手順
+
+1. GitHubにこのリポジトリを push します。
+2. Render の Dashboard で **New +** → **Web Service** を選択します。
+3. 対象リポジトリを接続します。
+4. Runtime は **Docker** を選択します。
+5. Root Directory は、この `Dockerfile` があるディレクトリを指定します。
+6. 環境変数 `PORT` は Render が自動設定するため、手動追加は不要です。
+7. H2データを永続化する場合は Render Disk を追加し、Mount Path を `/opt/shiftflow/data` にします。
+8. Deploy 後、`https://<service-name>.onrender.com/shiftflow/` にアクセスします。
+
+Dockerfile は起動時に Render の `PORT` 環境変数を Tomcat の HTTP Connector に反映します。

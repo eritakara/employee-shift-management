@@ -81,6 +81,52 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const shiftRejectDialog = document.querySelector('[data-shift-reject-dialog]');
+  if (shiftRejectDialog) {
+    const rejectForm = shiftRejectDialog.querySelector('[data-shift-reject-form]');
+    const reasonInput = shiftRejectDialog.querySelector('[data-shift-reject-reason-input]');
+    const error = shiftRejectDialog.querySelector('[data-shift-reject-error]');
+    const setText = (selector, value) => {
+      const target = shiftRejectDialog.querySelector(selector);
+      if (target) target.textContent = value?.trim() || '-';
+    };
+    document.querySelectorAll('[data-shift-reject-open]').forEach(button => {
+      button.addEventListener('click', () => {
+        rejectForm.reset();
+        rejectForm.querySelector('[data-shift-reject-id]').value = button.dataset.requestId;
+        rejectForm.querySelector('[data-shift-reject-return-page]').value = button.dataset.returnPage;
+        setText('[data-shift-reject-requester]', button.dataset.requester);
+        setText('[data-shift-reject-date]', button.dataset.shiftDate);
+        setText('[data-shift-reject-before]', button.dataset.before);
+        setText('[data-shift-reject-after]', button.dataset.after);
+        setText('[data-shift-reject-reason]', button.dataset.reason);
+        setText('[data-shift-reject-status]', button.dataset.status);
+        error.hidden = true;
+        reasonInput.setCustomValidity('');
+        shiftRejectDialog.showModal();
+        reasonInput.focus();
+      });
+    });
+    shiftRejectDialog.querySelector('[data-shift-reject-cancel]')?.addEventListener('click', () => shiftRejectDialog.close());
+    shiftRejectDialog.addEventListener('click', event => { if (event.target === shiftRejectDialog) shiftRejectDialog.close(); });
+    reasonInput.addEventListener('input', () => {
+      if (reasonInput.value.trim()) {
+        error.hidden = true;
+        reasonInput.setCustomValidity('');
+      }
+    });
+    rejectForm.addEventListener('submit', event => {
+      if (reasonInput.value.trim()) return;
+      event.preventDefault();
+      rejectForm.dataset.submitting = 'false';
+      rejectForm.removeAttribute('aria-busy');
+      rejectForm.querySelector('.loading-indicator')?.remove();
+      error.hidden = false;
+      reasonInput.setCustomValidity('却下理由を入力してください');
+      reasonInput.reportValidity();
+    });
+  }
+
   const leaveUnitSelect = document.querySelector('form select[name="unit"]');
   if (leaveUnitSelect) {
     const leaveHoursInput = leaveUnitSelect.closest('form').querySelector('input[name="hours"]');

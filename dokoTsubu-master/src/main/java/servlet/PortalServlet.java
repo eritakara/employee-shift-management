@@ -193,7 +193,8 @@ public class PortalServlet extends HttpServlet {
         case "reviewShiftPreferences" -> shiftService.reviewPreferenceSubmission(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
         case "confirmShifts" -> shiftService.confirmMonth(user, parseMonth(req.getParameter("month")), req.getParameter("warningReason"));
         case "requestShiftChange" -> shiftService.requestShiftChange(user, LocalDate.parse(req.getParameter("date")), req.getParameter("workType"), req.getParameter("reason"));
-        case "decideShiftChange" -> shiftService.decideShiftChange(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
+        case "decideShiftChange" -> shiftService.decideShiftChange(user, Long.parseLong(req.getParameter("id")),
+            "approve".equals(req.getParameter("decision")), req.getParameter("rejectionReason"));
         case "requestLeave" -> leaveService.requestLeave(user, LocalDate.parse(req.getParameter("date")),
             req.getParameter("unit"), integer(req.getParameter("hours")), req.getParameter("reason"));
         case "decideLeave" -> leaveService.decideLeave(user, Long.parseLong(req.getParameter("id")),

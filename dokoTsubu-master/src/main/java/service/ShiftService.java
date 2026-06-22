@@ -378,6 +378,7 @@ public class ShiftService {
 
   public void requestShiftChange(User user, LocalDate date, String type, String reason) {
     if (reason == null || reason.isBlank()) throw new IllegalArgumentException("変更理由を入力してください。");
+    if ("LEAVE".equals(type)) throw new IllegalArgumentException("有休は有休申請から申請してください。");
     boolean urgent = !date.isAfter(LocalDate.now());
     if (date.isBefore(LocalDate.now())) throw new IllegalArgumentException("過去日の変更は打刻修正から申請してください。");
     long id = Sql.insert("INSERT INTO shift_change_requests(user_id,work_date,requested_work_type,reason,urgent) VALUES(?,?,?,?,?)",
@@ -388,11 +389,16 @@ public class ShiftService {
   }
 
   public void decideShiftChange(User actor, long requestId, boolean approve) {
+    decideShiftChange(actor, requestId, approve, null);
+  }
+
+  public void decideShiftChange(User actor, long requestId, boolean approve, String rejectionReason) {
     requireManager(actor);
     Map<String, Object> row = Sql.one("SELECT r.*,u.branch_id,u.department_id FROM shift_change_requests r JOIN users u ON u.id=r.user_id WHERE r.id=?", requestId);
     if (row.isEmpty() || !"PENDING".equals(row.get("status"))) throw new IllegalArgumentException("未処理の申請が見つかりません。");
     assertScope(actor, ((Number) row.get("branch_id")).longValue(), ((Number) row.get("department_id")).longValue());
     List<Map<String, Object>> recheckWarnings = List.of();
+    String decisionMessage = row.get("work_date") + "の申請結果を確認してください。";
     if (approve) {
       LocalDate workDate = toDate(row.get("work_date"));
       saveShift(actor, ((Number) row.get("user_id")).longValue(), workDate,
@@ -403,12 +409,15 @@ public class ShiftService {
             workDate + "の変更反映後に" + recheckWarnings.size() + "件の警告があります。必要人数と勤務間隔を確認してください。",
             "/app/shifts/manage?month=" + YearMonth.from(workDate));
       }
+    } else {
+      if (rejectionReason == null || rejectionReason.isBlank()) throw new IllegalArgumentException("却下理由を入力してください。");
+      decisionMessage += " 却下理由: " + rejectionReason.trim();
     }
     Sql.update("UPDATE shift_change_requests SET status=?,decided_by=?,decided_at=CURRENT_TIMESTAMP WHERE id=?",
         approve ? "APPROVED" : "REJECTED", actor.getId(), requestId);
     notificationService.notify(((Number) row.get("user_id")).longValue(), "SHIFT_CHANGE_DECISION",
         approve ? "シフト変更が承認されました" : "シフト変更が却下されました",
-        row.get("work_date") + "の申請結果を確認してください。", "/app/shifts/history");
+        decisionMessage, "/app/shifts/history");
     AuditService.record(actor.getId(), approve ? "APPROVE_SHIFT_CHANGE" : "REJECT_SHIFT_CHANGE", "SHIFT_CHANGE", String.valueOf(requestId), "PENDING",
         approve ? "APPROVED warnings=" + recheckWarnings.size() : "REJECTED");
   }

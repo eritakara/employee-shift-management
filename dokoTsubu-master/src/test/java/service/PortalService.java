@@ -129,6 +129,10 @@ public class PortalService {
     shiftService.decideShiftChange(actor, requestId, approve);
   }
 
+  public void decideShiftChange(User actor, long requestId, boolean approve, String rejectionReason) {
+    shiftService.decideShiftChange(actor, requestId, approve, rejectionReason);
+  }
+
   public List<Map<String, Object>> shiftWarningsForDate(User viewer, LocalDate date) {
     return shiftService.shiftWarningsForDate(viewer, date);
   }

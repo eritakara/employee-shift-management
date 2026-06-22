@@ -44,6 +44,14 @@ public class ShiftWorkflowTest {
     long requestId = ((Number) Sql.one("SELECT MAX(id) id FROM shift_change_requests WHERE user_id=?", employee.getId()).get("id")).longValue();
     portal.decideShiftChange(manager, requestId, true);
     check("OFF".equals(Sql.one("SELECT work_type_code FROM shifts WHERE user_id=? AND work_date=?", employee.getId(), targetDate).get("work_type_code")), "approved change applied");
+    expectFailure(() -> portal.requestShiftChange(employee, targetMonth.atDay(2), "LEAVE", "paid leave through shift change"), "paid leave hidden from shift change");
+    LocalDate rejectDate = targetMonth.atDay(Math.min(3, targetMonth.lengthOfMonth()));
+    portal.requestShiftChange(employee, rejectDate, "OFF", "reject test");
+    long rejectRequestId = ((Number) Sql.one("SELECT MAX(id) id FROM shift_change_requests WHERE user_id=?", employee.getId()).get("id")).longValue();
+    expectFailure(() -> portal.decideShiftChange(manager, rejectRequestId, false, ""), "shift rejection reason required");
+    check("PENDING".equals(Sql.one("SELECT status FROM shift_change_requests WHERE id=?", rejectRequestId).get("status")), "blank shift rejection stays pending");
+    portal.decideShiftChange(manager, rejectRequestId, false, "人員不足のため");
+    check("REJECTED".equals(Sql.one("SELECT status FROM shift_change_requests WHERE id=?", rejectRequestId).get("status")), "shift rejection with reason applied");
 
     Sql.update("UPDATE work_types SET required_staff=1 WHERE code IN('DAY','NIGHT')");
     LocalDate boundaryDate = targetMonth.atDay(Math.min(10, targetMonth.lengthOfMonth() - 1));

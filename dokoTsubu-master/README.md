@@ -93,7 +93,11 @@ docker run --rm -p 8080:8080 -e PORT=8080 -v shiftflow-data:/opt/shiftflow/data 
 4. Runtime は **Docker** を選択します。
 5. Root Directory は未設定のままでデプロイできます。`dokoTsubu-master` を Root Directory に指定する場合も、同じ内容の `Dockerfile` があるためデプロイできます。
 6. 環境変数 `PORT` は Render が自動設定するため、手動追加は不要です。
-7. H2データを永続化する場合は Render Disk を追加し、Mount Path を `/opt/shiftflow/data` にします。
+7. データベースとして Supabase (PostgreSQL) を利用する場合は、以下の環境変数を Render の **Environment** 設定で追加します。
+   * `JDBC_URL` (または `DB_URL`): `jdbc:postgresql://<Supabaseのホスト名>:<ポート>/postgres` (Supabaseの管理画面から取得するJDBC接続文字列)
+   * `DB_USER`: `postgres`
+   * `DB_PASSWORD`: `<Supabaseのデータベース接続パスワード>`
+   * (※ 環境変数が指定されない場合は、自動的にコンテナ内のローカル H2 データベースが使用されます。H2を使用かつデータを永続化する場合は、Render Disk を追加し、Mount Path を `/opt/shiftflow/data` に指定します。)
 8. Deploy 後、`https://<service-name>.onrender.com/` にアクセスします。ルートURLから `/shiftflow/` へ自動転送されます。
 
 Dockerfile は起動時に Render の `PORT` 環境変数を Tomcat の HTTP Connector に反映します。

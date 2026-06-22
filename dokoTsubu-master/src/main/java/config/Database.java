@@ -52,9 +52,10 @@ public final class Database {
   private static String configuredJdbcUrl() throws IOException {
     String configured = first("shiftapp.jdbcUrl", "JDBC_URL", null);
     configured = first("shiftapp.dbJdbcUrl", "DB_JDBC_URL", configured);
+    configured = first("shiftapp.dbUrl", "DB_URL", configured);
     if (configured != null && !configured.isBlank()) {
       if (!configured.startsWith("jdbc:")) {
-        throw new IllegalStateException("JDBC_URL/DB_JDBC_URL must start with jdbc:. "
+        throw new IllegalStateException("JDBC_URL/DB_JDBC_URL/DB_URL must start with jdbc:. "
             + "The bundled runtime includes H2 only; add a JDBC driver before using another database.");
       }
       return configured;

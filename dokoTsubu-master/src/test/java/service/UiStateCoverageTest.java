@@ -39,6 +39,16 @@ public class UiStateCoverageTest {
     check(application.contains("leaveUnitLabel(row.get(\"leave_unit\"))"), "leave request units use display labels");
     check(application.contains("if (\"APPROVED\".equals(status)) return \"承認済み\"")
         && application.contains("if (\"FULL\".equals(unit)) return \"1日\""), "leave status and unit labels are localized");
+    check(application.contains("warningLabel(w.get(\"warning\"))")
+        && application.contains("if (\"STAFF_SHORTAGE\".equals(warning)) return \"人員不足\""),
+        "shift warning types are localized");
+    check(application.contains("pageKey.equals(\"shifts/history\") || pageKey.equals(\"shifts/change\")")
+        && application.contains("} else if (!pageKey.equals(\"shifts/manage\")) {"),
+        "schedule editor hides change requests and monthly schedule sections");
+    check(application.contains("\"shifts/manage\",\"shifts/confirm\"")
+        && application.contains("<%=shiftMonthAutoSubmit?\"data-auto-submit\":\"\"%>")
+        && application.contains("<%if(!shiftMonthAutoSubmit){%><button type=\"submit\">表示</button><%}%>"),
+        "schedule editor and confirmation auto-submit month changes");
     check(application.contains("leaveEventTypeLabel(event.get(\"event_type\"))")
         && application.contains("leaveNoteLabel(event.get(\"note\"))"), "leave ledger type and note use display labels");
     check(application.contains("days(balance.get(\"days_remaining\"))"), "leave balance card uses compact day formatting");
@@ -96,4 +106,3 @@ public class UiStateCoverageTest {
     if (!condition) throw new AssertionError("Failed: " + label);
   }
 }
-

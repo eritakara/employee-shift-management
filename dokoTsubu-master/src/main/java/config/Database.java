@@ -358,7 +358,9 @@ public final class Database {
   private static void insertWorkType(PreparedStatement p, String code, String ja, String en,
       String start, String end, boolean overnight, int breakMinutes, int required) throws SQLException {
     p.setString(1, code); p.setString(2, ja); p.setString(3, en);
-    p.setString(4, start); p.setString(5, end); p.setBoolean(6, overnight);
+    p.setObject(4, start == null ? null : java.sql.Time.valueOf(start));
+    p.setObject(5, end == null ? null : java.sql.Time.valueOf(end));
+    p.setBoolean(6, overnight);
     p.setInt(7, breakMinutes); p.setInt(8, required); p.executeUpdate();
   }
 

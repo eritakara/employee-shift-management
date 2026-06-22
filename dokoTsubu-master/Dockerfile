@@ -26,10 +26,11 @@ RUN rm -rf "$CATALINA_HOME/webapps/"* \
       '<!doctype html>' \
       '<html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/shiftflow/"><title>ShiftFlow</title></head>' \
       '<body><a href="/shiftflow/">ShiftFlow を開く</a></body></html>' \
-      > "$CATALINA_HOME/webapps/ROOT/index.html"
+      > "$CATALINA_HOME/webapps/ROOT/index.html" \
+    && sed -i 's/port="8005"/port="-1"/' "$CATALINA_HOME/conf/server.xml"
 
 COPY --from=build /app/target/shiftflow.war "$CATALINA_HOME/webapps/shiftflow.war"
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "mkdir -p \"${SHIFTFLOW_DATA_DIR:-/opt/shiftflow/data}\" && sed -i \"s/port=\\\"8080\\\" protocol=\\\"HTTP\\/1.1\\\"/port=\\\"${PORT:-8080}\\\" protocol=\\\"HTTP\\/1.1\\\"/\" \"$CATALINA_HOME/conf/server.xml\" && sed -i \"s/port=\\\"8005\\\"/port=\\\"-1\\\"/\" \"$CATALINA_HOME/conf/server.xml\" && exec catalina.sh run"]
+CMD ["sh", "-c", "mkdir -p \"${SHIFTFLOW_DATA_DIR:-/opt/shiftflow/data}\" && sed -i \"s/port=\\\"8080\\\" protocol=\\\"HTTP\\/1.1\\\"/port=\\\"${PORT:-8080}\\\" protocol=\\\"HTTP\\/1.1\\\"/\" \"$CATALINA_HOME/conf/server.xml\" && exec catalina.sh run"]

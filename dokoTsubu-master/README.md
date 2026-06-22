@@ -91,7 +91,7 @@ docker run --rm -p 8080:8080 -e PORT=8080 -v shiftflow-data:/opt/shiftflow/data 
 2. Render の Dashboard で **New +** → **Web Service** を選択します。
 3. 対象リポジトリを接続します。
 4. Runtime は **Docker** を選択します。
-5. Root Directory は、この `Dockerfile` があるディレクトリを指定します。
+5. Root Directory は未設定のままでデプロイできます。`dokoTsubu-master` を Root Directory に指定する場合も、同じ内容の `Dockerfile` があるためデプロイできます。
 6. 環境変数 `PORT` は Render が自動設定するため、手動追加は不要です。
 7. H2データを永続化する場合は Render Disk を追加し、Mount Path を `/opt/shiftflow/data` にします。
 8. Deploy 後、`https://<service-name>.onrender.com/shiftflow/` にアクセスします。

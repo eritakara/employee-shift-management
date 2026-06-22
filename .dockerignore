@@ -1,0 +1,17 @@
+.git
+.agents
+dokoTsubu-master/.github
+dokoTsubu-master/.settings
+dokoTsubu-master/.tomcat
+dokoTsubu-master/build
+dokoTsubu-master/target
+dokoTsubu-master/data
+dokoTsubu-master/backups
+dokoTsubu-master/restore-check
+dokoTsubu-master/docs
+dokoTsubu-master/ops
+dokoTsubu-master/src/test
+dokoTsubu-master/*.ps1
+*.mv.db
+*.trace.db
+*.log

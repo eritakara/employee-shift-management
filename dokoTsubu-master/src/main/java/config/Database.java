@@ -27,16 +27,42 @@ public final class Database {
   public static synchronized void initialize() {
     if (jdbcUrl != null) return;
     try {
-      jdbcUrl = configuredJdbcUrl();
-      jdbcUser = setting("shiftapp.dbUser", "DB_USER", setting("shiftapp.jdbcUser", "JDBC_USER", "sa"));
+      String rawUrl = configuredJdbcUrl();
+      String extractedUser = null;
+      String extractedPassword = null;
+
+      if (rawUrl != null && (rawUrl.startsWith("postgres://") || rawUrl.startsWith("postgresql://"))) {
+        String cleanUrl = rawUrl.substring(rawUrl.indexOf("://") + 3);
+        int atIndex = cleanUrl.indexOf("@");
+        if (atIndex != -1) {
+          String userInfo = cleanUrl.substring(0, atIndex);
+          String hostInfo = cleanUrl.substring(atIndex + 1);
+          String[] userParts = userInfo.split(":", 2);
+          extractedUser = userParts[0];
+          extractedPassword = userParts.length > 1 ? userParts[1] : "";
+          jdbcUrl = "jdbc:postgresql://" + hostInfo;
+        } else {
+          jdbcUrl = "jdbc:postgresql://" + cleanUrl;
+        }
+      } else {
+        jdbcUrl = rawUrl;
+      }
+
+      String defaultUser = (jdbcUrl != null && jdbcUrl.startsWith("jdbc:h2:")) ? "sa" : extractedUser;
+      String defaultPassword = extractedPassword != null ? extractedPassword : "";
+
+      jdbcUser = setting("shiftapp.dbUser", "DB_USER", setting("shiftapp.jdbcUser", "JDBC_USER", defaultUser));
       jdbcPassword = setting("shiftapp.dbPassword", "DB_PASSWORD",
-          setting("shiftapp.jdbcPassword", "JDBC_PASSWORD", ""));
+          setting("shiftapp.jdbcPassword", "JDBC_PASSWORD", defaultPassword));
+
       loadJdbcDriver();
       try (Connection connection = getConnection()) {
         createSchema(connection);
         if (flag("shiftapp.seedDemo", "BASE_SEED", true)) seed(connection);
       }
     } catch (Exception e) {
+      System.err.println("CRITICAL: Database initialization failed!");
+      e.printStackTrace();
       jdbcUrl = null;
       jdbcUser = null;
       jdbcPassword = null;
@@ -46,6 +72,9 @@ public final class Database {
 
   public static Connection getConnection() throws SQLException {
     if (jdbcUrl == null) initialize();
+    if (jdbcUser == null) {
+      return DriverManager.getConnection(jdbcUrl);
+    }
     return DriverManager.getConnection(jdbcUrl, jdbcUser, jdbcPassword);
   }
 
@@ -54,8 +83,8 @@ public final class Database {
     configured = first("shiftapp.dbJdbcUrl", "DB_JDBC_URL", configured);
     configured = first("shiftapp.dbUrl", "DB_URL", configured);
     if (configured != null && !configured.isBlank()) {
-      if (!configured.startsWith("jdbc:")) {
-        throw new IllegalStateException("JDBC_URL/DB_JDBC_URL/DB_URL must start with jdbc:. "
+      if (!configured.startsWith("jdbc:") && !configured.startsWith("postgres://") && !configured.startsWith("postgresql://")) {
+        throw new IllegalStateException("JDBC_URL/DB_JDBC_URL/DB_URL must start with jdbc:, postgres://, or postgresql://. "
             + "The bundled runtime includes H2 only; add a JDBC driver before using another database.");
       }
       return configured;

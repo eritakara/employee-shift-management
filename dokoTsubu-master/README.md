@@ -94,9 +94,12 @@ docker run --rm -p 8080:8080 -e PORT=8080 -v shiftflow-data:/opt/shiftflow/data 
 5. Root Directory は未設定のままでデプロイできます。`dokoTsubu-master` を Root Directory に指定する場合も、同じ内容の `Dockerfile` があるためデプロイできます。
 6. 環境変数 `PORT` は Render が自動設定するため、手動追加は不要です。
 7. データベースとして Supabase (PostgreSQL) を利用する場合は、以下の環境変数を Render の **Environment** 設定で追加します。
-   * `JDBC_URL` (または `DB_URL`): `jdbc:postgresql://<Supabaseのホスト名>:<ポート>/postgres` (Supabaseの管理画面から取得するJDBC接続文字列)
-   * `DB_USER`: `postgres`
-   * `DB_PASSWORD`: `<Supabaseのデータベース接続パスワード>`
+   * `DB_URL` (または `JDBC_URL`, `DB_JDBC_URL`): `jdbc:postgresql://<Supabaseの接続プーラーホスト名>:5432/postgres` (Supabase管理画面の Session pooler 設定から取得する接続URL)
+     * アプリは `postgres://` や `postgresql://` で始まる PostgreSQL 接続 URI にも対応しています。
+       例: `postgresql://postgres.<PROJECT_REF>:<PASSWORD>@<Supabaseの接続プーラーホスト名>:5432/postgres` 形式で指定した場合、接続情報（ユーザー名とパスワード）が自動的にパースされ、内部的に適切な JDBC 形式へ変換されて使用されます。
+   * `DB_USER` (または `JDBC_USER`): `postgres.<PROJECT_REF>`
+   * `DB_PASSWORD` (または `JDBC_PASSWORD`): `<Supabaseのデータベース接続パスワード>`
+   * (※ セキュリティの観点から、パスワードなどの秘密情報は `DB_URL` に直接埋め込まず、 `DB_USER` と `DB_PASSWORD` に分割して設定することを強く推奨します。)
    * (※ 環境変数が指定されない場合は、自動的にコンテナ内のローカル H2 データベースが使用されます。H2を使用かつデータを永続化する場合は、Render Disk を追加し、Mount Path を `/opt/shiftflow/data` に指定します。)
 8. Deploy 後、`https://<service-name>.onrender.com/` にアクセスします。ルートURLから `/shiftflow/` へ自動転送されます。
 

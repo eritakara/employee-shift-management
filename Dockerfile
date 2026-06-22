@@ -18,7 +18,7 @@ RUN mkdir -p build/classes target/shiftflow \
 FROM tomcat:10.1-jre21-temurin
 
 ENV PORT=8080
-ENV CATALINA_OPTS="-Dshiftapp.dataDir=/opt/shiftflow/data"
+ENV SHIFTFLOW_DATA_DIR=/opt/shiftflow/data
 
 RUN rm -rf "$CATALINA_HOME/webapps/"* \
     && mkdir -p /opt/shiftflow/data "$CATALINA_HOME/webapps/ROOT" \
@@ -32,4 +32,4 @@ COPY --from=build /app/target/shiftflow.war "$CATALINA_HOME/webapps/shiftflow.wa
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "sed -i \"s/port=\\\"8080\\\" protocol=\\\"HTTP\\/1.1\\\"/port=\\\"${PORT:-8080}\\\" protocol=\\\"HTTP\\/1.1\\\"/\" \"$CATALINA_HOME/conf/server.xml\" && exec catalina.sh run"]
+CMD ["sh", "-c", "mkdir -p \"${SHIFTFLOW_DATA_DIR:-/opt/shiftflow/data}\" && sed -i \"s/port=\\\"8080\\\" protocol=\\\"HTTP\\/1.1\\\"/port=\\\"${PORT:-8080}\\\" protocol=\\\"HTTP\\/1.1\\\"/\" \"$CATALINA_HOME/conf/server.xml\" && exec catalina.sh run"]

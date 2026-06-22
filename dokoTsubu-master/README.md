@@ -77,7 +77,7 @@ docker build -t shiftflow .
 docker run --rm -p 8080:8080 -e PORT=8080 shiftflow
 ```
 
-起動後に `http://localhost:8080/shiftflow/` を開きます。
+起動後に `http://localhost:8080/` を開きます。ルートURLから `http://localhost:8080/shiftflow/` へ自動転送されます。
 
 H2データベースはコンテナ内の `/opt/shiftflow/data` に保存されます。ローカルでデータを残したい場合は、次のようにボリュームを割り当てます。
 
@@ -94,6 +94,6 @@ docker run --rm -p 8080:8080 -e PORT=8080 -v shiftflow-data:/opt/shiftflow/data 
 5. Root Directory は未設定のままでデプロイできます。`dokoTsubu-master` を Root Directory に指定する場合も、同じ内容の `Dockerfile` があるためデプロイできます。
 6. 環境変数 `PORT` は Render が自動設定するため、手動追加は不要です。
 7. H2データを永続化する場合は Render Disk を追加し、Mount Path を `/opt/shiftflow/data` にします。
-8. Deploy 後、`https://<service-name>.onrender.com/shiftflow/` にアクセスします。
+8. Deploy 後、`https://<service-name>.onrender.com/` にアクセスします。ルートURLから `/shiftflow/` へ自動転送されます。
 
 Dockerfile は起動時に Render の `PORT` 環境変数を Tomcat の HTTP Connector に反映します。

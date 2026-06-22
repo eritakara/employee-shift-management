@@ -21,7 +21,12 @@ ENV PORT=8080
 ENV CATALINA_OPTS="-Dshiftapp.dataDir=/opt/shiftflow/data"
 
 RUN rm -rf "$CATALINA_HOME/webapps/"* \
-    && mkdir -p /opt/shiftflow/data
+    && mkdir -p /opt/shiftflow/data "$CATALINA_HOME/webapps/ROOT" \
+    && printf '%s\n' \
+      '<!doctype html>' \
+      '<html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/shiftflow/"><title>ShiftFlow</title></head>' \
+      '<body><a href="/shiftflow/">ShiftFlow を開く</a></body></html>' \
+      > "$CATALINA_HOME/webapps/ROOT/index.html"
 
 COPY --from=build /app/target/shiftflow.war "$CATALINA_HOME/webapps/shiftflow.war"
 

@@ -140,7 +140,7 @@ public class LeavePolicyService {
 
   public void syncBalance(long userId, LocalDate asOf) {
     Map<String, Object> total = Sql.one("SELECT COALESCE(SUM(days_remaining),0) total FROM leave_grants WHERE user_id=? AND expires_on>=?", userId, asOf);
-    Sql.update("MERGE INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) KEY(user_id) VALUES(?,?,COALESCE((SELECT hourly_used FROM leave_balances WHERE user_id=?),0),(SELECT MAX(grant_date) FROM leave_grants WHERE user_id=?))",
+    Sql.update("MERGE INTO leave_balances AS t USING (SELECT CAST(? AS BIGINT) AS user_id, CAST(? AS DECIMAL(6,2)) AS days_remaining, COALESCE((SELECT hourly_used FROM leave_balances WHERE user_id=CAST(? AS BIGINT)),0) AS hourly_used, (SELECT MAX(grant_date) FROM leave_grants WHERE user_id=CAST(? AS BIGINT)) AS last_granted_on) AS s ON t.user_id = s.user_id WHEN MATCHED THEN UPDATE SET days_remaining = s.days_remaining, last_granted_on = s.last_granted_on WHEN NOT MATCHED THEN INSERT (user_id, days_remaining, hourly_used, last_granted_on) VALUES (s.user_id, s.days_remaining, s.hourly_used, s.last_granted_on)",
         userId, total.get("total"), userId, userId);
   }
 

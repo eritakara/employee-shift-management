@@ -7,7 +7,7 @@ COPY src ./src
 RUN mkdir -p build/classes target/shiftflow \
     && find src/main/java -name "*.java" > sources.txt \
     && javac --release 21 -encoding UTF-8 \
-      -cp "$CATALINA_HOME/lib/servlet-api.jar:src/main/webapp/WEB-INF/lib/h2-2.4.240.jar" \
+      -cp "$CATALINA_HOME/lib/servlet-api.jar:src/main/webapp/WEB-INF/lib/h2-2.4.240.jar:src/main/webapp/WEB-INF/lib/postgresql-42.7.2.jar" \
       -d build/classes @sources.txt \
     && if [ -d src/main/resources ]; then cp -r src/main/resources/. build/classes/; fi \
     && cp -r src/main/webapp/. target/shiftflow/ \

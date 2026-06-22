@@ -71,7 +71,7 @@ public class ShiftService {
     assertCanManage(actor, userId);
     if (!workTypes().stream().anyMatch(r -> type.equals(r.get("code")))) throw new IllegalArgumentException("勤務区分が不正です。");
     assertShiftLeaveBalance(userId, date, type);
-    Sql.update("MERGE INTO shifts(user_id,work_date,work_type_code,status,note,updated_by,updated_at) KEY(user_id,work_date) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+    Sql.update("MERGE INTO shifts AS t USING (SELECT CAST(? AS BIGINT) AS user_id, CAST(? AS DATE) AS work_date, CAST(? AS VARCHAR) AS work_type_code, CAST(? AS VARCHAR) AS status, CAST(? AS VARCHAR) AS note, CAST(? AS BIGINT) AS updated_by, CURRENT_TIMESTAMP AS updated_at) AS s ON t.user_id = s.user_id AND t.work_date = s.work_date WHEN MATCHED THEN UPDATE SET work_type_code = s.work_type_code, status = s.status, note = s.note, updated_by = s.updated_by, updated_at = s.updated_at WHEN NOT MATCHED THEN INSERT (user_id, work_date, work_type_code, status, note, updated_by, updated_at) VALUES (s.user_id, s.work_date, s.work_type_code, s.status, s.note, s.updated_by, s.updated_at)",
         userId, date, type, status, note, actor.getId());
     AuditService.record(actor.getId(), "SAVE_SHIFT", "SHIFT", userId + ":" + date, null, type + "/" + status);
   }
@@ -134,7 +134,7 @@ public class ShiftService {
       try {
         long submissionId;
         try (PreparedStatement merge = connection.prepareStatement(
-            "MERGE INTO shift_preference_submissions(user_id,target_month,status,submitted_at,updated_at,reviewed_by,reviewed_at) KEY(user_id,target_month) VALUES(?,?,'SUBMITTED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL,NULL)")) {
+            "MERGE INTO shift_preference_submissions AS t USING (SELECT CAST(? AS BIGINT) AS user_id, CAST(? AS DATE) AS target_month, CAST('SUBMITTED' AS VARCHAR) AS status, CURRENT_TIMESTAMP AS submitted_at, CURRENT_TIMESTAMP AS updated_at) AS s ON t.user_id = s.user_id AND t.target_month = s.target_month WHEN MATCHED THEN UPDATE SET status = s.status, submitted_at = s.submitted_at, updated_at = s.updated_at WHEN NOT MATCHED THEN INSERT (user_id, target_month, status, submitted_at, updated_at, reviewed_by, reviewed_at) VALUES (s.user_id, s.target_month, s.status, s.submitted_at, s.updated_at, NULL, NULL)")) {
           merge.setLong(1, actor.getId()); merge.setObject(2, month.atDay(1)); merge.executeUpdate();
         }
         try (PreparedStatement find = connection.prepareStatement(

@@ -81,6 +81,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const leaveUnitSelect = document.querySelector('form select[name="unit"]');
+  if (leaveUnitSelect) {
+    const leaveHoursInput = leaveUnitSelect.closest('form').querySelector('input[name="hours"]');
+    if (leaveHoursInput) {
+      const updateHoursState = () => {
+        const isHourly = leaveUnitSelect.value === 'HOURLY';
+        leaveHoursInput.disabled = !isHourly;
+        leaveHoursInput.closest('label').style.opacity = isHourly ? '1' : '0.4';
+        if (isHourly) {
+          leaveHoursInput.required = true;
+        } else {
+          leaveHoursInput.required = false;
+          leaveHoursInput.value = '';
+        }
+      };
+      leaveUnitSelect.addEventListener('change', updateHoursState);
+      updateHoursState();
+    }
+  }
+
   document.querySelectorAll('[data-print-page]').forEach(button => {
     button.addEventListener('click', () => window.print());
   });

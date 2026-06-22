@@ -7,7 +7,7 @@ import java.time.LocalDate;
 public class DemoShiftCsvTest {
   public static void main(String[] args) throws Exception {
     System.setProperty("shiftapp.dataDir", Files.createTempDirectory("shiftflow-demo-csv-").toString());
-    System.setProperty("shiftapp.seedDemoShifts", "true");
+    System.setProperty("shiftapp.demoSeed", "true");
     Database.initialize();
 
     Number count = (Number) Sql.one("SELECT COUNT(*) metric_value FROM shifts s JOIN users u ON u.id=s.user_id "

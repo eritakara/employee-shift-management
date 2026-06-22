@@ -19,33 +19,80 @@ import util.PasswordUtil;
 
 public final class Database {
   private static String jdbcUrl;
+  private static String jdbcUser;
+  private static String jdbcPassword;
 
   private Database() { }
 
   public static synchronized void initialize() {
     if (jdbcUrl != null) return;
     try {
-      Class.forName("org.h2.Driver");
-      String configured = System.getProperty("shiftapp.dataDir");
-      Path dataDir = configured == null || configured.isBlank()
-          ? Path.of(System.getProperty("catalina.base", System.getProperty("java.io.tmpdir")), "data")
-          : Path.of(configured);
-      Files.createDirectories(dataDir);
-      jdbcUrl = "jdbc:h2:file:" + dataDir.resolve("shiftapp").toAbsolutePath()
-          + ";AUTO_SERVER=TRUE";
+      jdbcUrl = configuredJdbcUrl();
+      jdbcUser = setting("shiftapp.dbUser", "DB_USER", setting("shiftapp.jdbcUser", "JDBC_USER", "sa"));
+      jdbcPassword = setting("shiftapp.dbPassword", "DB_PASSWORD",
+          setting("shiftapp.jdbcPassword", "JDBC_PASSWORD", ""));
+      loadJdbcDriver();
       try (Connection connection = getConnection()) {
         createSchema(connection);
-        if (Boolean.parseBoolean(System.getProperty("shiftapp.seedDemo", "true"))) seed(connection);
+        if (flag("shiftapp.seedDemo", "BASE_SEED", true)) seed(connection);
       }
     } catch (Exception e) {
       jdbcUrl = null;
+      jdbcUser = null;
+      jdbcPassword = null;
       throw new IllegalStateException("Failed to initialize database", e);
     }
   }
 
   public static Connection getConnection() throws SQLException {
     if (jdbcUrl == null) initialize();
-    return DriverManager.getConnection(jdbcUrl, "sa", "");
+    return DriverManager.getConnection(jdbcUrl, jdbcUser, jdbcPassword);
+  }
+
+  private static String configuredJdbcUrl() throws IOException {
+    String configured = first("shiftapp.jdbcUrl", "JDBC_URL", null);
+    configured = first("shiftapp.dbJdbcUrl", "DB_JDBC_URL", configured);
+    if (configured != null && !configured.isBlank()) {
+      if (!configured.startsWith("jdbc:")) {
+        throw new IllegalStateException("JDBC_URL/DB_JDBC_URL must start with jdbc:. "
+            + "The bundled runtime includes H2 only; add a JDBC driver before using another database.");
+      }
+      return configured;
+    }
+
+    String dataDirSetting = setting("shiftapp.dataDir", "SHIFTFLOW_DATA_DIR", null);
+    Path dataDir = dataDirSetting == null || dataDirSetting.isBlank()
+        ? Path.of(System.getProperty("catalina.base", System.getProperty("java.io.tmpdir")), "data")
+        : Path.of(dataDirSetting);
+    Files.createDirectories(dataDir);
+    return "jdbc:h2:file:" + dataDir.resolve("shiftapp").toAbsolutePath() + ";AUTO_SERVER=TRUE";
+  }
+
+  private static void loadJdbcDriver() throws ClassNotFoundException {
+    String driver = setting("shiftapp.dbDriver", "DB_DRIVER", null);
+    if (driver != null && !driver.isBlank()) {
+      Class.forName(driver);
+    } else if (jdbcUrl.startsWith("jdbc:h2:")) {
+      Class.forName("org.h2.Driver");
+    }
+  }
+
+  private static String setting(String propertyName, String envName, String defaultValue) {
+    String property = System.getProperty(propertyName);
+    if (property != null && !property.isBlank()) return property;
+    String env = System.getenv(envName);
+    if (env != null && !env.isBlank()) return env;
+    return defaultValue;
+  }
+
+  private static String first(String propertyName, String envName, String fallback) {
+    String value = setting(propertyName, envName, null);
+    return value == null || value.isBlank() ? fallback : value;
+  }
+
+  private static boolean flag(String propertyName, String envName, boolean defaultValue) {
+    String value = setting(propertyName, envName, null);
+    return value == null || value.isBlank() ? defaultValue : Boolean.parseBoolean(value);
   }
 
   private static void createSchema(Connection c) throws SQLException {
@@ -138,7 +185,7 @@ public final class Database {
         insertSetting(p, "MAX_CONCURRENT_USERS", "100", "想定最大同時利用者数");
       }
     }
-    if (Boolean.parseBoolean(System.getProperty("shiftapp.seedDemoShifts", "false"))) {
+    if (flag("shiftapp.demoSeed", "DEMO_SEED", false)) {
       importDemoUsers(c);
       importDemoShifts(c);
       importDemoAttendance(c);

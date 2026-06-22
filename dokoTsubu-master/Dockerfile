@@ -27,9 +27,9 @@ RUN rm -rf "$CATALINA_HOME/webapps/"* \
       '<html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/shiftflow/"><title>ShiftFlow</title></head>' \
       '<body><a href="/shiftflow/">ShiftFlow を開く</a></body></html>' \
       > "$CATALINA_HOME/webapps/ROOT/index.html" \
-    && sed -i -E 's/<Server([^>]+)port="[0-9]+"/<Server\1port="-1"/' "$CATALINA_HOME/conf/server.xml" \
+    && sed -i 's/<Server port="8005"/<Server port="-1"/g' "$CATALINA_HOME/conf/server.xml" \
     && grep '<Server' "$CATALINA_HOME/conf/server.xml" \
-    && grep 'Connector port=' "$CATALINA_HOME/conf/server.xml"
+    && grep '<Connector' "$CATALINA_HOME/conf/server.xml"
 
 COPY --from=build /app/target/shiftflow.war "$CATALINA_HOME/webapps/shiftflow.war"
 

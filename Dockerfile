@@ -20,6 +20,11 @@ FROM tomcat:10.1-jre21-temurin
 ENV PORT=8080
 ENV SHIFTFLOW_DATA_DIR=/opt/shiftflow/data
 
+# server.xml のシャットダウンポートを無効化し、ビルドログに出力して確認する
+RUN sed -i -E 's/<Server([^>]+)port="[0-9]+"/<Server\1port="-1"/' "$CATALINA_HOME/conf/server.xml" \
+    && grep '<Server' "$CATALINA_HOME/conf/server.xml" \
+    && grep 'Connector port=' "$CATALINA_HOME/conf/server.xml"
+
 RUN rm -rf "$CATALINA_HOME/webapps/"* \
     && mkdir -p /opt/shiftflow/data "$CATALINA_HOME/webapps/ROOT" \
     && printf '%s\n' \

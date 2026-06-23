@@ -529,10 +529,32 @@ public final class Database {
     }
   }
 
+  private static java.sql.Time parseTime(String value) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    String trimmed = value.trim();
+    if (trimmed.length() == 5) {
+      trimmed = trimmed + ":00";
+    }
+    return java.sql.Time.valueOf(trimmed);
+  }
+
+  private static void setTimeOrNull(PreparedStatement p, int parameterIndex, String value) throws SQLException {
+    java.sql.Time t = parseTime(value);
+    if (t == null) {
+      p.setNull(parameterIndex, java.sql.Types.TIME);
+    } else {
+      p.setTime(parameterIndex, t);
+    }
+  }
+
   private static void insertWorkType(PreparedStatement p, String code, String ja, String en,
       String start, String end, boolean overnight, int breakMinutes, int required) throws SQLException {
     p.setString(1, code); p.setString(2, ja); p.setString(3, en);
-    p.setString(4, start); p.setString(5, end); p.setBoolean(6, overnight);
+    setTimeOrNull(p, 4, start);
+    setTimeOrNull(p, 5, end);
+    p.setBoolean(6, overnight);
     p.setInt(7, breakMinutes); p.setInt(8, required); p.executeUpdate();
   }
 

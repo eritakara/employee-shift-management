@@ -24,8 +24,40 @@ public final class Database {
 
   private Database() { }
 
+  private static void logEnvironmentState() {
+    String appEnv = System.getenv("APP_ENV");
+    boolean isProduction = "production".equalsIgnoreCase(appEnv);
+    String jdbcUrlVal = System.getenv("JDBC_URL");
+    if (jdbcUrlVal == null || jdbcUrlVal.isBlank()) jdbcUrlVal = System.getenv("DB_URL");
+    if (jdbcUrlVal == null || jdbcUrlVal.isBlank()) jdbcUrlVal = System.getenv("DB_JDBC_URL");
+    if (jdbcUrlVal == null || jdbcUrlVal.isBlank()) jdbcUrlVal = System.getenv("DATABASE_URL");
+    if (jdbcUrlVal == null || jdbcUrlVal.isBlank()) jdbcUrlVal = System.getProperty("shiftapp.jdbcUrl");
+
+    String dbUserVal = System.getenv("DB_USER");
+    if (dbUserVal == null || dbUserVal.isBlank()) dbUserVal = System.getProperty("shiftapp.dbUser");
+
+    String dbPasswordVal = System.getenv("DB_PASSWORD");
+    if (dbPasswordVal == null || dbPasswordVal.isBlank()) dbPasswordVal = System.getProperty("shiftapp.dbPassword");
+
+    String hrEmailVal = System.getenv("INITIAL_HR_EMAIL");
+    if (hrEmailVal == null || hrEmailVal.isBlank()) hrEmailVal = System.getProperty("shiftapp.initialHrEmail");
+
+    String hrPasswordVal = System.getenv("INITIAL_HR_PASSWORD");
+    if (hrPasswordVal == null || hrPasswordVal.isBlank()) hrPasswordVal = System.getProperty("shiftapp.initialHrPassword");
+
+    System.out.println("=== Database Environment Check ===");
+    System.out.println("APP_ENV = " + appEnv + " (isProduction: " + isProduction + ")");
+    System.out.println("JDBC_URL configured: " + (jdbcUrlVal != null && !jdbcUrlVal.isBlank()));
+    System.out.println("DB_USER configured: " + (dbUserVal != null && !dbUserVal.isBlank()));
+    System.out.println("DB_PASSWORD configured: " + (dbPasswordVal != null && !dbPasswordVal.isBlank()));
+    System.out.println("INITIAL_HR_EMAIL configured: " + (hrEmailVal != null && !hrEmailVal.isBlank()));
+    System.out.println("INITIAL_HR_PASSWORD configured: " + (hrPasswordVal != null && !hrPasswordVal.isBlank()));
+    System.out.println("==================================");
+  }
+
   public static synchronized void initialize() {
     if (jdbcUrl != null) return;
+    logEnvironmentState();
     try {
       String url = configuredJdbcUrl();
       if (url != null) {
@@ -37,15 +69,31 @@ public final class Database {
         jdbcUser = setting("shiftapp.dbUser", "DB_USER", setting("shiftapp.jdbcUser", "JDBC_USER", "sa"));
         jdbcPassword = setting("shiftapp.dbPassword", "DB_PASSWORD", setting("shiftapp.jdbcPassword", "JDBC_PASSWORD", ""));
       }
+      
       loadJdbcDriver();
+      
+      System.out.println("Connecting to database: " + jdbcUrl + " (User: " + (jdbcUser != null ? jdbcUser : "none") + ")...");
       try (Connection connection = getConnection()) {
+        System.out.println("Database connection established successfully.");
+        
+        System.out.println("Starting table creation (schema)...");
         createSchema(connection);
-        if (flag("shiftapp.seedDemo", "BASE_SEED", true)) seed(connection);
+        System.out.println("Table creation (schema) completed successfully.");
+        
+        if (flag("shiftapp.seedDemo", "BASE_SEED", true)) {
+          System.out.println("Starting master data and initial admin (HR) creation...");
+          seed(connection);
+          System.out.println("Master data and initial admin (HR) creation completed successfully.");
+        }
       }
-    } catch (Exception e) {
+      System.out.println("Database initialization completed successfully.");
+    } catch (Throwable e) {
+      System.err.println("CRITICAL ERROR: Database initialization failed!");
+      e.printStackTrace(System.err);
       jdbcUrl = null;
       jdbcUser = null;
       jdbcPassword = null;
+      if (e instanceof RuntimeException) throw (RuntimeException) e;
       throw new IllegalStateException("Failed to initialize database", e);
     }
   }
@@ -110,11 +158,19 @@ public final class Database {
   private static void loadJdbcDriver() throws ClassNotFoundException {
     String driver = setting("shiftapp.dbDriver", "DB_DRIVER", null);
     if (driver != null && !driver.isBlank()) {
+      System.out.println("Loading custom driver: " + driver);
       Class.forName(driver);
+      System.out.println("Custom driver loaded successfully.");
     } else if (jdbcUrl.startsWith("jdbc:h2:")) {
+      System.out.println("Loading H2 driver...");
       Class.forName("org.h2.Driver");
+      System.out.println("H2 driver loaded successfully.");
     } else if (jdbcUrl.startsWith("jdbc:postgresql:")) {
+      System.out.println("Loading PostgreSQL driver...");
       Class.forName("org.postgresql.Driver");
+      System.out.println("PostgreSQL driver loaded successfully.");
+    } else {
+      System.out.println("Warning: Unknown JDBC URL format. Skipping explicit driver class loading.");
     }
   }
 
@@ -166,25 +222,50 @@ public final class Database {
       "CREATE TABLE IF NOT EXISTS audit_logs (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, actor_id BIGINT, action VARCHAR(80) NOT NULL, target_type VARCHAR(80) NOT NULL, target_id VARCHAR(80), before_value TEXT, after_value TEXT, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(actor_id) REFERENCES users(id))"
     };
     try (Statement statement = c.createStatement()) {
-      for (String sql : statements) statement.execute(sql);
-      statement.execute("ALTER TABLE mail_outbox ADD COLUMN IF NOT EXISTS last_error VARCHAR(2000)");
-      statement.execute("ALTER TABLE mail_outbox ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMP");
-      statement.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS weekly_work_days INT NOT NULL DEFAULT 5");
-      statement.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS weekly_work_hours DECIMAL(5,2) NOT NULL DEFAULT 40");
-      statement.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMP");
-      statement.execute("ALTER TABLE leave_consumptions ADD COLUMN IF NOT EXISTS restored BOOLEAN NOT NULL DEFAULT FALSE");
-      statement.execute("ALTER TABLE qualifications ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE");
-      statement.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS target_user_id BIGINT");
+      for (String sql : statements) {
+        try {
+          statement.execute(sql);
+        } catch (SQLException e) {
+          System.err.println("SQL Execution Failed on DDL: " + sql);
+          throw e;
+        }
+      }
+      
+      String[] alters = {
+        "ALTER TABLE mail_outbox ADD COLUMN IF NOT EXISTS last_error VARCHAR(2000)",
+        "ALTER TABLE mail_outbox ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMP",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS weekly_work_days INT NOT NULL DEFAULT 5",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS weekly_work_hours DECIMAL(5,2) NOT NULL DEFAULT 40",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMP",
+        "ALTER TABLE leave_consumptions ADD COLUMN IF NOT EXISTS restored BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE qualifications ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE",
+        "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS target_user_id BIGINT"
+      };
+      for (String sql : alters) {
+        try {
+          statement.execute(sql);
+        } catch (SQLException e) {
+          System.err.println("SQL Execution Failed on ALTER: " + sql);
+          throw e;
+        }
+      }
     }
   }
 
   private static void seed(Connection c) throws SQLException, IOException {
     if (count(c, "branches") == 0) {
-      insertNames(c, "branches", new String[]{"本社", "北部支店", "中部支店", "那覇支店", "南部支店", "宮古支店", "石垣支店"});
-      insertNames(c, "departments", new String[]{"営業部", "経理部", "総務部", "人事部"});
-      insertNames(c, "employment_types", new String[]{"正社員", "契約社員", "パート", "アルバイト"});
+      System.out.println("Seeding master data (branches, departments, employment_types)...");
+      try {
+        insertNames(c, "branches", new String[]{"本社", "北部支店", "中部支店", "那覇支店", "南部支店", "宮古支店", "石垣支店"});
+        insertNames(c, "departments", new String[]{"営業部", "経理部", "総務部", "人事部"});
+        insertNames(c, "employment_types", new String[]{"正社員", "契約社員", "パート", "アルバイト"});
+      } catch (SQLException e) {
+        System.err.println("Seeding basic master data failed.");
+        throw e;
+      }
     }
     if (count(c, "work_types") == 0) {
+      System.out.println("Seeding work types...");
       String sql = "INSERT INTO work_types(code,name_ja,name_en,start_time,end_time,crosses_midnight,break_minutes,required_staff) VALUES(?,?,?,?,?,?,?,?)";
       try (PreparedStatement p = c.prepareStatement(sql)) {
         insertWorkType(p, "DAY", "日勤", "Day", "08:00:00", "17:00:00", false, 60, 5);
@@ -193,11 +274,19 @@ public final class Database {
         insertWorkType(p, "LEAVE", "有休", "Paid leave", null, null, false, 0, 0);
         insertWorkType(p, "AM_LEAVE", "午前休", "AM leave", "13:00:00", "17:00:00", false, 0, 0);
         insertWorkType(p, "PM_LEAVE", "午後休", "PM leave", "08:00:00", "12:00:00", false, 0, 0);
+      } catch (SQLException e) {
+        System.err.println("Seeding basic work types failed.");
+        throw e;
       }
     }
     try (Statement s = c.createStatement()) {
-      s.executeUpdate("INSERT INTO work_types(code,name_ja,name_en,start_time,end_time,crosses_midnight,break_minutes,required_staff) "
-          + "SELECT 'NIGHT_OFF','夜勤明け','Post-night rest',NULL,NULL,FALSE,0,0 WHERE NOT EXISTS(SELECT 1 FROM work_types WHERE code='NIGHT_OFF')");
+      try {
+        s.executeUpdate("INSERT INTO work_types(code,name_ja,name_en,start_time,end_time,crosses_midnight,break_minutes,required_staff) "
+            + "SELECT 'NIGHT_OFF','夜勤明け','Post-night rest',NULL,NULL,FALSE,0,0 WHERE NOT EXISTS(SELECT 1 FROM work_types WHERE code='NIGHT_OFF')");
+      } catch (SQLException e) {
+        System.err.println("Seeding work type NIGHT_OFF failed.");
+        throw e;
+      }
     }
     if (count(c, "users") == 0) {
       boolean isProduction = "true".equalsIgnoreCase(System.getenv("RENDER"))
@@ -211,24 +300,44 @@ public final class Database {
         throw new IllegalStateException("INITIAL_HR_EMAIL and INITIAL_HR_PASSWORD environment variables must be configured in production for security reasons.");
       }
 
-      addUser(c, "HR001", "人事担当", hrEmail, hrPassword, "HR", 1, 4);
+      System.out.println("Creating initial HR user: " + hrEmail);
+      try {
+        addUser(c, "HR001", "人事担当", hrEmail, hrPassword, "HR", 1, 4);
+      } catch (SQLException e) {
+        System.err.println("Seeding initial HR user failed.");
+        throw e;
+      }
 
       if (!isProduction) {
-        addUser(c, "MG001", "那覇 店長", "manager@example.com", "MANAGER", 4, 1);
-        addUser(c, "EM001", "山田 花子", "employee@example.com", "EMPLOYEE", 4, 1);
-        addUser(c, "EM002", "佐藤 太郎", "sato@example.com", "EMPLOYEE", 4, 1);
+        System.out.println("Seeding demo users...");
+        try {
+          addUser(c, "MG001", "那覇 店長", "manager@example.com", "MANAGER", 4, 1);
+          addUser(c, "EM001", "山田 花子", "employee@example.com", "EMPLOYEE", 4, 1);
+          addUser(c, "EM002", "佐藤 太郎", "sato@example.com", "EMPLOYEE", 4, 1);
+        } catch (SQLException e) {
+          System.err.println("Seeding demo users failed.");
+          throw e;
+        }
       }
 
       try (Statement s = c.createStatement()) {
         s.executeUpdate("INSERT INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) SELECT id,10,0,CURRENT_DATE FROM users");
+      } catch (SQLException e) {
+        System.err.println("Seeding leave balances failed.");
+        throw e;
       }
     }
     if (count(c, "leave_rule_config") == 0) {
+      System.out.println("Seeding leave rule configuration...");
       try (Statement s = c.createStatement()) {
         s.executeUpdate("INSERT INTO leave_rule_config(effective_from,attendance_threshold,hourly_limit_days,hours_per_day,expiry_months,mandatory_days) VALUES(DATE '2019-04-01',0.800,5,8,24,5)");
+      } catch (SQLException e) {
+        System.err.println("Seeding leave rule configuration failed.");
+        throw e;
       }
     }
     if (count(c, "app_settings") == 0) {
+      System.out.println("Seeding app settings...");
       String sql = "INSERT INTO app_settings(setting_key,setting_value,description) VALUES(?,?,?)";
       try (PreparedStatement p = c.prepareStatement(sql)) {
         insertSetting(p, "SHIFT_SUBMISSION_DAY", "15", "翌月希望シフトの提出締切日");
@@ -239,14 +348,24 @@ public final class Database {
         insertSetting(p, "RETENTION_YEARS", "5", "業務データ保存年数");
         insertSetting(p, "LOCATION_REQUIRED", "false", "位置情報なしの打刻を禁止");
         insertSetting(p, "MAX_CONCURRENT_USERS", "100", "想定最大同時利用者数");
+      } catch (SQLException e) {
+        System.err.println("Seeding app settings failed.");
+        throw e;
       }
     }
     if (flag("shiftapp.demoSeed", "DEMO_SEED", false)) {
-      importDemoUsers(c);
-      importDemoShifts(c);
-      importDemoAttendance(c);
+      System.out.println("Seeding demo CSV tables...");
+      try {
+        importDemoUsers(c);
+        importDemoShifts(c);
+        importDemoAttendance(c);
+      } catch (Exception e) {
+        System.err.println("Seeding demo CSV data failed.");
+        throw e;
+      }
     }
     if (count(c, "leave_grants") == 0 && count(c, "users") > 0) {
+      System.out.println("Seeding migration leave grants...");
       try (Statement s = c.createStatement()) {
         String add24MonthsSql;
         if (jdbcUrl.startsWith("jdbc:h2:")) {
@@ -257,6 +376,9 @@ public final class Database {
         s.executeUpdate("INSERT INTO leave_grants(user_id,grant_date,expires_on,days_granted,days_remaining,attendance_rate,source) "
             + "SELECT b.user_id,COALESCE(b.last_granted_on,CURRENT_DATE)," + add24MonthsSql + ","
             + "b.days_remaining,b.days_remaining,1.0,'MIGRATION' FROM leave_balances b WHERE b.days_remaining>0");
+      } catch (SQLException e) {
+        System.err.println("Seeding migration leave grants failed.");
+        throw e;
       }
     }
   }

@@ -76,7 +76,7 @@ public class AttendanceService {
       if (today.get("clock_in") != null) {
         throw new IllegalArgumentException("本日の打刻は完了しています。時刻の変更は打刻修正から申請してください。");
       }
-      Sql.update("MERGE INTO attendance AS t USING (SELECT CAST(? AS BIGINT) AS user_id, CAST(? AS DATE) AS work_date, CURRENT_TIMESTAMP AS clock_in, CAST(? AS DECIMAL) AS in_lat, CAST(? AS DECIMAL) AS in_lng, CAST(? AS VARCHAR) AS location_status, 'OPEN' AS status) AS s ON t.user_id = s.user_id AND t.work_date = s.work_date WHEN MATCHED THEN UPDATE SET clock_in = s.clock_in, in_lat = s.in_lat, in_lng = s.in_lng, location_status = s.location_status, status = s.status WHEN NOT MATCHED THEN INSERT (user_id, work_date, clock_in, in_lat, in_lng, location_status, status) VALUES (s.user_id, s.work_date, s.clock_in, s.in_lat, s.in_lng, s.location_status, s.status)",
+      Sql.update("MERGE INTO attendance(user_id,work_date,clock_in,in_lat,in_lng,location_status,status) KEY(user_id,work_date) VALUES(?,?,CURRENT_TIMESTAMP,?,?,?,'OPEN')",
           user.getId(), workDate, number(lat), number(lng), locationStatus);
     } else {
       Map<String, Object> open = Sql.one("SELECT id,work_date,finalized FROM attendance WHERE user_id=? AND clock_in IS NOT NULL AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1", user.getId());

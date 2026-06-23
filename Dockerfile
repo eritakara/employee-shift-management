@@ -7,7 +7,7 @@ COPY dokoTsubu-master/src ./src
 RUN mkdir -p build/classes target/shiftflow \
     && find src/main/java -name "*.java" > sources.txt \
     && javac --release 21 -encoding UTF-8 \
-      -cp "$CATALINA_HOME/lib/servlet-api.jar:src/main/webapp/WEB-INF/lib/h2-2.4.240.jar:src/main/webapp/WEB-INF/lib/postgresql-42.7.2.jar" \
+      -cp "$CATALINA_HOME/lib/servlet-api.jar:src/main/webapp/WEB-INF/lib/h2-2.4.240.jar" \
       -d build/classes @sources.txt \
     && if [ -d src/main/resources ]; then cp -r src/main/resources/. build/classes/; fi \
     && cp -r src/main/webapp/. target/shiftflow/ \
@@ -19,11 +19,6 @@ FROM tomcat:10.1-jre21-temurin
 
 ENV PORT=8080
 ENV SHIFTFLOW_DATA_DIR=/opt/shiftflow/data
-
-# server.xml のシャットダウンポートを無効化し、ビルドログに出力して確認する
-RUN sed -i 's/<Server port="8005"/<Server port="-1"/g' "$CATALINA_HOME/conf/server.xml" \
-    && grep '<Server' "$CATALINA_HOME/conf/server.xml" \
-    && grep '<Connector' "$CATALINA_HOME/conf/server.xml"
 
 RUN rm -rf "$CATALINA_HOME/webapps/"* \
     && mkdir -p /opt/shiftflow/data "$CATALINA_HOME/webapps/ROOT" \

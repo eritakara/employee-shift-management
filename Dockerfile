@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y curl \
 
 FROM tomcat:10.1-jre21-temurin
 
-ENV PORT=8080
+ENV PORT=10000
 ENV SHIFTFLOW_DATA_DIR=/opt/shiftflow/data
 
 RUN rm -rf "$CATALINA_HOME/webapps/"* \
@@ -34,6 +34,6 @@ RUN rm -rf "$CATALINA_HOME/webapps/"* \
 
 COPY --from=build /app/target/ROOT.war "$CATALINA_HOME/webapps/ROOT.war"
 
-EXPOSE 8080
+EXPOSE 10000
 
-CMD ["sh", "-c", "mkdir -p \"${SHIFTFLOW_DATA_DIR:-/opt/shiftflow/data}\" && sed -i \"s/port=\\\"8080\\\" protocol=\\\"HTTP\\/1.1\\\"/port=\\\"${PORT:-8080}\\\" protocol=\\\"HTTP\\/1.1\\\"/\" \"$CATALINA_HOME/conf/server.xml\" && exec catalina.sh run"]
+CMD ["sh", "-c", "mkdir -p \"${SHIFTFLOW_DATA_DIR:-/opt/shiftflow/data}\" && sed -i \"s/port=\\\"8080\\\" protocol=\\\"HTTP\\/1.1\\\"/port=\\\"${PORT:-10000}\\\" protocol=\\\"HTTP\\/1.1\\\"/\" \"$CATALINA_HOME/conf/server.xml\" && sed -i \"s/port=\\\"8005\\\" shutdown=\\\"SHUTDOWN\\\"/port=\\\"-1\\\" shutdown=\\\"SHUTDOWN\\\"/\" \"$CATALINA_HOME/conf/server.xml\" && exec catalina.sh run"]

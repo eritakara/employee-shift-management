@@ -75,10 +75,10 @@ $env:CATALINA_BASE=(Resolve-Path '.tomcat').Path
 
 ```powershell
 docker build -t shiftflow .
-docker run --rm -p 8080:8080 -e PORT=8080 shiftflow
+docker run --rm -p 10000:10000 shiftflow
 ```
 
-起動後に `http://localhost:8080/` を開きます。
+起動後に `http://localhost:10000/` を開きます。
 ※なお、古いコンテキストパス `/shiftflow/` にアクセスした場合も、自動的にルート `/` へ転送（リダイレクト）されるように設計されています。
 
 ### データベースと接続用ドライバについて

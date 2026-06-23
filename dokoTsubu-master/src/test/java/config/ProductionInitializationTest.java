@@ -11,7 +11,7 @@ public class ProductionInitializationTest {
     System.setProperty("shiftapp.seedDemo", "false");
     Database.initialize();
     try (Connection connection = Database.getConnection(); Statement statement = connection.createStatement()) {
-      check(count(statement, "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE LOWER(TABLE_SCHEMA)='public'") > 0,
+      check(count(statement, "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='PUBLIC'") > 0,
           "production schema is initialized");
       check(count(statement, "SELECT COUNT(*) FROM users") == 0, "demo users are not inserted");
       check(count(statement, "SELECT COUNT(*) FROM branches") == 0, "demo master data is not inserted");

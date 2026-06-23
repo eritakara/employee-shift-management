@@ -95,43 +95,54 @@ docker run --rm -p 8080:8080 -e PORT=8080 shiftflow
 2. Render の Dashboard で **New +** → **Web Service** を選択します。
 3. 対象リポジトリを接続します。
 4. Runtime は **Docker** を選択します。
-5. **Environment Variables** (環境変数) に以下を設定します。
+
+#### 既存のWeb Serviceでブランチを変更してテストデプロイする場合の手順
+Branchを変更してテストデプロイを行う際は、環境変数の不足によるビルド/起動エラーを防ぐため、**必ず環境変数を先に登録してからデプロイ**を実行してください。
+
+1. Renderのダッシュボードで対象のWeb Serviceの設定画面を開きます。
+2. **Settings** タブで、**Branch** を `feature/render-supabase-root-war` に変更し、保存します。
+3. **Environment Variables** タブに移動し、以下の環境変数を設定して保存します。
+4. 設定保存後、画面右上にある **Manual Deploy** ボタンをクリックし、**Clear Cache & Deploy** を選択して実行します。
 
 #### 推奨環境変数設定 (初心者向け 6つの設定項目)
 
-本番環境のデータベースが Supabase PostgreSQL の場合、Renderのダッシュボードで以下の **6つの環境変数** を登録してください。
+本番環境のデータベースが Supabase PostgreSQL の場合、Renderのダッシュボードで以下の **6つの環境変数** を基本構成として登録してください。本アプリケーションでは、接続の安定性と信頼性の観点から、Supabaseへの接続には **Direct Connection (ポート 5432)** を強く推奨しています。
 
 * `APP_ENV` = `production` （本番環境指定。H2への意図しないフォールバックを防止します）
-* `JDBC_URL` = `jdbc:postgresql://<host>:5432/<dbname>?sslmode=require` （接続用URL。ホスト名等はご自身のSupabaseのものに置き換えてください）
-* `DB_USER` = `postgres` （接続用のユーザー名。接続URLに埋め込まれていない場合は必須）
-* `DB_PASSWORD` = `あなたのデータベースパスワード` （接続用のパスワード。接続URLに埋め込まれていない場合は必須）
-* `INITIAL_HR_EMAIL` = `your-admin@example.com` （本番でログインする最初の管理者メールアドレス）
-* `INITIAL_HR_PASSWORD` = `あなたの強力なパスワード` （最初の管理者のパスワード。初期値のまま起動しようとすると安全のため起動エラーになります）
+* `JDBC_URL` = `jdbc:postgresql://db.xxxxxx.supabase.co:5432/postgres?sslmode=require` （SupabaseへのDirect Connection用接続URL。ホスト名はご自身のプロジェクトのものに置き換えてください）
+* `DB_USER` = `postgres` （接続用のユーザー名）
+* `DB_PASSWORD` = `<SupabaseのDatabase Password>` （接続用のパスワード）
+* `INITIAL_HR_EMAIL` = `<初期管理者メール>` （本番でログインする最初の管理者メールアドレス）
+* `INITIAL_HR_PASSWORD` = `<強力な初期管理者パスワード>` （最初の管理者のパスワード。初期値のまま起動しようとすると安全のため起動エラーになります）
 
 #### 環境変数一覧
 
 | 環境変数名 | 推奨値 / 例 | 説明 |
 | :--- | :--- | :--- |
 | `APP_ENV` | `production` | **本番環境指定**: `RENDER=true` とともに、万が一接続 URL が不足している場合に安全に起動を止めるための設定。 |
-| `JDBC_URL` | `jdbc:postgresql://<host>:5432/postgres?sslmode=require` | **優先順位 1**: PostgreSQL 接続用 JDBC URL。<br>※`postgres://` または `postgresql://` 形式の接続文字列も、アプリが自動的に `jdbc:postgresql://` 形式へ置換します。 |
+| `JDBC_URL` | `jdbc:postgresql://db.xxxxxx.supabase.co:5432/postgres?sslmode=require` | **優先順位 1**: PostgreSQL 接続用 JDBC URL (Direct Connection ポート `5432` 経由)。<br>※`postgres://` または `postgresql://` 形式の接続文字列も、アプリが自動的に `jdbc:postgresql://` 形式へ置換します。 |
 | `DB_URL` | (同上) | **優先順位 2**: JDBC_URL 未指定時に参照される変数。 |
 | `DB_JDBC_URL` | (同上) | **優先順位 3**: DB_URL 未指定時に参照される変数。 |
 | `DATABASE_URL` | (同上) | **優先順位 4**: DB_JDBC_URL 未指定時に参照される変数（RenderやSupabase自動生成の接続文字列を指定可能）。 |
-| `DB_USER` | `postgres` (占有/個別ユーザー名) | **接続ユーザー**: URL内に資格情報が埋め込まれている場合は空（未指定）で動作します。 |
-| `DB_PASSWORD` | (接続パスワード) | **接続パスワード**: URL内に資格情報が埋め込まれている場合は空（未指定）で動作します。 |
-| `INITIAL_HR_EMAIL` | `hr-admin@yourcompany.com` | **初回管理者（HRロール）のメールアドレス**: 本番環境で初期登録される管理者のメールアドレスです。初期値（`hr@example.com`）のまま本番稼働させないために設定します。 |
-| `INITIAL_HR_PASSWORD` | `強力な任意のパスワード` | **初回管理者の初期パスワード**: 本番の安全性を高めるため、半角英数字記号を含む強力なパスワードを指定してください。初期値（`Password1!`）のままで本番起動しようとすると、安全のため起動時にエラー（例外）が発生しアプリが停止します。 |
+| `DB_USER` | `postgres` | **接続ユーザー**: URL内に資格情報が埋め込まれている場合は空（未指定）でも動作します。 |
+| `DB_PASSWORD` | `<SupabaseのDatabase Password>` | **接続パスワード**: URL内に資格情報が埋め込まれている場合は空（未指定）でも動作します。 |
+| `INITIAL_HR_EMAIL` | `<初期管理者メール>` | **初回管理者（HRロール）のメールアドレス**: 本番環境で初期登録される管理者のメールアドレスです。初期値（`hr@example.com`）のまま本番稼働させないために設定します。 |
+| `INITIAL_HR_PASSWORD` | `<強力な初期管理者パスワード>` | **初回管理者の初期パスワード**: 本番の安全性を高めるため、半角英数字記号を含む強力なパスワードを指定してください。初期値（`Password1!`）のままで本番起動しようとすると、安全のため起動時にエラー（例外）が発生しアプリが停止します。 |
 
 ※ `APP_ENV=production` または `RENDER=true` または `DB_REQUIRED=true` が設定されている場合、接続 URL が不足していると、データ保存の失敗を防ぐためH2データベースへフォールバックせずに、起動エラーとして強制終了します。
 ※ 本番環境 (`APP_ENV=production`) では、セキュリティの観点から一般社員・店長などのデモユーザー（`manager@example.com` など）の自動作成（シードデータ投入）はスキップされます。初期HRユーザーのみが作成されます。
 
 #### Supabase 接続方式について
-* **Direct Connection (推奨)**:
+
+本アプリケーションは、通常の Tomcat Webコンテナの常時接続プールを使用するため、Supabase への接続には **Direct Connection (ポート `5432`)** の使用を強く推奨します。
+
+* **Direct Connection (推奨・最優先)**:
   * 通常の Tomcat Servlet 構成では常時接続のプール管理が優れているため、Supabase の **Direct Connection (ポート `5432`)** を推奨します。
   * 接続文字列の例: `jdbc:postgresql://db.xxxxxx.supabase.co:5432/postgres?sslmode=require`
-* **Session Pooler (セッションプーラー)**:
-  * 接続数制限を回避するために Pooler を使用する場合は、ポート **`6543`** を指定し、Supabase 側でプーラーモードを **Session** に指定してください（Transactionモードは JDBC の Prepared Statement と競合するため非推奨です）。
+* **Session Pooler (補足/非推奨)**:
+  * 接続数制限を回避するためにどうしても Pooler を使用したい場合は、ポート **`6543`** を指定し、Supabase 側でプーラーモードを **Session** に指定してください（Transactionモードは JDBC の Prepared Statement と競合して動作しないため非推奨です）。
   * 接続文字列の例: `jdbc:postgresql://db.xxxxxx.supabase.co:6543/postgres?sslmode=require`
+  * ※今回の推奨構成ではありません。
 
 6. Deploy 後、`https://<service-name>.onrender.com/` にアクセスします。アプリがルートURL上で稼働します。
 

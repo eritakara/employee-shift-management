@@ -4,7 +4,11 @@ WORKDIR /app
 
 COPY dokoTsubu-master/src ./src
 
-RUN mkdir -p build/classes target/shiftflow \
+RUN apt-get update && apt-get install -y curl \
+    && mkdir -p src/main/webapp/WEB-INF/lib \
+    && curl -sSLo src/main/webapp/WEB-INF/lib/postgresql-42.7.3.jar https://jdbc.postgresql.org/download/postgresql-42.7.3.jar \
+    && apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p build/classes target/shiftflow \
     && find src/main/java -name "*.java" > sources.txt \
     && javac --release 21 -encoding UTF-8 \
       -cp "$CATALINA_HOME/lib/servlet-api.jar:src/main/webapp/WEB-INF/lib/h2-2.4.240.jar" \
@@ -13,7 +17,7 @@ RUN mkdir -p build/classes target/shiftflow \
     && cp -r src/main/webapp/. target/shiftflow/ \
     && mkdir -p target/shiftflow/WEB-INF/classes \
     && cp -r build/classes/. target/shiftflow/WEB-INF/classes/ \
-    && jar --create --file target/shiftflow.war -C target/shiftflow .
+    && jar --create --file target/ROOT.war -C target/shiftflow .
 
 FROM tomcat:10.1-jre21-temurin
 
@@ -21,14 +25,14 @@ ENV PORT=8080
 ENV SHIFTFLOW_DATA_DIR=/opt/shiftflow/data
 
 RUN rm -rf "$CATALINA_HOME/webapps/"* \
-    && mkdir -p /opt/shiftflow/data "$CATALINA_HOME/webapps/ROOT" \
+    && mkdir -p /opt/shiftflow/data "$CATALINA_HOME/webapps/shiftflow" \
     && printf '%s\n' \
       '<!doctype html>' \
-      '<html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/shiftflow/"><title>ShiftFlow</title></head>' \
-      '<body><a href="/shiftflow/">ShiftFlow を開く</a></body></html>' \
-      > "$CATALINA_HOME/webapps/ROOT/index.html"
+      '<html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/"><title>ShiftFlow</title></head>' \
+      '<body><a href="/">ShiftFlow を開く</a></body></html>' \
+      > "$CATALINA_HOME/webapps/shiftflow/index.html"
 
-COPY --from=build /app/target/shiftflow.war "$CATALINA_HOME/webapps/shiftflow.war"
+COPY --from=build /app/target/ROOT.war "$CATALINA_HOME/webapps/ROOT.war"
 
 EXPOSE 8080
 

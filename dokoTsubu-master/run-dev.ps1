@@ -8,14 +8,14 @@ param(
 $ErrorActionPreference = "Stop"
 $project = $PSScriptRoot
 $base = Join-Path $project ".tomcat"
-$webapp = Join-Path $base "webapps\shiftflow"
+$webapp = Join-Path $base "webapps\ROOT"
 
 & (Join-Path $project "build.ps1") -TomcatHome $TomcatHome -JavaHome $JavaHome
 
 New-Item -ItemType Directory -Force (Join-Path $base "conf"), (Join-Path $base "logs"), (Join-Path $base "temp"), (Join-Path $base "work"), (Join-Path $base "webapps") | Out-Null
 Copy-Item (Join-Path $TomcatHome "conf\*") (Join-Path $base "conf") -Recurse -Force
 New-Item -ItemType Directory -Force $webapp | Out-Null
-Copy-Item (Join-Path $project "target\shiftflow\*") $webapp -Recurse -Force
+Copy-Item (Join-Path $project "target\ROOT\*") $webapp -Recurse -Force
 
 if ($Port -ne 8080) {
   $serverXml = Join-Path $base "conf\server.xml"
@@ -29,7 +29,7 @@ $env:CATALINA_BASE = $base
 $env:JRE_HOME = $JavaHome
 $env:DEMO_SEED = "true"
 
-$url = "http://localhost:$Port/shiftflow/"
+$url = "http://localhost:$Port/"
 
 if ($NoWait) {
   $process = Start-Process -FilePath (Join-Path $TomcatHome "bin\catalina.bat") -ArgumentList "run" -WindowStyle Hidden -PassThru

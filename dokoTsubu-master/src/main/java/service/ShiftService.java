@@ -433,8 +433,9 @@ public class ShiftService {
         + scopedUserJoin + " WHERE wt.active=TRUE AND wt.required_staff>0"
         + " GROUP BY wt.name_ja,wt.required_staff HAVING " + actualCount + "<wt.required_staff",
         join(new Object[]{date, date}, scopeArgs)));
+    String dateadd = config.Database.isPostgres() ? "(s1.work_date + INTERVAL '1 day')::date" : "DATEADD('DAY',1,s1.work_date)";
     result.addAll(Sql.query("SELECT 'NIGHT_REST' warning,s2.work_date,u.name detail,0 required,0 actual "
-        + "FROM shifts s1 JOIN shifts s2 ON s2.user_id=s1.user_id AND s2.work_date=DATEADD('DAY',1,s1.work_date) "
+        + "FROM shifts s1 JOIN shifts s2 ON s2.user_id=s1.user_id AND s2.work_date=" + dateadd + " "
         + "JOIN users u ON u.id=s1.user_id WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('OFF','LEAVE') "
         + "AND (s1.work_date=? OR s2.work_date=?)" + userScope,
         join(new Object[]{date, date}, scopeArgs)));
@@ -447,16 +448,29 @@ public class ShiftService {
     String scopedUserJoin = "LEFT JOIN users u ON u.id=s.user_id" + (viewer.isHr() ? "" : " AND u.branch_id=? AND u.department_id=?");
     String actualCount = viewer.isHr() ? "COUNT(s.id)" : "COUNT(u.id)";
     List<Map<String, Object>> result = new java.util.ArrayList<>();
-    result.addAll(Sql.query("WITH RECURSIVE dates(work_date) AS (SELECT CAST(? AS DATE) UNION ALL SELECT DATEADD('DAY',1,work_date) FROM dates WHERE work_date<?) "
-        + "SELECT 'STAFF_SHORTAGE' warning,dates.work_date,wt.name_ja detail,wt.required_staff required," + actualCount + " actual "
-        + "FROM dates CROSS JOIN work_types wt LEFT JOIN shifts s ON s.work_date=dates.work_date AND s.work_type_code=wt.code "
-        + scopedUserJoin + " WHERE wt.active=TRUE AND wt.required_staff>0 GROUP BY dates.work_date,wt.name_ja,wt.required_staff "
-        + "HAVING " + actualCount + "<wt.required_staff ORDER BY dates.work_date,wt.name_ja",
-        join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs)));
-    result.addAll(Sql.query("SELECT 'NIGHT_REST' warning,s2.work_date,u.name detail,0 required,0 actual FROM shifts s1 "
-        + "JOIN shifts s2 ON s2.user_id=s1.user_id AND s2.work_date=DATEADD('DAY',1,s1.work_date) JOIN users u ON u.id=s1.user_id "
-        + "WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('OFF','LEAVE') AND s1.work_date BETWEEN ? AND ?" + userScope,
-        join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs)));
+    if (config.Database.isPostgres()) {
+      result.addAll(Sql.query("WITH RECURSIVE dates(work_date) AS (SELECT CAST(? AS DATE) UNION ALL SELECT (work_date + INTERVAL '1 day')::date FROM dates WHERE work_date<?) "
+          + "SELECT 'STAFF_SHORTAGE' warning,dates.work_date,wt.name_ja detail,wt.required_staff required," + actualCount + " actual "
+          + "FROM dates CROSS JOIN work_types wt LEFT JOIN shifts s ON s.work_date=dates.work_date AND s.work_type_code=wt.code "
+          + scopedUserJoin + " WHERE wt.active=TRUE AND wt.required_staff>0 GROUP BY dates.work_date,wt.name_ja,wt.required_staff "
+          + "HAVING " + actualCount + "<wt.required_staff ORDER BY dates.work_date,wt.name_ja",
+          join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs)));
+      result.addAll(Sql.query("SELECT 'NIGHT_REST' warning,s2.work_date,u.name detail,0 required,0 actual FROM shifts s1 "
+          + "JOIN shifts s2 ON s2.user_id=s1.user_id AND s2.work_date=(s1.work_date + INTERVAL '1 day')::date JOIN users u ON u.id=s1.user_id "
+          + "WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('OFF','LEAVE') AND s1.work_date BETWEEN ? AND ?" + userScope,
+          join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs)));
+    } else {
+      result.addAll(Sql.query("WITH RECURSIVE dates(work_date) AS (SELECT CAST(? AS DATE) UNION ALL SELECT DATEADD('DAY',1,work_date) FROM dates WHERE work_date<?) "
+          + "SELECT 'STAFF_SHORTAGE' warning,dates.work_date,wt.name_ja detail,wt.required_staff required," + actualCount + " actual "
+          + "FROM dates CROSS JOIN work_types wt LEFT JOIN shifts s ON s.work_date=dates.work_date AND s.work_type_code=wt.code "
+          + scopedUserJoin + " WHERE wt.active=TRUE AND wt.required_staff>0 GROUP BY dates.work_date,wt.name_ja,wt.required_staff "
+          + "HAVING " + actualCount + "<wt.required_staff ORDER BY dates.work_date,wt.name_ja",
+          join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs)));
+      result.addAll(Sql.query("SELECT 'NIGHT_REST' warning,s2.work_date,u.name detail,0 required,0 actual FROM shifts s1 "
+          + "JOIN shifts s2 ON s2.user_id=s1.user_id AND s2.work_date=DATEADD('DAY',1,s1.work_date) JOIN users u ON u.id=s1.user_id "
+          + "WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('OFF','LEAVE') AND s1.work_date BETWEEN ? AND ?" + userScope,
+          join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs)));
+    }
     return result;
   }
 

@@ -58,6 +58,8 @@ if ($LASTEXITCODE -ne 0) { throw "Dashboard chart tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Attendance adjustment audit tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" config.ProductionInitializationTest
 if ($LASTEXITCODE -ne 0) { throw "Production initialization tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" config.HrPasswordResetTest
+if ($LASTEXITCODE -ne 0) { throw "HR password reset tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.ApprovedRequirementsTest
 if ($LASTEXITCODE -ne 0) { throw "Approved requirements tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.ConcurrentLoadTest

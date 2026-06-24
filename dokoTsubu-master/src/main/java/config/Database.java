@@ -85,6 +85,9 @@ public final class Database {
           seed(connection);
           System.out.println("Master data and initial admin (HR) creation completed successfully.");
         }
+
+        // 一時的なHRパスワード再設定処理（環境変数での指示がある場合）
+        resetHrPasswordIfNeeded(connection);
       }
       System.out.println("Database initialization completed successfully.");
     } catch (Throwable e) {
@@ -701,5 +704,53 @@ public final class Database {
 
   private static BigDecimal number(String value) {
     return value == null || value.isBlank() ? null : new BigDecimal(value);
+  }
+
+  /**
+   * 一時的な環境変数 RESET_HR_PASSWORD_ENABLED = true が指定された場合、
+   * 指定の HR ユーザー（RESET_HR_EMAIL）のパスワードを RESET_HR_PASSWORD で
+   * ハッシュ化して安全に更新します。
+   */
+  private static void resetHrPasswordIfNeeded(Connection c) throws SQLException {
+    boolean resetEnabled = "true".equalsIgnoreCase(setting("shiftapp.resetHrPasswordEnabled", "RESET_HR_PASSWORD_ENABLED", "false"));
+    if (!resetEnabled) {
+      return;
+    }
+
+    String resetEmail = setting("shiftapp.resetHrEmail", "RESET_HR_EMAIL", null);
+    if (resetEmail == null || resetEmail.isBlank()) {
+      throw new IllegalStateException("RESET_HR_EMAIL must be configured when RESET_HR_PASSWORD_ENABLED is true.");
+    }
+
+    String resetPassword = setting("shiftapp.resetHrPassword", "RESET_HR_PASSWORD", null);
+    if (resetPassword == null || resetPassword.isBlank() || "Password1!".equals(resetPassword)) {
+      throw new IllegalStateException("RESET_HR_PASSWORD environment variable must be configured with a secure value when RESET_HR_PASSWORD_ENABLED is true.");
+    }
+
+    // 対象ユーザーの存在とロールの確認
+    String checkSql = "SELECT role FROM users WHERE email=?";
+    try (PreparedStatement p = c.prepareStatement(checkSql)) {
+      p.setString(1, resetEmail);
+      try (ResultSet r = p.executeQuery()) {
+        if (!r.next()) {
+          throw new IllegalStateException("Target user for password reset was not found: " + resetEmail);
+        }
+        String role = r.getString("role");
+        if (!"HR".equalsIgnoreCase(role)) {
+          throw new IllegalStateException("Target user is not an HR user (Role: " + role + "): " + resetEmail);
+        }
+      }
+    }
+
+    // パスワードのハッシュ化と更新
+    String hashed = PasswordUtil.hash(resetPassword);
+    String updateSql = "UPDATE users SET password_hash=? WHERE email=?";
+    try (PreparedStatement p = c.prepareStatement(updateSql)) {
+      p.setString(1, hashed);
+      p.setString(2, resetEmail);
+      p.executeUpdate();
+    }
+
+    System.out.println("HR password reset completed for: " + resetEmail);
   }
 }

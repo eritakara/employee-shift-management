@@ -6,10 +6,9 @@
 
 本アプリケーションは、ポートフォリオ・面接提出用に Render + Supabase (PostgreSQL) を使用したデモ環境を公開しています。
 
-* **デモURL**: `https://xxxxx.onrender.com/`
+* **デモURL**: `https://employee-shift-management.onrender.com/` (※ 実際の公開URLに置き換えてください)
 * **デモログイン情報**:
-  * **メールアドレス**: `demo@example.com` (※ 環境変数 `INITIAL_HR_EMAIL` で指定した管理者アドレス)
-  * **パスワード**: 面接・提出時に別途共有 (※ セキュリティ保護のためGitHub上には公開していません。環境変数 `INITIAL_HR_PASSWORD` に指定したパスワードを別途共有してください)
+  * **ログイン情報 (ID・パスワード)**: 面接・提出時に別途共有 (※ セキュリティ保護のためGitHub上には公開していません。本番環境起動時に環境変数 `INITIAL_HR_EMAIL` および `INITIAL_HR_PASSWORD` に設定した管理者アカウント情報を別途共有してください)
 
 > [!NOTE]
 > * セキュリティおよび個人情報保護のため、READMEやGit管理対象のコード内には本番用のパスワードや個人用メールアドレス、SupabaseのDB接続情報等は一切含めておりません。

@@ -106,6 +106,12 @@ public final class Database {
     return DriverManager.getConnection(jdbcUrl, jdbcUser, jdbcPassword);
   }
 
+  /**
+   * 実行中のデータベースが PostgreSQL (本番 Supabase 環境) であるかどうかを判定します。
+   * 日付加算 (DATEADD) や日付フォーマット (FORMATDATETIME) などの SQL 関数が、
+   * 開発用の H2 データベースと本番の PostgreSQL で異なるため、
+   * このメソッドの判定を元に、サービス層で動的な SQL 互換処理を行います。
+   */
   public static boolean isPostgres() {
     return jdbcUrl != null && jdbcUrl.startsWith("jdbc:postgresql:");
   }
@@ -300,6 +306,8 @@ public final class Database {
       String hrEmail = setting("shiftapp.initialHrEmail", "INITIAL_HR_EMAIL", "hr@example.com");
       String hrPassword = setting("shiftapp.initialHrPassword", "INITIAL_HR_PASSWORD", "Password1!");
 
+      // 【安全装置】本番環境かつ初期パスワードがデフォルト（Password1!）のままで起動しようとした場合、
+      // 不正アクセス防止のため、Tomcat の起動自体を強制的に停止（例外をスロー）します。
       if (isProduction && "hr@example.com".equals(hrEmail) && "Password1!".equals(hrPassword)) {
         throw new IllegalStateException("INITIAL_HR_EMAIL and INITIAL_HR_PASSWORD environment variables must be configured in production for security reasons.");
       }
@@ -341,6 +349,9 @@ public final class Database {
           || "production".equalsIgnoreCase(System.getenv("APP_ENV"))
           || "true".equalsIgnoreCase(System.getenv("DB_REQUIRED"));
 
+      // 【安全装置】本番環境かつデモアカウント生成が有効な場合、
+      // 共通パスワードが未設定またはデフォルト値（Password1!）のままで起動しようとした場合は、
+      // セキュリティ保護のため起動を強制停止（例外をスロー）します。
       if (isProduction && ("Password1!".equals(demoPassword) || demoPassword == null || demoPassword.isBlank())) {
         throw new IllegalStateException("DEMO_ACCOUNTS_PASSWORD environment variable must be configured with a secure value in production when DEMO_ACCOUNTS_ENABLED is true.");
       }
@@ -648,6 +659,12 @@ public final class Database {
     addUser(c, number, name, email, password, role, branchId, departmentId, defaultEmpTypeId);
   }
 
+  /**
+   * マスターテーブル名と名称から主キーIDを動的に検索します。
+   * テーブル名をSQLに結合するため、SQLインジェクション対策として
+   * 引数のテーブル名が許可されたマスターテーブル名（branches, departments, employment_types）
+   * のみであることを検証するホワイトリストチェックを実行します。
+   */
   private static long findIdByName(Connection c, String table, String name) throws SQLException {
     if (!"branches".equals(table) && !"departments".equals(table) && !"employment_types".equals(table)) {
       throw new IllegalArgumentException("Invalid table name for name lookup: " + table);

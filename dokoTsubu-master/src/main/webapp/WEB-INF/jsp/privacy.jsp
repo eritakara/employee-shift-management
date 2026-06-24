@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>個人情報・位置情報の取扱い | シフト・有給管理</title>
+  <title>個人情報・位置情報の取扱い | シフト・有休管理</title>
   <link rel="stylesheet" href="<%=request.getContextPath()%>/assets/app.css">
 </head>
 <body>
@@ -49,7 +49,7 @@
     <p>Employees can view their own data; managers and active delegates can view the business data in their assigned scope; HR users can view company-wide data when required for their duties.</p>
   </section>
 
-  <p><a href="<%=request.getContextPath()%>/">シフト・有給管理へ戻る / Back to home</a></p>
+  <p><a href="<%=request.getContextPath()%>/">シフト・有休管理へ戻る / Back to home</a></p>
 </main>
 </body>
 </html>

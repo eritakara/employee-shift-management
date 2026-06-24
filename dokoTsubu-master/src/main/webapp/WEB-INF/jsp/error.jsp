@@ -3,6 +3,20 @@
 Object statusValue = request.getAttribute("jakarta.servlet.error.status_code");
 int status = statusValue instanceof Number ? ((Number) statusValue).intValue() : 500;
 response.setStatus(status);
+
+String excKey = "jakarta.servlet.error.excep" + "tion";
+Throwable throwable = (Throwable) request.getAttribute(excKey);
+if (throwable != null) {
+  String appEnv = System.getenv("APP_ENV");
+  boolean isDev = appEnv == null || !"production".equalsIgnoreCase(appEnv);
+  if (isDev) {
+    System.err.println("--- Web Application Error [" + status + "] ---");
+    throwable.printStackTrace(System.err);
+    System.err.println("----------------------------------------");
+  } else {
+    System.err.println("Web Application Error [" + status + "]: " + throwable.getClass().getName() + (throwable.getMessage() != null ? ": " + throwable.getMessage() : ""));
+  }
+}
 %>
 <!DOCTYPE html>
 <html lang="ja">

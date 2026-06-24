@@ -24,42 +24,93 @@ public final class Database {
 
   private Database() { }
 
+  private static void logEnvironmentState() {
+    String appEnv = System.getenv("APP_ENV");
+    boolean isProduction = "production".equalsIgnoreCase(appEnv);
+    String jdbcUrlVal = System.getenv("JDBC_URL");
+    if (jdbcUrlVal == null || jdbcUrlVal.isBlank()) jdbcUrlVal = System.getenv("DB_URL");
+    if (jdbcUrlVal == null || jdbcUrlVal.isBlank()) jdbcUrlVal = System.getenv("DB_JDBC_URL");
+    if (jdbcUrlVal == null || jdbcUrlVal.isBlank()) jdbcUrlVal = System.getenv("DATABASE_URL");
+    if (jdbcUrlVal == null || jdbcUrlVal.isBlank()) jdbcUrlVal = System.getProperty("shiftapp.jdbcUrl");
+
+    String dbUserVal = System.getenv("DB_USER");
+    if (dbUserVal == null || dbUserVal.isBlank()) dbUserVal = System.getProperty("shiftapp.dbUser");
+
+    String dbPasswordVal = System.getenv("DB_PASSWORD");
+    if (dbPasswordVal == null || dbPasswordVal.isBlank()) dbPasswordVal = System.getProperty("shiftapp.dbPassword");
+
+    String hrEmailVal = System.getenv("INITIAL_HR_EMAIL");
+    if (hrEmailVal == null || hrEmailVal.isBlank()) hrEmailVal = System.getProperty("shiftapp.initialHrEmail");
+
+    String hrPasswordVal = System.getenv("INITIAL_HR_PASSWORD");
+    if (hrPasswordVal == null || hrPasswordVal.isBlank()) hrPasswordVal = System.getProperty("shiftapp.initialHrPassword");
+
+    System.out.println("=== Database Environment Check ===");
+    System.out.println("APP_ENV = " + appEnv + " (isProduction: " + isProduction + ")");
+    System.out.println("JDBC_URL configured: " + (jdbcUrlVal != null && !jdbcUrlVal.isBlank()));
+    System.out.println("DB_USER configured: " + (dbUserVal != null && !dbUserVal.isBlank()));
+    System.out.println("DB_PASSWORD configured: " + (dbPasswordVal != null && !dbPasswordVal.isBlank()));
+    System.out.println("INITIAL_HR_EMAIL configured: " + (hrEmailVal != null && !hrEmailVal.isBlank()));
+    System.out.println("INITIAL_HR_PASSWORD configured: " + (hrPasswordVal != null && !hrPasswordVal.isBlank()));
+    System.out.println("==================================");
+  }
+
   public static synchronized void initialize() {
     if (jdbcUrl != null) return;
+    logEnvironmentState();
     try {
-      jdbcUrl = configuredJdbcUrl();
-      jdbcUser = setting("shiftapp.dbUser", "DB_USER", setting("shiftapp.jdbcUser", "JDBC_USER", "sa"));
-      jdbcPassword = setting("shiftapp.dbPassword", "DB_PASSWORD",
-          setting("shiftapp.jdbcPassword", "JDBC_PASSWORD", ""));
-      loadJdbcDriver();
-      try (Connection connection = getConnection()) {
-        createSchema(connection);
-        if (flag("shiftapp.seedDemo", "BASE_SEED", true)) seed(connection);
+      String url = configuredJdbcUrl();
+      if (url != null) {
+        jdbcUrl = url;
+        jdbcUser = setting("shiftapp.dbUser", "DB_USER", setting("shiftapp.jdbcUser", "JDBC_USER", null));
+        jdbcPassword = setting("shiftapp.dbPassword", "DB_PASSWORD", setting("shiftapp.jdbcPassword", "JDBC_PASSWORD", null));
+      } else {
+        jdbcUrl = defaultH2Url();
+        jdbcUser = setting("shiftapp.dbUser", "DB_USER", setting("shiftapp.jdbcUser", "JDBC_USER", "sa"));
+        jdbcPassword = setting("shiftapp.dbPassword", "DB_PASSWORD", setting("shiftapp.jdbcPassword", "JDBC_PASSWORD", ""));
       }
-    } catch (Exception e) {
+      
+      loadJdbcDriver();
+      
+      System.out.println("Connecting to database: " + jdbcUrl + " (User: " + (jdbcUser != null ? jdbcUser : "none") + ")...");
+      try (Connection connection = getConnection()) {
+        System.out.println("Database connection established successfully.");
+        
+        System.out.println("Starting table creation (schema)...");
+        createSchema(connection);
+        System.out.println("Table creation (schema) completed successfully.");
+        
+        if (flag("shiftapp.seedDemo", "BASE_SEED", true)) {
+          System.out.println("Starting master data and initial admin (HR) creation...");
+          seed(connection);
+          System.out.println("Master data and initial admin (HR) creation completed successfully.");
+        }
+      }
+      System.out.println("Database initialization completed successfully.");
+    } catch (Throwable e) {
+      System.err.println("CRITICAL ERROR: Database initialization failed!");
+      e.printStackTrace(System.err);
       jdbcUrl = null;
       jdbcUser = null;
       jdbcPassword = null;
+      if (e instanceof RuntimeException) throw (RuntimeException) e;
       throw new IllegalStateException("Failed to initialize database", e);
     }
   }
 
   public static Connection getConnection() throws SQLException {
     if (jdbcUrl == null) initialize();
+    if (jdbcUser == null) {
+      return DriverManager.getConnection(jdbcUrl);
+    }
     return DriverManager.getConnection(jdbcUrl, jdbcUser, jdbcPassword);
   }
 
-  private static String configuredJdbcUrl() throws IOException {
-    String configured = first("shiftapp.jdbcUrl", "JDBC_URL", null);
-    configured = first("shiftapp.dbJdbcUrl", "DB_JDBC_URL", configured);
-    if (configured != null && !configured.isBlank()) {
-      if (!configured.startsWith("jdbc:")) {
-        throw new IllegalStateException("JDBC_URL/DB_JDBC_URL must start with jdbc:. "
-            + "The bundled runtime includes H2 only; add a JDBC driver before using another database.");
-      }
-      return configured;
-    }
+  public static boolean isPostgres() {
+    return jdbcUrl != null && jdbcUrl.startsWith("jdbc:postgresql:");
+  }
 
+  private static String defaultH2Url() throws IOException {
     String dataDirSetting = setting("shiftapp.dataDir", "SHIFTFLOW_DATA_DIR", null);
     Path dataDir = dataDirSetting == null || dataDirSetting.isBlank()
         ? Path.of(System.getProperty("catalina.base", System.getProperty("java.io.tmpdir")), "data")
@@ -68,12 +119,62 @@ public final class Database {
     return "jdbc:h2:file:" + dataDir.resolve("shiftapp").toAbsolutePath() + ";AUTO_SERVER=TRUE";
   }
 
+  private static String configuredJdbcUrl() throws IOException {
+    String configured = System.getProperty("shiftapp.jdbcUrl");
+    if (configured == null || configured.isBlank()) {
+      configured = System.getenv("JDBC_URL");
+    }
+    if (configured == null || configured.isBlank()) {
+      configured = System.getenv("DB_URL");
+    }
+    if (configured == null || configured.isBlank()) {
+      configured = System.getenv("DB_JDBC_URL");
+    }
+    if (configured == null || configured.isBlank()) {
+      configured = System.getenv("DATABASE_URL");
+    }
+
+    if (configured != null && !configured.isBlank()) {
+      configured = configured.trim();
+      if (configured.startsWith("postgres://")) {
+        configured = "jdbc:postgresql://" + configured.substring("postgres://".length());
+      } else if (configured.startsWith("postgresql://")) {
+        configured = "jdbc:postgresql://" + configured.substring("postgresql://".length());
+      }
+      
+      if (!configured.startsWith("jdbc:")) {
+        throw new IllegalStateException("JDBC_URL/DB_URL must start with jdbc: (or postgresql://).");
+      }
+      return configured;
+    }
+    
+    boolean isProduction = "true".equalsIgnoreCase(System.getenv("RENDER"))
+        || "production".equalsIgnoreCase(System.getenv("APP_ENV"))
+        || "true".equalsIgnoreCase(System.getenv("DB_REQUIRED"));
+        
+    if (isProduction) {
+      throw new IllegalStateException("Database connection URL (JDBC_URL, DB_URL, or DATABASE_URL) is required in production environment.");
+    }
+    
+    return null;
+  }
+
   private static void loadJdbcDriver() throws ClassNotFoundException {
     String driver = setting("shiftapp.dbDriver", "DB_DRIVER", null);
     if (driver != null && !driver.isBlank()) {
+      System.out.println("Loading custom driver: " + driver);
       Class.forName(driver);
+      System.out.println("Custom driver loaded successfully.");
     } else if (jdbcUrl.startsWith("jdbc:h2:")) {
+      System.out.println("Loading H2 driver...");
       Class.forName("org.h2.Driver");
+      System.out.println("H2 driver loaded successfully.");
+    } else if (jdbcUrl.startsWith("jdbc:postgresql:")) {
+      System.out.println("Loading PostgreSQL driver...");
+      Class.forName("org.postgresql.Driver");
+      System.out.println("PostgreSQL driver loaded successfully.");
+    } else {
+      System.out.println("Warning: Unknown JDBC URL format. Skipping explicit driver class loading.");
     }
   }
 
@@ -122,28 +223,53 @@ public final class Database {
       "CREATE TABLE IF NOT EXISTS notifications (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, user_id BIGINT NOT NULL, type VARCHAR(50) NOT NULL, title VARCHAR(200) NOT NULL, message VARCHAR(1000) NOT NULL, target_url VARCHAR(500), is_read BOOLEAN NOT NULL DEFAULT FALSE, email_status VARCHAR(20) NOT NULL DEFAULT 'QUEUED', created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(user_id) REFERENCES users(id))",
       "CREATE TABLE IF NOT EXISTS account_tokens (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, user_id BIGINT NOT NULL, token VARCHAR(100) NOT NULL UNIQUE, token_type VARCHAR(20) NOT NULL, expires_at TIMESTAMP NOT NULL, used_at TIMESTAMP, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(user_id) REFERENCES users(id))",
       "CREATE TABLE IF NOT EXISTS mail_outbox (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, recipient VARCHAR(200) NOT NULL, subject VARCHAR(300) NOT NULL, body VARCHAR(4000) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'QUEUED', attempts INT NOT NULL DEFAULT 0, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, sent_at TIMESTAMP)",
-      "CREATE TABLE IF NOT EXISTS audit_logs (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, actor_id BIGINT, action VARCHAR(80) NOT NULL, target_type VARCHAR(80) NOT NULL, target_id VARCHAR(80), before_value CLOB, after_value CLOB, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(actor_id) REFERENCES users(id))"
+      "CREATE TABLE IF NOT EXISTS audit_logs (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, actor_id BIGINT, action VARCHAR(80) NOT NULL, target_type VARCHAR(80) NOT NULL, target_id VARCHAR(80), before_value TEXT, after_value TEXT, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(actor_id) REFERENCES users(id))"
     };
     try (Statement statement = c.createStatement()) {
-      for (String sql : statements) statement.execute(sql);
-      statement.execute("ALTER TABLE mail_outbox ADD COLUMN IF NOT EXISTS last_error VARCHAR(2000)");
-      statement.execute("ALTER TABLE mail_outbox ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMP");
-      statement.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS weekly_work_days INT NOT NULL DEFAULT 5");
-      statement.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS weekly_work_hours DECIMAL(5,2) NOT NULL DEFAULT 40");
-      statement.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMP");
-      statement.execute("ALTER TABLE leave_consumptions ADD COLUMN IF NOT EXISTS restored BOOLEAN NOT NULL DEFAULT FALSE");
-      statement.execute("ALTER TABLE qualifications ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE");
-      statement.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS target_user_id BIGINT");
+      for (String sql : statements) {
+        try {
+          statement.execute(sql);
+        } catch (SQLException e) {
+          System.err.println("SQL Execution Failed on DDL: " + sql);
+          throw e;
+        }
+      }
+      
+      String[] alters = {
+        "ALTER TABLE mail_outbox ADD COLUMN IF NOT EXISTS last_error VARCHAR(2000)",
+        "ALTER TABLE mail_outbox ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMP",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS weekly_work_days INT NOT NULL DEFAULT 5",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS weekly_work_hours DECIMAL(5,2) NOT NULL DEFAULT 40",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMP",
+        "ALTER TABLE leave_consumptions ADD COLUMN IF NOT EXISTS restored BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE qualifications ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE",
+        "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS target_user_id BIGINT"
+      };
+      for (String sql : alters) {
+        try {
+          statement.execute(sql);
+        } catch (SQLException e) {
+          System.err.println("SQL Execution Failed on ALTER: " + sql);
+          throw e;
+        }
+      }
     }
   }
 
   private static void seed(Connection c) throws SQLException, IOException {
     if (count(c, "branches") == 0) {
-      insertNames(c, "branches", new String[]{"本社", "北部支店", "中部支店", "那覇支店", "南部支店", "宮古支店", "石垣支店"});
-      insertNames(c, "departments", new String[]{"営業部", "経理部", "総務部", "人事部"});
-      insertNames(c, "employment_types", new String[]{"正社員", "契約社員", "パート", "アルバイト"});
+      System.out.println("Seeding master data (branches, departments, employment_types)...");
+      try {
+        insertNames(c, "branches", new String[]{"本社", "北部支店", "中部支店", "那覇支店", "南部支店", "宮古支店", "石垣支店"});
+        insertNames(c, "departments", new String[]{"営業部", "経理部", "総務部", "人事部"});
+        insertNames(c, "employment_types", new String[]{"正社員", "契約社員", "パート", "アルバイト"});
+      } catch (SQLException e) {
+        System.err.println("Seeding basic master data failed.");
+        throw e;
+      }
     }
     if (count(c, "work_types") == 0) {
+      System.out.println("Seeding work types...");
       String sql = "INSERT INTO work_types(code,name_ja,name_en,start_time,end_time,crosses_midnight,break_minutes,required_staff) VALUES(?,?,?,?,?,?,?,?)";
       try (PreparedStatement p = c.prepareStatement(sql)) {
         insertWorkType(p, "DAY", "日勤", "Day", "08:00:00", "17:00:00", false, 60, 5);
@@ -152,27 +278,70 @@ public final class Database {
         insertWorkType(p, "LEAVE", "有休", "Paid leave", null, null, false, 0, 0);
         insertWorkType(p, "AM_LEAVE", "午前休", "AM leave", "13:00:00", "17:00:00", false, 0, 0);
         insertWorkType(p, "PM_LEAVE", "午後休", "PM leave", "08:00:00", "12:00:00", false, 0, 0);
+      } catch (SQLException e) {
+        System.err.println("Seeding basic work types failed.");
+        throw e;
       }
     }
     try (Statement s = c.createStatement()) {
-      s.executeUpdate("INSERT INTO work_types(code,name_ja,name_en,start_time,end_time,crosses_midnight,break_minutes,required_staff) "
-          + "SELECT 'NIGHT_OFF','夜勤明け','Post-night rest',NULL,NULL,FALSE,0,0 WHERE NOT EXISTS(SELECT 1 FROM work_types WHERE code='NIGHT_OFF')");
+      try {
+        s.executeUpdate("INSERT INTO work_types(code,name_ja,name_en,start_time,end_time,crosses_midnight,break_minutes,required_staff) "
+            + "SELECT 'NIGHT_OFF','夜勤明け','Post-night rest',NULL,NULL,FALSE,0,0 WHERE NOT EXISTS(SELECT 1 FROM work_types WHERE code='NIGHT_OFF')");
+      } catch (SQLException e) {
+        System.err.println("Seeding work type NIGHT_OFF failed.");
+        throw e;
+      }
     }
     if (count(c, "users") == 0) {
-      addUser(c, "HR001", "人事担当", "hr@example.com", "HR", 1, 4);
-      addUser(c, "MG001", "那覇 店長", "manager@example.com", "MANAGER", 4, 1);
-      addUser(c, "EM001", "山田 花子", "employee@example.com", "EMPLOYEE", 4, 1);
-      addUser(c, "EM002", "佐藤 太郎", "sato@example.com", "EMPLOYEE", 4, 1);
+      boolean isProduction = "true".equalsIgnoreCase(System.getenv("RENDER"))
+          || "production".equalsIgnoreCase(System.getenv("APP_ENV"))
+          || "true".equalsIgnoreCase(System.getenv("DB_REQUIRED"));
+
+      String hrEmail = setting("shiftapp.initialHrEmail", "INITIAL_HR_EMAIL", "hr@example.com");
+      String hrPassword = setting("shiftapp.initialHrPassword", "INITIAL_HR_PASSWORD", "Password1!");
+
+      if (isProduction && "hr@example.com".equals(hrEmail) && "Password1!".equals(hrPassword)) {
+        throw new IllegalStateException("INITIAL_HR_EMAIL and INITIAL_HR_PASSWORD environment variables must be configured in production for security reasons.");
+      }
+
+      System.out.println("Creating initial HR user: " + hrEmail);
+      try {
+        addUser(c, "HR001", "人事担当", hrEmail, hrPassword, "HR", 1, 4);
+      } catch (SQLException e) {
+        System.err.println("Seeding initial HR user failed.");
+        throw e;
+      }
+
+      if (!isProduction) {
+        System.out.println("Seeding demo users...");
+        try {
+          addUser(c, "MG001", "那覇 店長", "manager@example.com", "MANAGER", 4, 1);
+          addUser(c, "EM001", "山田 花子", "employee@example.com", "EMPLOYEE", 4, 1);
+          addUser(c, "EM002", "佐藤 太郎", "sato@example.com", "EMPLOYEE", 4, 1);
+        } catch (SQLException e) {
+          System.err.println("Seeding demo users failed.");
+          throw e;
+        }
+      }
+
       try (Statement s = c.createStatement()) {
         s.executeUpdate("INSERT INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) SELECT id,10,0,CURRENT_DATE FROM users");
+      } catch (SQLException e) {
+        System.err.println("Seeding leave balances failed.");
+        throw e;
       }
     }
     if (count(c, "leave_rule_config") == 0) {
+      System.out.println("Seeding leave rule configuration...");
       try (Statement s = c.createStatement()) {
         s.executeUpdate("INSERT INTO leave_rule_config(effective_from,attendance_threshold,hourly_limit_days,hours_per_day,expiry_months,mandatory_days) VALUES(DATE '2019-04-01',0.800,5,8,24,5)");
+      } catch (SQLException e) {
+        System.err.println("Seeding leave rule configuration failed.");
+        throw e;
       }
     }
     if (count(c, "app_settings") == 0) {
+      System.out.println("Seeding app settings...");
       String sql = "INSERT INTO app_settings(setting_key,setting_value,description) VALUES(?,?,?)";
       try (PreparedStatement p = c.prepareStatement(sql)) {
         insertSetting(p, "SHIFT_SUBMISSION_DAY", "15", "翌月希望シフトの提出締切日");
@@ -183,16 +352,37 @@ public final class Database {
         insertSetting(p, "RETENTION_YEARS", "5", "業務データ保存年数");
         insertSetting(p, "LOCATION_REQUIRED", "false", "位置情報なしの打刻を禁止");
         insertSetting(p, "MAX_CONCURRENT_USERS", "100", "想定最大同時利用者数");
+      } catch (SQLException e) {
+        System.err.println("Seeding app settings failed.");
+        throw e;
       }
     }
     if (flag("shiftapp.demoSeed", "DEMO_SEED", false)) {
-      importDemoUsers(c);
-      importDemoShifts(c);
-      importDemoAttendance(c);
+      System.out.println("Seeding demo CSV tables...");
+      try {
+        importDemoUsers(c);
+        importDemoShifts(c);
+        importDemoAttendance(c);
+      } catch (Exception e) {
+        System.err.println("Seeding demo CSV data failed.");
+        throw e;
+      }
     }
     if (count(c, "leave_grants") == 0 && count(c, "users") > 0) {
+      System.out.println("Seeding migration leave grants...");
       try (Statement s = c.createStatement()) {
-        s.executeUpdate("INSERT INTO leave_grants(user_id,grant_date,expires_on,days_granted,days_remaining,attendance_rate,source) SELECT b.user_id,COALESCE(b.last_granted_on,CURRENT_DATE),DATEADD('MONTH',24,COALESCE(b.last_granted_on,CURRENT_DATE)),b.days_remaining,b.days_remaining,1.0,'MIGRATION' FROM leave_balances b WHERE b.days_remaining>0");
+        String add24MonthsSql;
+        if (jdbcUrl.startsWith("jdbc:h2:")) {
+          add24MonthsSql = "DATEADD('MONTH',24,COALESCE(b.last_granted_on,CURRENT_DATE))";
+        } else {
+          add24MonthsSql = "COALESCE(b.last_granted_on,CURRENT_DATE) + INTERVAL '24 month'";
+        }
+        s.executeUpdate("INSERT INTO leave_grants(user_id,grant_date,expires_on,days_granted,days_remaining,attendance_rate,source) "
+            + "SELECT b.user_id,COALESCE(b.last_granted_on,CURRENT_DATE)," + add24MonthsSql + ","
+            + "b.days_remaining,b.days_remaining,1.0,'MIGRATION' FROM leave_balances b WHERE b.days_remaining>0");
+      } catch (SQLException e) {
+        System.err.println("Seeding migration leave grants failed.");
+        throw e;
       }
     }
   }
@@ -202,8 +392,15 @@ public final class Database {
     if (input == null) throw new IOException("Demo user CSV was not found: /data/demo-users.csv");
     String userSql = "INSERT INTO users(employee_number,name,email,password_hash,hire_date,branch_id,department_id,employment_type_id,role) "
         + "SELECT ?,?,?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM users WHERE employee_number=?)";
-    String balanceSql = "MERGE INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) KEY(user_id) "
-        + "SELECT id,10,0,CURRENT_DATE FROM users WHERE employee_number=?";
+    String balanceSql;
+    if (jdbcUrl.startsWith("jdbc:h2:")) {
+      balanceSql = "MERGE INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) KEY(user_id) "
+          + "SELECT id,10,0,CURRENT_DATE FROM users WHERE employee_number=?";
+    } else {
+      balanceSql = "INSERT INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) "
+          + "SELECT id,10,0,CURRENT_DATE FROM users WHERE employee_number=? "
+          + "ON CONFLICT (user_id) DO UPDATE SET days_remaining=10, last_granted_on=CURRENT_DATE";
+    }
     String updateSql = "UPDATE users SET name=?,email=?,role=?,branch_id=?,department_id=?,employment_type_id=? WHERE employee_number=?";
     try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
          PreparedStatement exists = c.prepareStatement("SELECT 1 FROM users WHERE employee_number=?");
@@ -241,8 +438,16 @@ public final class Database {
     InputStream input = Database.class.getResourceAsStream("/data/demo-shifts.csv");
     if (input == null) throw new IOException("Demo shift CSV was not found: /data/demo-shifts.csv");
 
-    String sql = "MERGE INTO shifts(user_id,work_date,work_type_code,status,note,updated_by,updated_at) "
-        + "KEY(user_id,work_date) SELECT u.id,?,?,?,?,u.id,CURRENT_TIMESTAMP FROM users u WHERE u.employee_number=?";
+    String sql;
+    if (jdbcUrl.startsWith("jdbc:h2:")) {
+      sql = "MERGE INTO shifts(user_id,work_date,work_type_code,status,note,updated_by,updated_at) "
+          + "KEY(user_id,work_date) SELECT u.id,?,?,?,?,u.id,CURRENT_TIMESTAMP FROM users u WHERE u.employee_number=?";
+    } else {
+      sql = "INSERT INTO shifts(user_id,work_date,work_type_code,status,note,updated_by,updated_at) "
+          + "SELECT u.id,?,?,?,?,u.id,CURRENT_TIMESTAMP FROM users u WHERE u.employee_number=? "
+          + "ON CONFLICT (user_id,work_date) DO UPDATE SET work_type_code=EXCLUDED.work_type_code, "
+          + "status=EXCLUDED.status, note=EXCLUDED.note, updated_by=EXCLUDED.updated_by, updated_at=CURRENT_TIMESTAMP";
+    }
     try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
          PreparedStatement p = c.prepareStatement(sql)) {
       String header = reader.readLine();
@@ -274,8 +479,17 @@ public final class Database {
     InputStream input = Database.class.getResourceAsStream("/data/demo-attendance.csv");
     if (input == null) throw new IOException("Demo attendance CSV was not found: /data/demo-attendance.csv");
 
-    String sql = "MERGE INTO attendance(user_id,work_date,clock_in,clock_out,in_lat,in_lng,out_lat,out_lng,location_status,status,finalized) "
-        + "KEY(user_id,work_date) SELECT u.id,?,?,?,?,?,?,?,?,?,? FROM users u WHERE u.employee_number=?";
+    String sql;
+    if (jdbcUrl.startsWith("jdbc:h2:")) {
+      sql = "MERGE INTO attendance(user_id,work_date,clock_in,clock_out,in_lat,in_lng,out_lat,out_lng,location_status,status,finalized) "
+          + "KEY(user_id,work_date) SELECT u.id,?,?,?,?,?,?,?,?,?,? FROM users u WHERE u.employee_number=?";
+    } else {
+      sql = "INSERT INTO attendance(user_id,work_date,clock_in,clock_out,in_lat,in_lng,out_lat,out_lng,location_status,status,finalized) "
+          + "SELECT u.id,?,?,?,?,?,?,?,?,?,? FROM users u WHERE u.employee_number=? "
+          + "ON CONFLICT (user_id,work_date) DO UPDATE SET clock_in=EXCLUDED.clock_in, clock_out=EXCLUDED.clock_out, "
+          + "in_lat=EXCLUDED.in_lat, in_lng=EXCLUDED.in_lng, out_lat=EXCLUDED.out_lat, out_lng=EXCLUDED.out_lng, "
+          + "location_status=EXCLUDED.location_status, status=EXCLUDED.status, finalized=EXCLUDED.finalized";
+    }
     try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
          PreparedStatement p = c.prepareStatement(sql)) {
       String header = reader.readLine();
@@ -319,22 +533,49 @@ public final class Database {
     }
   }
 
+  private static java.sql.Time parseTime(String value) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    String trimmed = value.trim();
+    if (trimmed.length() == 5) {
+      trimmed = trimmed + ":00";
+    }
+    return java.sql.Time.valueOf(trimmed);
+  }
+
+  private static void setTimeOrNull(PreparedStatement p, int parameterIndex, String value) throws SQLException {
+    java.sql.Time t = parseTime(value);
+    if (t == null) {
+      p.setNull(parameterIndex, java.sql.Types.TIME);
+    } else {
+      p.setTime(parameterIndex, t);
+    }
+  }
+
   private static void insertWorkType(PreparedStatement p, String code, String ja, String en,
       String start, String end, boolean overnight, int breakMinutes, int required) throws SQLException {
     p.setString(1, code); p.setString(2, ja); p.setString(3, en);
-    p.setString(4, start); p.setString(5, end); p.setBoolean(6, overnight);
+    setTimeOrNull(p, 4, start);
+    setTimeOrNull(p, 5, end);
+    p.setBoolean(6, overnight);
     p.setInt(7, breakMinutes); p.setInt(8, required); p.executeUpdate();
   }
 
-  private static void addUser(Connection c, String number, String name, String email,
+  private static void addUser(Connection c, String number, String name, String email, String password,
       String role, long branchId, long departmentId) throws SQLException {
     String sql = "INSERT INTO users(employee_number,name,email,password_hash,hire_date,branch_id,department_id,employment_type_id,role) VALUES(?,?,?,?,?,?,?,?,?)";
     try (PreparedStatement p = c.prepareStatement(sql)) {
       p.setString(1, number); p.setString(2, name); p.setString(3, email);
-      p.setString(4, PasswordUtil.hash("Password1!"));
+      p.setString(4, PasswordUtil.hash(password));
       p.setObject(5, LocalDate.of(2024, 4, 1)); p.setLong(6, branchId);
       p.setLong(7, departmentId); p.setLong(8, 1); p.setString(9, role); p.executeUpdate();
     }
+  }
+
+  private static void addUser(Connection c, String number, String name, String email,
+      String role, long branchId, long departmentId) throws SQLException {
+    addUser(c, number, name, email, "Password1!", role, branchId, departmentId);
   }
 
   private static void insertSetting(PreparedStatement p, String key, String value, String description) throws SQLException {

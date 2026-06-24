@@ -17,7 +17,17 @@ public class AppBootstrap implements ServletContextListener {
 
   @Override
   public void contextInitialized(ServletContextEvent event) {
-    Database.initialize();
+    try {
+      event.getServletContext().log("AppBootstrap: Initializing database...");
+      Database.initialize();
+      event.getServletContext().log("AppBootstrap: Database initialized successfully.");
+    } catch (Throwable t) {
+      System.err.println("CRITICAL ERROR: Database initialization failed during AppBootstrap context initialization!");
+      t.printStackTrace(System.err);
+      event.getServletContext().log("CRITICAL ERROR: AppBootstrap initialization failed", t);
+      throw t;
+    }
+
     scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
       Thread thread = new Thread(r, "shiftflow-daily-tasks");
       thread.setDaemon(true);

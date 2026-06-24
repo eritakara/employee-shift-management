@@ -54,15 +54,29 @@ public class DashboardService {
     String filter = user.isHr() ? "" : user.isManager() ? " AND u.branch_id=? AND u.department_id=?" : " AND u.id=?";
     Object[] args = user.isHr() ? new Object[]{} : user.isManager()
         ? new Object[]{user.getBranchId(), user.getDepartmentId()} : new Object[]{user.getId()};
-    List<Map<String, Object>> attendance = Sql.query("SELECT FORMATDATETIME(a.work_date,'yyyy-MM') AS month_label,"
-        + "ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-COALESCE(wt.break_minutes,0))/60.0 ELSE 0 END),1) AS total_hours,"
-        + "ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL AND wt.start_time IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-CASE WHEN wt.crosses_midnight THEN 1440+DATEDIFF('MINUTE',wt.start_time,wt.end_time) ELSE DATEDIFF('MINUTE',wt.start_time,wt.end_time) END)/60.0 ELSE 0 END),1) AS overtime_hours "
-        + "FROM attendance a JOIN users u ON u.id=a.user_id LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.work_date>=DATEADD('MONTH',-5,CURRENT_DATE)" + filter
-        + " GROUP BY FORMATDATETIME(a.work_date,'yyyy-MM') ORDER BY month_label", args);
-    List<Map<String, Object>> leave = Sql.query("SELECT FORMATDATETIME(l.leave_date,'yyyy-MM') AS month_label,"
-        + "SUM(CASE l.leave_unit WHEN 'FULL' THEN 1.0 WHEN 'AM' THEN 0.5 WHEN 'PM' THEN 0.5 WHEN 'HOUR' THEN l.hours/8.0 ELSE 0 END) AS leave_days "
-        + "FROM leave_requests l JOIN users u ON u.id=l.user_id WHERE l.status='APPROVED' AND l.leave_date>=DATEADD('MONTH',-5,CURRENT_DATE)" + filter
-        + " GROUP BY FORMATDATETIME(l.leave_date,'yyyy-MM') ORDER BY month_label", args);
+    List<Map<String, Object>> attendance;
+    List<Map<String, Object>> leave;
+    if (config.Database.isPostgres()) {
+      attendance = Sql.query("SELECT TO_CHAR(a.work_date,'YYYY-MM') AS month_label,"
+          + "ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL THEN GREATEST(0,EXTRACT(EPOCH FROM (a.clock_out - a.clock_in))/60.0-COALESCE(wt.break_minutes,0))/60.0 ELSE 0 END)::numeric,1) AS total_hours,"
+          + "ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL AND wt.start_time IS NOT NULL THEN GREATEST(0,EXTRACT(EPOCH FROM (a.clock_out - a.clock_in))/60.0-CASE WHEN wt.crosses_midnight THEN 1440+EXTRACT(EPOCH FROM (wt.end_time - wt.start_time))/60.0 ELSE EXTRACT(EPOCH FROM (wt.end_time - wt.start_time))/60.0 END)/60.0 ELSE 0 END)::numeric,1) AS overtime_hours "
+          + "FROM attendance a JOIN users u ON u.id=a.user_id LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.work_date>=CURRENT_DATE - INTERVAL '5 month'" + filter
+          + " GROUP BY TO_CHAR(a.work_date,'YYYY-MM') ORDER BY month_label", args);
+      leave = Sql.query("SELECT TO_CHAR(l.leave_date,'YYYY-MM') AS month_label,"
+          + "SUM(CASE l.leave_unit WHEN 'FULL' THEN 1.0 WHEN 'AM' THEN 0.5 WHEN 'PM' THEN 0.5 WHEN 'HOUR' THEN l.hours/8.0 ELSE 0 END) AS leave_days "
+          + "FROM leave_requests l JOIN users u ON u.id=l.user_id WHERE l.status='APPROVED' AND l.leave_date>=CURRENT_DATE - INTERVAL '5 month'" + filter
+          + " GROUP BY TO_CHAR(l.leave_date,'YYYY-MM') ORDER BY month_label", args);
+    } else {
+      attendance = Sql.query("SELECT FORMATDATETIME(a.work_date,'yyyy-MM') AS month_label,"
+          + "ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-COALESCE(wt.break_minutes,0))/60.0 ELSE 0 END),1) AS total_hours,"
+          + "ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL AND wt.start_time IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-CASE WHEN wt.crosses_midnight THEN 1440+DATEDIFF('MINUTE',wt.start_time,wt.end_time) ELSE DATEDIFF('MINUTE',wt.start_time,wt.end_time) END)/60.0 ELSE 0 END),1) AS overtime_hours "
+          + "FROM attendance a JOIN users u ON u.id=a.user_id LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.work_date>=DATEADD('MONTH',-5,CURRENT_DATE)" + filter
+          + " GROUP BY FORMATDATETIME(a.work_date,'yyyy-MM') ORDER BY month_label", args);
+      leave = Sql.query("SELECT FORMATDATETIME(l.leave_date,'yyyy-MM') AS month_label,"
+          + "SUM(CASE l.leave_unit WHEN 'FULL' THEN 1.0 WHEN 'AM' THEN 0.5 WHEN 'PM' THEN 0.5 WHEN 'HOUR' THEN l.hours/8.0 ELSE 0 END) AS leave_days "
+          + "FROM leave_requests l JOIN users u ON u.id=l.user_id WHERE l.status='APPROVED' AND l.leave_date>=DATEADD('MONTH',-5,CURRENT_DATE)" + filter
+          + " GROUP BY FORMATDATETIME(l.leave_date,'yyyy-MM') ORDER BY month_label", args);
+    }
     java.util.SortedMap<String, Map<String, Object>> months = new java.util.TreeMap<>();
     for (Map<String, Object> row : attendance) {
       row.put("leave_days", BigDecimal.ZERO);
@@ -85,20 +99,35 @@ public class DashboardService {
   private Object value(String sql, Object... args) { return Sql.one(sql, args).getOrDefault("metric_value", 0); }
 
   private double monthHours(User user) {
-    Map<String, Object> row = Sql.one("SELECT COALESCE(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-COALESCE(wt.break_minutes,0)) ELSE 0 END),0) AS metric_value FROM attendance a LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.user_id=? AND a.work_date BETWEEN ? AND ?",
-        user.getId(), YearMonth.now().atDay(1), YearMonth.now().atEndOfMonth());
+    String sql;
+    if (config.Database.isPostgres()) {
+      sql = "SELECT COALESCE(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL THEN GREATEST(0,EXTRACT(EPOCH FROM (a.clock_out - a.clock_in))/60.0-COALESCE(wt.break_minutes,0)) ELSE 0 END),0) AS metric_value FROM attendance a LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.user_id=? AND a.work_date BETWEEN ? AND ?";
+    } else {
+      sql = "SELECT COALESCE(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-COALESCE(wt.break_minutes,0)) ELSE 0 END),0) AS metric_value FROM attendance a LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.user_id=? AND a.work_date BETWEEN ? AND ?";
+    }
+    Map<String, Object> row = Sql.one(sql, user.getId(), YearMonth.now().atDay(1), YearMonth.now().atEndOfMonth());
     return ((Number) row.getOrDefault("metric_value", 0)).doubleValue() / 60.0;
   }
 
   private double monthOvertimeHours(User user) {
     YearMonth month = YearMonth.now();
-    Map<String, Object> row = Sql.one("SELECT COALESCE(ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL "
-        + "AND wt.start_time IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-CASE WHEN wt.crosses_midnight "
-        + "THEN 1440+DATEDIFF('MINUTE',wt.start_time,wt.end_time) ELSE DATEDIFF('MINUTE',wt.start_time,wt.end_time) END) "
-        + "ELSE 0 END)/60.0,1),0) AS metric_value FROM attendance a "
-        + "LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date "
-        + "LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.user_id=? AND a.work_date BETWEEN ? AND ?",
-        user.getId(), month.atDay(1), month.atEndOfMonth());
+    String sql;
+    if (config.Database.isPostgres()) {
+      sql = "SELECT COALESCE(ROUND(CAST(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL "
+          + "AND wt.start_time IS NOT NULL THEN GREATEST(0,EXTRACT(EPOCH FROM (a.clock_out - a.clock_in))/60.0-CASE WHEN wt.crosses_midnight "
+          + "THEN 1440+EXTRACT(EPOCH FROM (wt.end_time - wt.start_time))/60.0 ELSE EXTRACT(EPOCH FROM (wt.end_time - wt.start_time))/60.0 END) "
+          + "ELSE 0 END)/60.0 AS numeric),1),0) AS metric_value FROM attendance a "
+          + "LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date "
+          + "LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.user_id=? AND a.work_date BETWEEN ? AND ?";
+    } else {
+      sql = "SELECT COALESCE(ROUND(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL "
+          + "AND wt.start_time IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-CASE WHEN wt.crosses_midnight "
+          + "THEN 1440+DATEDIFF('MINUTE',wt.start_time,wt.end_time) ELSE DATEDIFF('MINUTE',wt.start_time,wt.end_time) END) "
+          + "ELSE 0 END)/60.0,1),0) AS metric_value FROM attendance a "
+          + "LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date "
+          + "LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.user_id=? AND a.work_date BETWEEN ? AND ?";
+    }
+    Map<String, Object> row = Sql.one(sql, user.getId(), month.atDay(1), month.atEndOfMonth());
     return ((Number) row.getOrDefault("metric_value", 0)).doubleValue();
   }
 

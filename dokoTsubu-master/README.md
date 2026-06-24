@@ -17,7 +17,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 powershell -ExecutionPolicy Bypass -File .\test.ps1
 ```
 
-成果物は `target\shiftflow.war` です。
+成果物は `target\ROOT.war` です。
 
 ## ローカル起動
 
@@ -25,7 +25,7 @@ powershell -ExecutionPolicy Bypass -File .\test.ps1
 powershell -ExecutionPolicy Bypass -File .\run-dev.ps1
 ```
 
-起動後に `http://localhost:8080/shiftflow/` を開きます。停止時は次を実行します。
+起動後に `http://localhost:8080/` を開きます。停止時は次を実行します。
 
 ```powershell
 $env:CATALINA_HOME='C:\tomcat\10'
@@ -42,6 +42,7 @@ $env:CATALINA_BASE=(Resolve-Path '.tomcat').Path
 | 従業員 | `employee@example.com` | `Password1!` |
 
 初回起動時に、営業所、部署、勤務区分とデモアカウントが自動登録されます。DBはTomcat開発環境の `.tomcat\data` に保存されます。
+※本番環境 (`APP_ENV=production`) では、セキュリティの観点から人事担当者以外のデモアカウントは作成されず、初期設定した管理者のみが作成されます。
 
 ## 主な構成
 
@@ -68,22 +69,25 @@ $env:CATALINA_BASE=(Resolve-Path '.tomcat').Path
 
 ## Docker / Render デプロイ
 
-このプロジェクトは Spring Boot、Quarkus、Micronaut ではなく、Jakarta Servlet / JSP を Tomcat 10.1 に配備する Java Web アプリです。Dockerfile は Tomcat 10.1 + Java 21 上で WAR をビルドし、`/shiftflow` コンテキストに配備します。
+このプロジェクトは、Jakarta Servlet / JSP を Tomcat 10.1 に配備する Java Web アプリです。Dockerfile は Tomcat 10.1 + Java 21 上で WAR（`ROOT.war`）をビルドし、ルートコンテキスト（`/`）に配備します。
 
 ### ローカルでDocker起動
 
 ```powershell
 docker build -t shiftflow .
-docker run --rm -p 8080:8080 -e PORT=8080 shiftflow
+docker run --rm -p 10000:10000 shiftflow
 ```
 
-起動後に `http://localhost:8080/` を開きます。ルートURLから `http://localhost:8080/shiftflow/` へ自動転送されます。
+起動後に `http://localhost:10000/` を開きます。
+※なお、古いコンテキストパス `/shiftflow/` にアクセスした場合も、自動的にルート `/` へ転送（リダイレクト）されるように設計されています。
 
-H2データベースはコンテナ内の `/opt/shiftflow/data` に保存されます。ローカルでデータを残したい場合は、次のようにボリュームを割り当てます。
+### データベースと接続用ドライバについて
 
-```powershell
-docker run --rm -p 8080:8080 -e PORT=8080 -v shiftflow-data:/opt/shiftflow/data shiftflow
-```
+本番環境（Renderなど）で PostgreSQL (Supabase など) に接続するため、Dockerfile のビルド時に以下の JDBC ドライバーが自動ダウンロードされ、WAR パッケージに同梱されます。
+
+* **使用する PostgreSQL JDBC ドライバー**: `postgresql-42.7.3.jar`
+
+データベース構造および初期データの詳細については、[データベース構造定義書](docs/database.md) を参照してください。本番データベースが空の状態でアプリを起動すると、テーブル構造および初期シードデータが自動的に構築されます。
 
 ### Renderへのデプロイ手順
 
@@ -91,9 +95,90 @@ docker run --rm -p 8080:8080 -e PORT=8080 -v shiftflow-data:/opt/shiftflow/data 
 2. Render の Dashboard で **New +** → **Web Service** を選択します。
 3. 対象リポジトリを接続します。
 4. Runtime は **Docker** を選択します。
-5. Root Directory は未設定のままでデプロイできます。`dokoTsubu-master` を Root Directory に指定する場合も、同じ内容の `Dockerfile` があるためデプロイできます。
-6. 環境変数 `PORT` は Render が自動設定するため、手動追加は不要です。
-7. H2データを永続化する場合は Render Disk を追加し、Mount Path を `/opt/shiftflow/data` にします。
-8. Deploy 後、`https://<service-name>.onrender.com/` にアクセスします。ルートURLから `/shiftflow/` へ自動転送されます。
 
-Dockerfile は起動時に Render の `PORT` 環境変数を Tomcat の HTTP Connector に反映します。
+#### 既存のWeb Serviceでブランチを変更してテストデプロイする場合の手順
+Branchを変更してテストデプロイを行う際は、環境変数の不足によるビルド/起動エラーを防ぐため、**必ず環境変数を先に登録してからデプロイ**を実行してください。
+
+1. Renderのダッシュボードで対象のWeb Serviceの設定画面を開きます。
+2. **Settings** タブで、**Branch** を `feature/render-supabase-root-war` に変更し、保存します。
+3. **Environment Variables** タブに移動し、以下の環境変数を設定して保存します。
+4. 設定保存後、画面右上にある **Manual Deploy** ボタンをクリックし、**Clear Cache & Deploy** を選択して実行します。
+
+#### 推奨環境変数設定 (初心者向け 6つの設定項目)
+
+本番環境のデータベースが Supabase PostgreSQL の場合、Renderのダッシュボードで以下の **6つの環境変数** を基本構成として登録してください。Render等の無料コンテナ環境では、Direct Connection (IPv6) を利用すると `Network is unreachable` などの到達性エラーが発生する可能性が高いため、接続用エンドポイントには IPv4 を提供する **Session Pooler** を前提に設定します。
+
+* `APP_ENV` = `production` （本番環境指定。H2への意図しないフォールバックを防止します）
+* `JDBC_URL` = `jdbc:postgresql://<Supabase Session pooler Host>:5432/postgres?sslmode=require` （SupabaseのSession Poolerへの接続用JDBC URL。ホスト名はご自身のプーラーのホスト名、ポートは `5432` または `6543` などの実際の接続先ポートに置き換えてください。※ユーザー名とパスワードは含めません）
+* `DB_USER` = `postgres.<project-ref>` （接続用のユーザー名。Supabaseのプーラー画面に表示される **Connection PoolerのUser**、例: `postgres.<project-ref>` をそのまま指定してください。※通常のpostgresとは異なり、サフィックスが付きます）
+* `DB_PASSWORD` = `<SupabaseのDatabase Password>` （接続用のパスワード。SupabaseのDatabase Passwordを指定してください）
+* `INITIAL_HR_EMAIL` = `<初期管理者メール>` （本番でログインする最初の管理者メールアドレス）
+* `INITIAL_HR_PASSWORD` = `<強力な初期管理者パスワード>` （最初の管理者のパスワード。初期値のまま起動しようとすると安全のため起動エラーになります）
+
+#### 環境変数一覧
+
+| 環境変数名 | 推奨値 / 例 | 説明 |
+| :--- | :--- | :--- |
+| `APP_ENV` | `production` | **本番環境指定**: `RENDER=true` とともに、万が一接続 URL が不足している場合に安全に起動を止めるための設定。 |
+| `JDBC_URL` | `jdbc:postgresql://<Supabase Session pooler Host>:5432/postgres?sslmode=require` | **優先順位 1**: PostgreSQL 接続用 JDBC URL (Session Poolerポート経由推奨)。<br>※`postgres://` または `postgresql://` 形式の接続文字列は、自動的に `jdbc:postgresql://` 形式へ置換されますが、ユーザー名・パスワードは含めません。 |
+| `DB_USER` | `postgres.<project-ref>` | **接続ユーザー**: Supabaseのプーラー設定画面に表示されるユーザー名（例: `postgres.<project-ref>`）を指定してください。 |
+| `DB_PASSWORD` | `<SupabaseのDatabase Password>` | **接続パスワード**: SupabaseのDatabase Passwordを指定してください。 |
+| `INITIAL_HR_EMAIL` | `<初期管理者メール>` | **初回管理者（HRロール）のメールアドレス**: 本番環境で初期登録される管理者のメールアドレスです。初期値（`hr@example.com`）のまま本番稼働させないために設定します。 |
+| `INITIAL_HR_PASSWORD` | `<強力な初期管理者パスワード>` | **初回管理者の初期パスワード**: 本番の安全性を高めるため、半角英数字記号を含む強力なパスワードを指定してください。初期値（`Password1!`）のままで本番起動しようとすると、安全のため起動時にエラー（例外）が発生しアプリが停止します。 |
+
+※ `APP_ENV=production` または `RENDER=true` または `DB_REQUIRED=true` が設定されている場合、接続 URL が不足していると、データ保存の失敗を防ぐためH2データベースへフォールバックせずに、起動エラーとして強制終了します。
+※ 本番環境 (`APP_ENV=production`) では、セキュリティの観点から一般社員・店長などのデモユーザー（`manager@example.com` など）の自動作成（シードデータ投入）はスキップされます。初期HRユーザーのみが作成されます。
+
+#### Supabase 接続方式について
+
+本アプリケーションは、通常の Tomcat Webコンテナの常時接続プールを使用するため、ネットワーク疎通性および接続数制限回避の観点から **Session Pooler** の使用を強く推奨します。
+
+* **Session Pooler (推奨・最優先)**:
+  * RenderなどのIPv6に非対応の環境から接続する場合、Direct Connectionはエラーになるため、IPv4を提供している **Session Pooler** を使用してください。
+  * Supabase 側でプーラーモードを必ず **Session** に指定してください（Transactionモードは JDBC の Prepared Statement と競合して動作しないため利用不可です）。
+  * 接続文字列の例: `jdbc:postgresql://<Supabase Session pooler Host>:5432/postgres?sslmode=require` (ポートは実際のSession Poolerで指定されているポート番号を指定してください)
+  * ※ `JDBC_URL` にはユーザー名・パスワードを含めず、`DB_USER` と `DB_PASSWORD` を個別に設定してください。
+* **Direct Connection (非推奨/動作不可の場合あり)**:
+  * 接続元（Render等）が IPv6 に完全対応している環境、または有料オプションである **IPv4 Add-on** を適用している場合のみ動作します。ホスト名例（`db.<project-ref>.supabase.co`）等の Direct Connection は通常のテストデプロイ環境では動作しないため非推奨です。
+
+### デモURLとログイン方法
+
+Render上にデプロイされたアプリケーションには、以下のURL形式でアクセスできます。
+* **デモURL例**: `https://<あなたのRenderサービス名>.onrender.com/`
+
+**ログイン手順**:
+1. ブラウザで上記のデモURLにアクセスします。
+2. 初回起動時に環境変数 `INITIAL_HR_EMAIL` と `INITIAL_HR_PASSWORD` に指定した管理者メールアドレスおよびパスワードを入力し、ログインを行います。
+3. ログイン完了後、ダッシュボード、シフト調整、有休申請、打刻などの主要機能をすべてご利用いただけます。
+※ ローカル環境用のテストアカウント（`hr@example.com` など）は本番環境では自動生成されないため、必ずご自身で設定した初期管理者アカウントを使用してください。
+
+### Render無料プラン（Free Instance）ご利用時の注意点
+* **自動スリープ（スピンダウン）**:
+  Renderの無料プランでは、最後のアクセスから **15分間** アクセスがない状態が続くと、Webサービスのコンテナインスタンスが自動的にスリープ（スピンダウン）します。
+* **起動遅延（コールドスタート）**:
+  スリープ状態で再度アクセスが発生すると、インスタンスの再起動（スピンアップ）が自動的に開始されます。この起動処理には **50秒〜数分程度** かかるため、最初のアクセス時の応答が非常に遅くなります（画面が表示されるまでブラウザを閉じずにお待ちください）。一度起動すれば、その後は通常の速度で応答します。
+* **Supabase無料枠の一時停止**:
+  連携しているSupabaseの無料枠データベースも、1週間以上プロジェクトにアクセス（クエリ実行など）がない場合に自動的に一時停止状態（Pause）になります。その場合は、Supabaseの管理画面から手動で「Restore」を実行し、データベースを再起動してください。
+
+### Supabase の起動確認用 SQL
+
+デプロイ完了後、Supabase の SQL Editor にて正常にスキーマ生成および初期シードデータが投入されたかを確認するには、以下のクエリを実行してください。
+
+```sql
+-- 1. 作成されたテーブル一覧の確認 (publicスキーマ)
+SELECT tablename FROM pg_tables WHERE schemaname = 'public';
+
+-- 2. 初期HR管理者が登録されているかの確認
+-- (設定した INITIAL_HR_EMAIL のアドレスが表示されることを確認します)
+SELECT id, employee_number, name, email, role, active FROM users;
+
+-- 3. マスタデータ (拠点・部署・雇用形態) が作成されているかの確認
+SELECT 'branches' AS table_name, COUNT(*) FROM branches
+UNION ALL
+SELECT 'departments', COUNT(*) FROM departments
+UNION ALL
+SELECT 'employment_types', COUNT(*) FROM employment_types;
+
+-- 4. 勤務タイプ (work_types) の確認
+SELECT code, name_ja, start_time, end_time FROM work_types;
+```

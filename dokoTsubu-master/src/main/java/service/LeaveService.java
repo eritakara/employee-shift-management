@@ -186,8 +186,9 @@ public class LeaveService {
     Object[] queryArgs = new Object[args.length + 1];
     System.arraycopy(args, 0, queryArgs, 0, args.length);
     queryArgs[args.length] = applicantId;
+    String dateadd = config.Database.isPostgres() ? "(CURRENT_TIMESTAMP - INTERVAL '90 day')" : "DATEADD('DAY',-90,CURRENT_TIMESTAMP)";
     return Sql.query("SELECT u.id,u.name,u.role,? approver_type,COUNT(l.id) approval_count FROM users u "
-        + "LEFT JOIN leave_requests l ON l.decided_by=u.id AND l.decided_at>=DATEADD('DAY',-90,CURRENT_TIMESTAMP) "
+        + "LEFT JOIN leave_requests l ON l.decided_by=u.id AND l.decided_at>=" + dateadd + " "
         + "WHERE u.active=TRUE AND " + condition + " AND u.id<>? "
         + "GROUP BY u.id,u.name,u.role ORDER BY approval_count,u.id LIMIT 1",
         join(new Object[]{approverType}, queryArgs));

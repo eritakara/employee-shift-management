@@ -6,7 +6,7 @@
 
 本アプリケーションは、ポートフォリオ・面接提出用に Render + Supabase (PostgreSQL) を使用したデモ環境を公開しています。
 
-* **デモURL**: `https://employee-shift-management.onrender.com/` (※ 実際の公開URLに置き換えてください)
+* **デモURL**: `https://employee-shift-management-demo.onrender.com/`
 * **デモログイン情報**:
   * **ログイン情報 (ID・パスワード)**: 面接・提出時に別途共有 (※ セキュリティ保護のためGitHub上には公開していません。本番環境起動時に環境変数 `INITIAL_HR_EMAIL` および `INITIAL_HR_PASSWORD` に設定した管理者アカウント情報を別途共有してください)
 

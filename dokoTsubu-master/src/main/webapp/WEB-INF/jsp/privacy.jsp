@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>個人情報・位置情報の取扱い | ShiftFlow</title>
+  <title>個人情報・位置情報の取扱い | シフト・有給管理</title>
   <link rel="stylesheet" href="<%=request.getContextPath()%>/assets/app.css">
 </head>
 <body>
@@ -43,13 +43,13 @@
 
   <section lang="en">
     <h2>English summary</h2>
-    <p>ShiftFlow uses employee identity and organization data for authentication, authorization, workforce administration, and business communications. Shift, leave, attendance, request, approval, and audit data are used to operate and review workforce processes.</p>
+    <p>This system uses employee identity and organization data for authentication, authorization, workforce administration, and business communications. Shift, leave, attendance, request, approval, and audit data are used to operate and review workforce processes.</p>
     <p>Clock-in/out time, latitude, longitude, and acquisition status are recorded only to review time-clock records. Location data is not used to determine misconduct or automatically block clocking.</p>
     <p>Shift, attendance, location, correction, leave, notification, mail-delivery, and audit records are retained for five years and then deleted by scheduled retention processing. Identifying data for deactivated former employees is anonymized after five years.</p>
     <p>Employees can view their own data; managers and active delegates can view the business data in their assigned scope; HR users can view company-wide data when required for their duties.</p>
   </section>
 
-  <p><a href="<%=request.getContextPath()%>/">ShiftFlowへ戻る / Back to ShiftFlow</a></p>
+  <p><a href="<%=request.getContextPath()%>/">シフト・有給管理へ戻る / Back to home</a></p>
 </main>
 </body>
 </html>

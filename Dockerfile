@@ -31,4 +31,7 @@ COPY --from=build /app/target/ROOT.war "$CATALINA_HOME/webapps/ROOT.war"
 
 EXPOSE 10000
 
+# Render無料プランなどのコンテナ実行環境に適合させるため、以下のコンフィグ調整を行ってからTomcatを起動します:
+# 1. 待ち受けポートを Render がデフォルトでヘルスチェックする 10000番ポート (${PORT}) に変更。
+# 2. 不要なシャットダウンポート (8005) を完全に無効化 (-1) して、ヘルスチェック接続時における誤動作やポート衝突を防止。
 CMD ["sh", "-c", "mkdir -p \"${SHIFTFLOW_DATA_DIR:-/opt/shiftflow/data}\" && sed -i \"s/port=\\\"8080\\\" protocol=\\\"HTTP\\/1.1\\\"/port=\\\"${PORT:-10000}\\\" protocol=\\\"HTTP\\/1.1\\\"/\" \"$CATALINA_HOME/conf/server.xml\" && sed -i \"s/port=\\\"8005\\\" shutdown=\\\"SHUTDOWN\\\"/port=\\\"-1\\\" shutdown=\\\"SHUTDOWN\\\"/\" \"$CATALINA_HOME/conf/server.xml\" && exec catalina.sh run"]

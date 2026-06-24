@@ -7,6 +7,10 @@ response.setStatus(status);
 String excKey = "jakarta.servlet.error.excep" + "tion";
 Throwable throwable = (Throwable) request.getAttribute(excKey);
 if (throwable != null) {
+  // 【情報漏洩防止・セキュア設計】本番環境 (APP_ENV=production) では、
+  // エラー詳細（内部パス、SQLスタックトレースなど）が画面やログに出力されるのを防ぐため、
+  // 例外クラス名とメッセージのみを安全に記録します。
+  // 開発環境では、デバッグしやすくするためにスタックトレースのフル出力を許可します。
   String appEnv = System.getenv("APP_ENV");
   boolean isDev = appEnv == null || !"production".equalsIgnoreCase(appEnv);
   if (isDev) {

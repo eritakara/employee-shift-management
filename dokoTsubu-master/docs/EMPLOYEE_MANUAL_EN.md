@@ -1,8 +1,8 @@
-# ShiftFlow Employee User Guide
+# Shift & Leave Management - Employee User Guide
 
-## 1. What you can do in ShiftFlow
+## 1. What you can do in this system
 
-ShiftFlow lets you:
+This system lets you:
 
 - View your schedule and the published schedule for your team
 - Submit next month's preferred shifts and request schedule changes or days off
@@ -14,7 +14,7 @@ ShiftFlow lets you:
 
 ## 2. Sign in
 
-1. Open the ShiftFlow URL provided by your organization.
+1. Open the URL provided by your organization.
 2. Enter your registered email address and password.
 3. Select **Sign in**.
 
@@ -107,7 +107,7 @@ Select **Cancel** for a request that can still be cancelled. Cancelling approved
 
 ### Location data
 
-At clock time, ShiftFlow records the time, latitude, longitude, and acquisition status. Location is used only to review the clock record. It is not used to determine misconduct or automatically block clocking.
+At clock time, the system records the time, latitude, longitude, and acquisition status. Location is used only to review the clock record. It is not used to determine misconduct or automatically block clocking.
 
 When your device asks for location permission, review the prompt and make your choice. A denial or acquisition failure is recorded as a status. You may clock according to your organization's approved policy.
 

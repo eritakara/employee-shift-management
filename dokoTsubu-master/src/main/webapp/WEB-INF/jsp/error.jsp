@@ -7,9 +7,15 @@ response.setStatus(status);
 String excKey = "jakarta.servlet.error.excep" + "tion";
 Throwable throwable = (Throwable) request.getAttribute(excKey);
 if (throwable != null) {
-  System.err.println("--- Web Application Error [" + status + "] ---");
-  throwable.printStackTrace(System.err);
-  System.err.println("----------------------------------------");
+  String appEnv = System.getenv("APP_ENV");
+  boolean isDev = appEnv == null || !"production".equalsIgnoreCase(appEnv);
+  if (isDev) {
+    System.err.println("--- Web Application Error [" + status + "] ---");
+    throwable.printStackTrace(System.err);
+    System.err.println("----------------------------------------");
+  } else {
+    System.err.println("Web Application Error [" + status + "]: " + throwable.getClass().getName() + (throwable.getMessage() != null ? ": " + throwable.getMessage() : ""));
+  }
 }
 %>
 <!DOCTYPE html>

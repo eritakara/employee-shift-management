@@ -148,10 +148,10 @@ String ctx = request.getContextPath();
     <a class="brand" href="<%= ctx %>/app/dashboard"><span class="brand-mark">SF</span><span><strong>ShiftFlow</strong><small><%= en ? "Workforce portal" : "シフト・有休管理" %></small></span></a>
     <nav>
       <p class="nav-label"><%= en ? "Overview" : "概要" %></p>
-      <a class="nav-link <%= pageKey.equals("notifications") ? "active" : "" %>" href="<%=ctx%>/app/notifications"><span aria-hidden="true">🔔</span> <%= en ? "Notifications" : "通知" %></a>
+      <a class="nav-link <%= pageKey.equals("notifications") ? "active" : "" %>" href="<%=ctx%>/app/notifications"><span aria-hidden="true">🔔&#xFE0E;</span> <%= en ? "Notifications" : "通知" %></a>
       <a class="nav-link <%= pageKey.equals("dashboard") ? "active" : "" %>" href="<%=ctx%>/app/dashboard">▦ <%= en ? "Dashboard" : "ダッシュボード" %></a>
       <p class="nav-label"><%= en ? "Schedule" : "シフト" %></p>
-      <a class="nav-link <%= List.of("shifts/mine","shifts/request","shifts/change").contains(pageKey) ? "active" : "" %>" href="<%=ctx%>/app/shifts/mine">□ <%= en ? "Schedule" : "シフト" %></a>
+      <a class="nav-link <%= List.of("shifts/mine","shifts/request","shifts/change").contains(pageKey) ? "active" : "" %>" href="<%=ctx%>/app/shifts/mine">▦ <%= en ? "Schedule" : "シフト" %></a>
       <% if (manager) { %>
       <a class="nav-link <%= pageKey.equals("shifts/manage") ? "active" : "" %>" href="<%=ctx%>/app/shifts/manage">☷ <%= en ? "Schedule editor" : "シフト調整" %></a>
       <a class="nav-link <%= pageKey.equals("shifts/confirm") ? "active" : "" %>" href="<%=ctx%>/app/shifts/confirm">✓ <%= en ? "Confirm schedule" : "シフト確定" %></a>
@@ -175,7 +175,7 @@ String ctx = request.getContextPath();
     <header class="topbar">
       <div class="actions"><button type="button" class="menu-button" data-menu aria-label="メニュー" aria-controls="main-navigation" aria-expanded="false">☰</button><h1><%= e(pageTitle) %></h1></div>
       <div class="topbar-meta">
-        <a class="button" href="<%=ctx%>/app/notifications" aria-label="<%=en?"Notifications":"通知"%>"><span aria-hidden="true">🔔</span></a>
+        <a class="button" href="<%=ctx%>/app/notifications" aria-label="<%=en?"Notifications":"通知"%>"><span aria-hidden="true">🔔&#xFE0E;</span></a>
         <div class="user-chip"><strong><%=e(user.getName())%></strong><small><%=e(user.getBranchName())%> / <%=e(user.getDepartmentName())%></small></div>
         <a class="button" href="<%=ctx%>/app/account" aria-label="アカウント設定">⚙</a>
         <form action="<%=ctx%>/logout" method="post"><button class="button" type="submit"><%= en ? "Sign out" : "ログアウト" %></button></form>

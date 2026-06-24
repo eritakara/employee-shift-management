@@ -5,7 +5,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ShiftFlow | ログイン</title>
+<title>ログイン | シフト・有休管理</title>
 <link rel="stylesheet" href="assets/app.css">
 </head>
 <body class="auth-page">
@@ -13,11 +13,11 @@
 <main class="auth-shell" id="main-content" tabindex="-1">
   <section class="auth-brand">
     <span class="brand-mark">SF</span>
-    <div><strong>ShiftFlow</strong><small>シフト・有休管理</small></div>
+    <div><strong>シフト・有休管理</strong></div>
   </section>
   <section class="auth-panel">
     <p class="eyebrow">WORKFORCE PORTAL</p>
-    <h1>おかえりなさい</h1>
+    <h1>お疲れ様です</h1>
     <p class="muted">勤務予定と申請状況を、ひとつの場所で。</p>
     <% if (request.getAttribute("error") != null) { %>
       <div class="alert danger"><%= request.getAttribute("error") %></div>

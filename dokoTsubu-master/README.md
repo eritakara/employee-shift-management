@@ -1,4 +1,4 @@
-# ShiftFlow
+# シフト・有休管理
 
 シフト、有休、勤怠を管理するJava Webアプリケーションです。Jakarta Servlet、JSP、H2、Tomcat 10で動作します。
 

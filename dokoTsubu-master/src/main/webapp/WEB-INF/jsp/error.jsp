@@ -27,7 +27,7 @@ if (throwable != null) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><%=status%> | ShiftFlow</title>
+  <title><%=status%> | シフト・有休管理</title>
   <link rel="stylesheet" href="<%=request.getContextPath()%>/assets/app.css">
 </head>
 <body>
@@ -37,14 +37,14 @@ if (throwable != null) {
     <p class="eyebrow">ERROR <%=status%></p>
     <% if (status == 404) { %>
       <h1>ページが見つかりません</h1>
-      <p>URLを確認するか、ShiftFlowのメニューから開き直してください。</p>
-      <p class="muted">Page not found. Check the URL or open the page again from the ShiftFlow menu.</p>
+      <p>URLを確認するか、シフト・有休管理のメニューから開き直してください。</p>
+      <p class="muted">Page not found. Check the URL or open the page again from the menu.</p>
     <% } else { %>
       <h1>処理を完了できませんでした</h1>
       <p>繰り返し操作せず、時間をおいて再度お試しください。解消しない場合は発生日時と画面名を管理者へ連絡してください。</p>
       <p class="muted">The request could not be completed. Do not submit repeatedly. Try again later or contact support with the time and page name.</p>
     <% } %>
-    <p><a class="button primary" href="<%=request.getContextPath()%>/">ShiftFlowへ戻る / Back to ShiftFlow</a></p>
+    <p><a class="button primary" href="<%=request.getContextPath()%>/">シフト・有休管理へ戻る / Back to home</a></p>
   </section>
 </main>
 </body>

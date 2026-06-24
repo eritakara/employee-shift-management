@@ -28,29 +28,51 @@ public class AuthServlet extends HttpServlet {
     req.setCharacterEncoding("UTF-8");
     String path = req.getServletPath();
     if ("/login".equals(path)) {
-      String attemptKey = req.getRemoteAddr() + ":" + String.valueOf(req.getParameter("email")).toLowerCase();
-      Attempt attempt = ATTEMPTS.get(attemptKey);
-      long now = System.currentTimeMillis();
-      if (attempt != null && now - attempt.firstAt() < 300_000 && attempt.count() >= 5) {
-        req.setAttribute("error", "ログイン試行回数が上限に達しました。5分後に再試行してください。");
+      try {
+        String attemptKey = req.getRemoteAddr() + ":" + String.valueOf(req.getParameter("email")).toLowerCase();
+        Attempt attempt = ATTEMPTS.get(attemptKey);
+        long now = System.currentTimeMillis();
+        if (attempt != null && now - attempt.firstAt() < 300_000 && attempt.count() >= 5) {
+          req.setAttribute("error", "ログイン試行回数が上限に達しました。5分後に再試行してください。");
+          req.getRequestDispatcher("/index.jsp").forward(req, res);
+          return;
+        }
+        User user = null;
+        try {
+          user = users.authenticate(req.getParameter("email"), req.getParameter("password"));
+        } catch (Throwable e) {
+          System.err.println("CRITICAL: Authentication failed unexpectedly!");
+          e.printStackTrace(System.err);
+          req.setAttribute("error", "ログイン処理中にサーバーエラーが発生しました。");
+          req.getRequestDispatcher("/index.jsp").forward(req, res);
+          return;
+        }
+        if (user == null) {
+          ATTEMPTS.compute(attemptKey, (key, old) -> old == null || now - old.firstAt() >= 300_000 ? new Attempt(1, now) : new Attempt(old.count() + 1, old.firstAt()));
+          req.setAttribute("error", "メールアドレスまたはパスワードが正しくありません。");
+          req.getRequestDispatcher("/index.jsp").forward(req, res);
+          return;
+        }
+        ATTEMPTS.remove(attemptKey);
+        HttpSession old = req.getSession(false);
+        if (old != null) old.invalidate();
+        req.getSession(true).setAttribute("loginUser", user);
+        req.getSession().setMaxInactiveInterval(30 * 60);
+        try {
+          AuditService.record(user.getId(), "LOGIN", "USER", String.valueOf(user.getId()), null, null);
+        } catch (Throwable e) {
+          System.err.println("WARNING: Audit log creation failed during login. Continuing login process.");
+          e.printStackTrace(System.err);
+        }
+        res.sendRedirect(req.getContextPath() + "/app/dashboard");
+        return;
+      } catch (Throwable t) {
+        System.err.println("CRITICAL: Unhandled exception during login request processing.");
+        t.printStackTrace(System.err);
+        req.setAttribute("error", "システムエラーが発生しました。");
         req.getRequestDispatcher("/index.jsp").forward(req, res);
         return;
       }
-      User user = users.authenticate(req.getParameter("email"), req.getParameter("password"));
-      if (user == null) {
-        ATTEMPTS.compute(attemptKey, (key, old) -> old == null || now - old.firstAt() >= 300_000 ? new Attempt(1, now) : new Attempt(old.count() + 1, old.firstAt()));
-        req.setAttribute("error", "メールアドレスまたはパスワードが正しくありません。");
-        req.getRequestDispatcher("/index.jsp").forward(req, res);
-        return;
-      }
-      ATTEMPTS.remove(attemptKey);
-      HttpSession old = req.getSession(false);
-      if (old != null) old.invalidate();
-      req.getSession(true).setAttribute("loginUser", user);
-      req.getSession().setMaxInactiveInterval(30 * 60);
-      AuditService.record(user.getId(), "LOGIN", "USER", String.valueOf(user.getId()), null, null);
-      res.sendRedirect(req.getContextPath() + "/app/dashboard");
-      return;
     }
     if ("/forgot".equals(path)) {
       String token = tokens.issue(req.getParameter("email"), "RESET", util.ServletUtil.baseUrl(req));

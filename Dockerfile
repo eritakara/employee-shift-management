@@ -25,12 +25,7 @@ ENV PORT=10000
 ENV SHIFTFLOW_DATA_DIR=/opt/shiftflow/data
 
 RUN rm -rf "$CATALINA_HOME/webapps/"* \
-    && mkdir -p /opt/shiftflow/data "$CATALINA_HOME/webapps/shiftflow" \
-    && printf '%s\n' \
-      '<!doctype html>' \
-      '<html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/"><title>ShiftFlow</title></head>' \
-      '<body><a href="/">ShiftFlow を開く</a></body></html>' \
-      > "$CATALINA_HOME/webapps/shiftflow/index.html"
+    && mkdir -p /opt/shiftflow/data
 
 COPY --from=build /app/target/ROOT.war "$CATALINA_HOME/webapps/ROOT.war"
 

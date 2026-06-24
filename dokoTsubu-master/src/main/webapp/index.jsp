@@ -17,7 +17,7 @@
   </section>
   <section class="auth-panel">
     <p class="eyebrow">WORKFORCE PORTAL</p>
-    <h1>おかえりなさい</h1>
+    <h1>お疲れ様です</h1>
     <p class="muted">勤務予定と申請状況を、ひとつの場所で。</p>
     <% if (request.getAttribute("error") != null) { %>
       <div class="alert danger"><%= request.getAttribute("error") %></div>

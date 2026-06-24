@@ -23,17 +23,16 @@
       <div class="alert danger"><%= request.getAttribute("error") %></div>
     <% } %>
     <form action="login" method="post" class="stack-form">
-      <label>メールアドレス<input type="email" name="email" autocomplete="username" required value="employee@example.com"></label>
-      <label>パスワード<input type="password" name="password" autocomplete="current-password" required value="Password1!"></label>
+      <label>メールアドレス<input type="email" name="email" autocomplete="username" required value=""></label>
+      <label>パスワード<input type="password" name="password" autocomplete="current-password" required value=""></label>
       <button class="primary wide" type="submit">ログイン</button>
     </form>
     <p><a href="forgot">パスワードをお忘れですか？</a></p>
     <p><a href="privacy">個人情報・位置情報の取扱い / Privacy notice</a></p>
-    <details class="demo-accounts">
-      <summary>デモアカウント</summary>
-      <p>人事: hr@example.com</p><p>店長: manager@example.com</p><p>従業員: employee@example.com</p>
-      <p>共通パスワード: Password1!</p>
-    </details>
+    <div class="demo-accounts">
+      <p>※このアプリはポートフォリオ用のデモ環境です。</p>
+      <p>ログイン情報は面接・提出時に別途共有します。</p>
+    </div>
   </section>
 </main>
 </body>

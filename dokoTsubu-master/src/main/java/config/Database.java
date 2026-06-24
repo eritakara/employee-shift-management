@@ -630,6 +630,9 @@ public final class Database {
   }
 
   private static long findIdByName(Connection c, String table, String name) throws SQLException {
+    if (!"branches".equals(table) && !"departments".equals(table) && !"employment_types".equals(table)) {
+      throw new IllegalArgumentException("Invalid table name for name lookup: " + table);
+    }
     try (PreparedStatement p = c.prepareStatement("SELECT id FROM " + table + " WHERE name=?")) {
       p.setString(1, name);
       try (ResultSet r = p.executeQuery()) {

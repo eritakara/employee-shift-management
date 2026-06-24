@@ -28,6 +28,7 @@ public class AuthServlet extends HttpServlet {
     req.setCharacterEncoding("UTF-8");
     String path = req.getServletPath();
     if ("/login".equals(path)) {
+      System.err.println("LOGIN POST RECEIVED: email=" + req.getParameter("email"));
       try {
         String attemptKey = req.getRemoteAddr() + ":" + String.valueOf(req.getParameter("email")).toLowerCase();
         Attempt attempt = ATTEMPTS.get(attemptKey);

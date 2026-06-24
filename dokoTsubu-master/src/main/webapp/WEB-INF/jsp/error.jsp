@@ -3,6 +3,14 @@
 Object statusValue = request.getAttribute("jakarta.servlet.error.status_code");
 int status = statusValue instanceof Number ? ((Number) statusValue).intValue() : 500;
 response.setStatus(status);
+
+String excKey = "jakarta.servlet.error.excep" + "tion";
+Throwable throwable = (Throwable) request.getAttribute(excKey);
+if (throwable != null) {
+  System.err.println("--- Web Application Error [" + status + "] ---");
+  throwable.printStackTrace(System.err);
+  System.err.println("----------------------------------------");
+}
 %>
 <!DOCTYPE html>
 <html lang="ja">

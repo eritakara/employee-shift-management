@@ -306,18 +306,68 @@ public final class Database {
 
       System.out.println("Creating initial HR user: " + hrEmail);
       try {
-        addUser(c, "HR001", "人事担当", hrEmail, hrPassword, "HR", 1, 4);
+        long hrBranchId = findIdByName(c, "branches", "本社");
+        long hrDeptId = findIdByName(c, "departments", "人事部");
+        long hrEmpTypeId = findIdByName(c, "employment_types", "正社員");
+        addUser(c, "HR001", "人事担当", hrEmail, hrPassword, "HR", hrBranchId, hrDeptId, hrEmpTypeId);
       } catch (SQLException e) {
         System.err.println("Seeding initial HR user failed.");
         throw e;
       }
 
+      // ポートフォリオデモ環境用の全拠点デモアカウント自動生成処理
+      boolean demoEnabled = "true".equalsIgnoreCase(System.getenv("DEMO_ACCOUNTS_ENABLED"));
+      String demoPassword = setting("shiftapp.demoAccountsPassword", "DEMO_ACCOUNTS_PASSWORD", "Password1!");
+      if (demoEnabled) {
+        if (isProduction && ("Password1!".equals(demoPassword) || demoPassword == null || demoPassword.isBlank())) {
+          throw new IllegalStateException("DEMO_ACCOUNTS_PASSWORD environment variable must be configured with a secure value in production when DEMO_ACCOUNTS_ENABLED is true.");
+        }
+
+        System.out.println("Seeding branch demo accounts...");
+        try {
+          long deptId = findIdByName(c, "departments", "営業部");
+          long empTypeId = findIdByName(c, "employment_types", "正社員");
+          String[] branchNames = {"本社", "北部支店", "中部支店", "那覇支店", "南部支店", "宮古支店", "石垣支店"};
+          String[] branchPrefixes = {"hq", "hokubu", "chubu", "naha", "nanbu", "miyako", "ishigaki"};
+
+          for (int i = 0; i < branchNames.length; i++) {
+            String bName = branchNames[i];
+            String prefix = branchPrefixes[i];
+            long bId = findIdByName(c, "branches", bName);
+
+            // 1. 各拠点の店長 (MANAGER) 1名
+            String mgEmail = prefix + ".manager@example.com";
+            String mgEmpNum = "DEMO_MG_" + bId;
+            if (!existsUser(c, mgEmpNum, mgEmail)) {
+              addUser(c, mgEmpNum, bName + " 店長", mgEmail, demoPassword, "MANAGER", bId, deptId, empTypeId);
+            }
+
+            // 2. 各拠点の一般従業員 (EMPLOYEE) 4名
+            for (int idx = 1; idx <= 4; idx++) {
+              String emEmail = prefix + ".staff" + idx + "@example.com";
+              String emEmpNum = "DEMO_EM_" + bId + "_" + idx;
+              if (!existsUser(c, emEmpNum, emEmail)) {
+                addUser(c, emEmpNum, bName + " 従業員" + idx, emEmail, demoPassword, "EMPLOYEE", bId, deptId, empTypeId);
+              }
+            }
+          }
+        } catch (SQLException e) {
+          System.err.println("Seeding branch demo accounts failed.");
+          throw e;
+        }
+      }
+
       if (!isProduction) {
         System.out.println("Seeding demo users...");
         try {
-          addUser(c, "MG001", "那覇 店長", "manager@example.com", "MANAGER", 4, 1);
-          addUser(c, "EM001", "山田 花子", "employee@example.com", "EMPLOYEE", 4, 1);
-          addUser(c, "EM002", "佐藤 太郎", "sato@example.com", "EMPLOYEE", 4, 1);
+          long nahaBranchId = findIdByName(c, "branches", "那覇支店");
+          long hokubuBranchId = findIdByName(c, "branches", "北部支店");
+          long salesDeptId = findIdByName(c, "departments", "営業部");
+          long regularEmpTypeId = findIdByName(c, "employment_types", "正社員");
+
+          addUser(c, "MG001", "那覇 店長", "manager@example.com", "Password1!", "MANAGER", nahaBranchId, salesDeptId, regularEmpTypeId);
+          addUser(c, "EM001", "山田 花子", "employee@example.com", "Password1!", "EMPLOYEE", nahaBranchId, salesDeptId, regularEmpTypeId);
+          addUser(c, "EM002", "佐藤 太郎", "sato@example.com", "Password1!", "EMPLOYEE", nahaBranchId, salesDeptId, regularEmpTypeId);
         } catch (SQLException e) {
           System.err.println("Seeding demo users failed.");
           throw e;
@@ -563,13 +613,41 @@ public final class Database {
   }
 
   private static void addUser(Connection c, String number, String name, String email, String password,
-      String role, long branchId, long departmentId) throws SQLException {
+      String role, long branchId, long departmentId, long employmentTypeId) throws SQLException {
     String sql = "INSERT INTO users(employee_number,name,email,password_hash,hire_date,branch_id,department_id,employment_type_id,role) VALUES(?,?,?,?,?,?,?,?,?)";
     try (PreparedStatement p = c.prepareStatement(sql)) {
       p.setString(1, number); p.setString(2, name); p.setString(3, email);
       p.setString(4, PasswordUtil.hash(password));
       p.setObject(5, LocalDate.of(2024, 4, 1)); p.setLong(6, branchId);
-      p.setLong(7, departmentId); p.setLong(8, 1); p.setString(9, role); p.executeUpdate();
+      p.setLong(7, departmentId); p.setLong(8, employmentTypeId); p.setString(9, role); p.executeUpdate();
+    }
+  }
+
+  private static void addUser(Connection c, String number, String name, String email, String password,
+      String role, long branchId, long departmentId) throws SQLException {
+    long defaultEmpTypeId = findIdByName(c, "employment_types", "正社員");
+    addUser(c, number, name, email, password, role, branchId, departmentId, defaultEmpTypeId);
+  }
+
+  private static long findIdByName(Connection c, String table, String name) throws SQLException {
+    try (PreparedStatement p = c.prepareStatement("SELECT id FROM " + table + " WHERE name=?")) {
+      p.setString(1, name);
+      try (ResultSet r = p.executeQuery()) {
+        if (r.next()) {
+          return r.getLong(1);
+        }
+      }
+    }
+    throw new SQLException("Required master data not found in " + table + ": " + name);
+  }
+
+  private static boolean existsUser(Connection c, String number, String email) throws SQLException {
+    try (PreparedStatement p = c.prepareStatement("SELECT 1 FROM users WHERE employee_number=? OR email=?")) {
+      p.setString(1, number);
+      p.setString(2, email);
+      try (ResultSet r = p.executeQuery()) {
+        return r.next();
+      }
     }
   }
 

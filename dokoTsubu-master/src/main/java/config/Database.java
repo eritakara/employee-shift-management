@@ -315,48 +315,6 @@ public final class Database {
         throw e;
       }
 
-      // ポートフォリオデモ環境用の全拠点デモアカウント自動生成処理
-      boolean demoEnabled = "true".equalsIgnoreCase(System.getenv("DEMO_ACCOUNTS_ENABLED"));
-      String demoPassword = setting("shiftapp.demoAccountsPassword", "DEMO_ACCOUNTS_PASSWORD", "Password1!");
-      if (demoEnabled) {
-        if (isProduction && ("Password1!".equals(demoPassword) || demoPassword == null || demoPassword.isBlank())) {
-          throw new IllegalStateException("DEMO_ACCOUNTS_PASSWORD environment variable must be configured with a secure value in production when DEMO_ACCOUNTS_ENABLED is true.");
-        }
-
-        System.out.println("Seeding branch demo accounts...");
-        try {
-          long deptId = findIdByName(c, "departments", "営業部");
-          long empTypeId = findIdByName(c, "employment_types", "正社員");
-          String[] branchNames = {"本社", "北部支店", "中部支店", "那覇支店", "南部支店", "宮古支店", "石垣支店"};
-          String[] branchPrefixes = {"hq", "hokubu", "chubu", "naha", "nanbu", "miyako", "ishigaki"};
-
-          for (int i = 0; i < branchNames.length; i++) {
-            String bName = branchNames[i];
-            String prefix = branchPrefixes[i];
-            long bId = findIdByName(c, "branches", bName);
-
-            // 1. 各拠点の店長 (MANAGER) 1名
-            String mgEmail = prefix + ".manager@example.com";
-            String mgEmpNum = "DEMO_MG_" + bId;
-            if (!existsUser(c, mgEmpNum, mgEmail)) {
-              addUser(c, mgEmpNum, bName + " 店長", mgEmail, demoPassword, "MANAGER", bId, deptId, empTypeId);
-            }
-
-            // 2. 各拠点の一般従業員 (EMPLOYEE) 4名
-            for (int idx = 1; idx <= 4; idx++) {
-              String emEmail = prefix + ".staff" + idx + "@example.com";
-              String emEmpNum = "DEMO_EM_" + bId + "_" + idx;
-              if (!existsUser(c, emEmpNum, emEmail)) {
-                addUser(c, emEmpNum, bName + " 従業員" + idx, emEmail, demoPassword, "EMPLOYEE", bId, deptId, empTypeId);
-              }
-            }
-          }
-        } catch (SQLException e) {
-          System.err.println("Seeding branch demo accounts failed.");
-          throw e;
-        }
-      }
-
       if (!isProduction) {
         System.out.println("Seeding demo users...");
         try {
@@ -373,13 +331,74 @@ public final class Database {
           throw e;
         }
       }
+    }
 
-      try (Statement s = c.createStatement()) {
-        s.executeUpdate("INSERT INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) SELECT id,10,0,CURRENT_DATE FROM users");
+    // ポートフォリオデモ環境用の全拠点デモアカウント自動生成処理
+    boolean demoEnabled = "true".equalsIgnoreCase(System.getenv("DEMO_ACCOUNTS_ENABLED"));
+    String demoPassword = setting("shiftapp.demoAccountsPassword", "DEMO_ACCOUNTS_PASSWORD", "Password1!");
+    if (demoEnabled) {
+      boolean isProduction = "true".equalsIgnoreCase(System.getenv("RENDER"))
+          || "production".equalsIgnoreCase(System.getenv("APP_ENV"))
+          || "true".equalsIgnoreCase(System.getenv("DB_REQUIRED"));
+
+      if (isProduction && ("Password1!".equals(demoPassword) || demoPassword == null || demoPassword.isBlank())) {
+        throw new IllegalStateException("DEMO_ACCOUNTS_PASSWORD environment variable must be configured with a secure value in production when DEMO_ACCOUNTS_ENABLED is true.");
+      }
+
+      System.out.println("Seeding branch demo accounts...");
+      try {
+        long deptId = findIdByName(c, "departments", "営業部");
+        long empTypeId = findIdByName(c, "employment_types", "正社員");
+        String[] branchNames = {"本社", "北部支店", "中部支店", "那覇支店", "南部支店", "宮古支店", "石垣支店"};
+        String[] branchPrefixes = {"hq", "hokubu", "chubu", "naha", "nanbu", "miyako", "ishigaki"};
+
+        int createdCount = 0;
+        int skippedCount = 0;
+
+        for (int i = 0; i < branchNames.length; i++) {
+          String bName = branchNames[i];
+          String prefix = branchPrefixes[i];
+          long bId = findIdByName(c, "branches", bName);
+
+          // 1. 各拠点の店長 (MANAGER) 1名
+          String mgEmail = prefix + ".manager@example.com";
+          String mgEmpNum = "DEMO_MG_" + bId;
+          if (!existsUser(c, mgEmpNum, mgEmail)) {
+            addUser(c, mgEmpNum, bName + " 店長", mgEmail, demoPassword, "MANAGER", bId, deptId, empTypeId);
+            System.out.println("Created demo manager account: " + mgEmail + " (Branch: " + bName + ")");
+            createdCount++;
+          } else {
+            System.out.println("Demo manager account already exists, skipping: " + mgEmail);
+            skippedCount++;
+          }
+
+          // 2. 各拠点の一般従業員 (EMPLOYEE) 4名
+          for (int idx = 1; idx <= 4; idx++) {
+            String emEmail = prefix + ".staff" + idx + "@example.com";
+            String emEmpNum = "DEMO_EM_" + bId + "_" + idx;
+            if (!existsUser(c, emEmpNum, emEmail)) {
+              addUser(c, emEmpNum, bName + " 従業員" + idx, emEmail, demoPassword, "EMPLOYEE", bId, deptId, empTypeId);
+              System.out.println("Created demo employee account: " + emEmail + " (Branch: " + bName + ")");
+              createdCount++;
+            } else {
+              System.out.println("Demo employee account already exists, skipping: " + emEmail);
+              skippedCount++;
+            }
+          }
+        }
+        System.out.println("Branch demo accounts seeding completed. Created: " + createdCount + ", Skipped: " + skippedCount);
       } catch (SQLException e) {
-        System.err.println("Seeding leave balances failed.");
+        System.err.println("Seeding branch demo accounts failed.");
         throw e;
       }
+    }
+
+    try (Statement s = c.createStatement()) {
+      s.executeUpdate("INSERT INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) "
+          + "SELECT id,10,0,CURRENT_DATE FROM users u WHERE NOT EXISTS (SELECT 1 FROM leave_balances b WHERE b.user_id=u.id)");
+    } catch (SQLException e) {
+      System.err.println("Seeding leave balances failed.");
+      throw e;
     }
     if (count(c, "leave_rule_config") == 0) {
       System.out.println("Seeding leave rule configuration...");

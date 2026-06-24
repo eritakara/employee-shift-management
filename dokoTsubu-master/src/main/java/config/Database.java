@@ -106,6 +106,10 @@ public final class Database {
     return DriverManager.getConnection(jdbcUrl, jdbcUser, jdbcPassword);
   }
 
+  public static boolean isPostgres() {
+    return jdbcUrl != null && jdbcUrl.startsWith("jdbc:postgresql:");
+  }
+
   private static String defaultH2Url() throws IOException {
     String dataDirSetting = setting("shiftapp.dataDir", "SHIFTFLOW_DATA_DIR", null);
     Path dataDir = dataDirSetting == null || dataDirSetting.isBlank()

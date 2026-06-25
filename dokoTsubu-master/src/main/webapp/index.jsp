@@ -6,19 +6,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ログイン | シフト・有休管理</title>
-<link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="assets/app.css?v=20260626-3">
 </head>
 <body class="auth-page">
 <a class="skip-link" href="#main-content">本文へ移動</a>
 <main class="auth-shell" id="main-content" tabindex="-1">
   <section class="auth-brand">
-    <span class="brand-mark">SF</span>
+    <span class="brand-mark" aria-hidden="true">
+      <svg class="brand-icon" viewBox="0 0 24 24" focusable="false">
+        <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+        <path d="M8 3v4M16 3v4M4 10h16M8 15l2.4 2.4L16 12"></path>
+      </svg>
+    </span>
     <div><strong>シフト・有休管理</strong></div>
   </section>
   <section class="auth-panel">
     <p class="eyebrow">WORKFORCE PORTAL</p>
     <h1>お疲れ様です</h1>
-    <p class="muted">勤務予定と申請状況を、ひとつの場所で。</p>
     <% if (request.getAttribute("error") != null) { %>
       <div class="alert danger"><%= request.getAttribute("error") %></div>
     <% } %>
@@ -29,10 +33,6 @@
     </form>
     <p><a href="forgot">パスワードをお忘れですか？</a></p>
     <p><a href="privacy">個人情報・位置情報の取扱い / Privacy notice</a></p>
-    <div class="demo-accounts">
-      <p>※このアプリはポートフォリオ用のデモ環境です。</p>
-      <p>ログイン情報は面接・提出時に別途共有します。</p>
-    </div>
   </section>
 </main>
 </body>

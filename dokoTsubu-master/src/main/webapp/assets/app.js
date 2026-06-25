@@ -7,7 +7,18 @@ document.addEventListener('DOMContentLoaded', () => {
       menu.setAttribute('aria-expanded', String(open));
       if (open) document.querySelector('#main-navigation a')?.focus();
     };
-    menu.addEventListener('click', () => setMenuOpen(!document.body.classList.contains('nav-open')));
+    menu.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setMenuOpen(!document.body.classList.contains('nav-open'));
+    });
+    document.addEventListener('click', event => {
+      if (document.body.classList.contains('nav-open')) {
+        const sidebar = document.querySelector('#main-navigation');
+        if (sidebar && !sidebar.contains(event.target) && !menu.contains(event.target)) {
+          setMenuOpen(false);
+        }
+      }
+    });
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape' && document.body.classList.contains('nav-open')) {
         setMenuOpen(false);

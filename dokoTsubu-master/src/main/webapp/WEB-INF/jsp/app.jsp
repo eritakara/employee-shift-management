@@ -251,8 +251,8 @@ String ctx = request.getContextPath();
         <div class="<%=submissionOpen?"alert":"error-banner"%>">対象月: <strong><%=e(submissionWindow.get("target_month"))%></strong> / 提出期限: <strong><%=e(submissionWindow.get("deadline"))%></strong><%=submissionOpen?"":"（受付終了）"%> / 状態: <strong><%=submissionStatusLabel(preferenceSubmission.get("status"))%></strong></div>
         <section class="section preference-section"><div class="section-header"><div><h2>希望日をまとめて選択</h2><p class="muted">希望がある日だけ選択してください。未選択日は自動割当の対象になります。</p></div></div>
           <div class="alert info-banner" style="margin-bottom: 1.5rem; background: #f0f9ff; border-left: 4px solid #0284c7; padding: 1rem; border-radius: 4px;">
-            <strong style="color: #0369a1;">【有給休暇の申請について】</strong><br>
-            有給休暇（有休）の取得を希望される場合は、この画面からは申請できません。左側メニューの<strong>「有休申請」</strong>から個別に申請を行ってください。承認された有休は、自動割り当て時に最優先で反映されます。
+            <strong style="color: #0369a1;">【有休の申請について】</strong><br>
+            有休の取得を希望される場合は、この画面からは申請できません。左側メニューの<strong>「有休申請」</strong>から個別に申請を行ってください。承認された有休は、自動割り当て時に最優先で反映されます。
           </div>
           <form method="post" data-preference-form>
             <input type="hidden" name="action" value="submitMonthlyPreferences"><input type="hidden" name="returnPage" value="shifts/request"><input type="hidden" name="returnMonth" value="<%=month%>"><input type="hidden" name="month" value="<%=month%>">

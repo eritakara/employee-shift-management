@@ -142,9 +142,14 @@ button:hover, .button:hover { border-color: var(--teal); }
 .approver-list span { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 4px; background: white; }
 .approver-list strong { font-size: 13px; }
 .approver-list small { color: var(--muted); font-size: 12px; font-weight: 700; }
-.staffing-shortage { display: flex; align-items: end; gap: 16px; margin-top: 8px; }
-.staffing-shortage span { color: var(--muted); font-size: 11px; font-weight: 700; }
-.staffing-shortage strong { display: block; margin-top: 3px; font-size: 20px; color: var(--ink); }
+.staffing-shortage { display: grid; gap: 7px; margin-top: 10px; }
+.staffing-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; padding: 5px 8px; border-radius: 6px; border: 1px solid transparent; color: var(--muted); font-size: 12px; font-weight: 800; }
+.staffing-row em { color: var(--muted); font-style: normal; }
+.staffing-row strong { display: inline-flex; align-items: center; gap: 6px; margin-top: 0; font-size: 14px; color: var(--ink); }
+.staffing-row.ok { background: var(--green-soft); }
+.staffing-row.shortage { background: var(--yellow-soft); border-color: #f4dea0; }
+.staffing-row.shortage strong { color: #805d00; }
+.staffing-icon { min-width: 1em; text-align: center; }
 .dashboard-grid { display: grid; grid-template-columns: 1fr; gap: 22px; }
 .shift-legend { display: flex; flex-wrap: wrap; gap: 12px 18px; margin: -4px 0 14px; color: var(--muted); font-size: 12px; }
 .shift-legend span { display: inline-flex; align-items: center; gap: 6px; }

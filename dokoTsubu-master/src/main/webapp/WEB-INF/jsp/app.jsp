@@ -154,7 +154,7 @@ String ctx = request.getContextPath();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= e(pageTitle) %> | シフト・有休管理</title>
-  <link rel="stylesheet" href="<%= ctx %>/assets/app.css?v=20260620-5">
+  <link rel="stylesheet" href="<%= ctx %>/assets/app.css?v=20260626-1">
 </head>
 <body>
 <a class="skip-link" href="#main-content"><%=en?"Skip to main content":"本文へ移動"%></a>

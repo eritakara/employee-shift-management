@@ -63,6 +63,21 @@
     return e(text.length() >= 19 ? text.substring(0, 19) : text);
   }
   private String status(Object value) { return value == null ? "" : String.valueOf(value).toLowerCase(); }
+  private int shortagePercent(Object value) {
+    if (value instanceof Number) return ((Number)value).intValue();
+    try { return Integer.parseInt(String.valueOf(value)); }
+    catch (Exception ex) { return 0; }
+  }
+  private String shortageClass(Object value) {
+    return shortagePercent(value) > 0 ? "shortage" : "ok";
+  }
+  private String shortageIcon(Object value) {
+    return shortagePercent(value) > 0 ? "⚠" : "○";
+  }
+  private String shortageLabel(Object value) {
+    int percent = shortagePercent(value);
+    return percent > 0 ? "不足 " + percent + "%" : "不足なし";
+  }
   private String statusLabel(Object value) {
     String status = String.valueOf(value);
     if ("PENDING".equals(status)) return "申請中";
@@ -229,7 +244,7 @@ String ctx = request.getContextPath();
           <div class="metric"><span class="label">未承認申請</span><strong><%=e(stats.get("pending"))%><small>件</small></strong></div>
           <div class="metric"><span class="label">有休残日数</span><strong><%=days(stats.get("leave"))%><small>日</small></strong></div>
           <% if (manager) { %>
-          <div class="metric"><span class="label">人員不足</span><div class="staffing-shortage"><span>日勤<strong><%=e(stats.get("dayShortagePercent"))%>%</strong></span><span>夜勤<strong><%=e(stats.get("nightShortagePercent"))%>%</strong></span></div></div>
+          <div class="metric"><span class="label">シフト充足状況</span><div class="staffing-shortage"><span class="staffing-row <%=shortageClass(stats.get("dayShortagePercent"))%>"><em>日勤</em><strong><span class="staffing-icon" aria-hidden="true"><%=shortageIcon(stats.get("dayShortagePercent"))%></span><%=shortageLabel(stats.get("dayShortagePercent"))%></strong></span><span class="staffing-row <%=shortageClass(stats.get("nightShortagePercent"))%>"><em>夜勤</em><strong><span class="staffing-icon" aria-hidden="true"><%=shortageIcon(stats.get("nightShortagePercent"))%></span><%=shortageLabel(stats.get("nightShortagePercent"))%></strong></span></div></div>
           <% } %>
           <div class="metric"><span class="label">今月の実勤務</span><strong><%=String.format("%.1f",stats.get("monthHours"))%><small>時間</small></strong></div>
         </div>
@@ -427,6 +442,6 @@ String ctx = request.getContextPath();
     <footer class="app-footer"><a href="<%=ctx%>/privacy"><%=en?"Privacy and location data":"個人情報・位置情報の取扱い"%></a></footer>
   </div>
 </div>
-<script src="<%=ctx%>/assets/app.js?v=20260620-6"></script>
+<script src="<%=ctx%>/assets/app.js?v=20260625-1"></script>
 </body>
 </html>

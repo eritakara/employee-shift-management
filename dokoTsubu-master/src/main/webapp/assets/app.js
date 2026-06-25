@@ -279,7 +279,7 @@ function translatePage() {
     '従業員一覧':'Employees','従業員登録・編集':'Employee details','資格情報管理':'Qualifications','代理店長設定':'Manager delegation',
     '営業所管理':'Branch offices','部署管理':'Departments','勤務区分・休憩時間管理':'Work types and breaks',
     '必要人数管理':'Staffing requirements','雇用形態・資格名称管理':'Employment and qualification types','データ出力':'Data export','操作履歴':'Audit log',
-    '今日の勤務者':'Working today','未承認申請':'Pending approvals','有休残日数':'Leave balance','人員不足':'Staff shortage','今月の実勤務':'Hours this month',
+    '今日の勤務者':'Working today','未承認申請':'Pending approvals','有休残日数':'Leave balance','シフト充足状況':'Shift coverage','不足なし':'No shortage','不足':'Shortage','今月の実勤務':'Hours this month',
     '勤務時間・残業時間の推移':'Work and overtime trend','勤務時間・残業時間・有休取得数の推移':'Work, overtime, and leave trend','直近6か月':'Last 6 months','今月の予定':'This month','すべて見る':'View all',
     '対象月':'Month','表示':'Show','印刷':'Print','印刷する':'Print','シフトへ戻る':'Back to schedule','調整する':'Edit schedule','勤務区分を登録':'Add work type','変更・休みを申請':'Request a change',
     '従業員':'Employee','日付':'Date','勤務区分':'Work type','状態':'Status','備考・理由':'Note or reason','保存する':'Save','申請する':'Submit',
@@ -304,8 +304,14 @@ function translatePage() {
   nodes.forEach(node => {
     const raw = node.nodeValue;
     const trimmed = raw.trim();
-    if (!trimmed || !dictionary[trimmed]) return;
-    node.nodeValue = raw.replace(trimmed, dictionary[trimmed]);
+    if (!trimmed) return;
+    if (dictionary[trimmed]) {
+      node.nodeValue = raw.replace(trimmed, dictionary[trimmed]);
+      return;
+    }
+    if (trimmed.startsWith('不足 ') && dictionary['不足']) {
+      node.nodeValue = raw.replace(trimmed, dictionary['不足'] + trimmed.substring(2));
+    }
   });
   document.querySelectorAll('[placeholder]').forEach(element => {
     const value = element.getAttribute('placeholder');

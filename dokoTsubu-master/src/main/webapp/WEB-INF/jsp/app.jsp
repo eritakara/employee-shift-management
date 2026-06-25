@@ -154,13 +154,13 @@ String ctx = request.getContextPath();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= e(pageTitle) %> | シフト・有休管理</title>
-  <link rel="stylesheet" href="<%= ctx %>/assets/app.css?v=20260626-1">
+  <link rel="stylesheet" href="<%= ctx %>/assets/app.css?v=20260626-2">
 </head>
 <body>
 <a class="skip-link" href="#main-content"><%=en?"Skip to main content":"本文へ移動"%></a>
 <div class="app-shell">
   <aside class="sidebar" id="main-navigation" aria-label="メインナビゲーション">
-    <a class="brand" href="<%= ctx %>/app/dashboard"><span class="brand-mark">SF</span><span><strong><%= en ? "Shift & Leave Management" : "シフト・有休管理" %></strong></span></a>
+    <a class="brand" href="<%= ctx %>/app/dashboard"><span class="brand-mark" aria-hidden="true"><svg class="brand-icon" viewBox="0 0 24 24" focusable="false"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16M8 15l2.4 2.4L16 12"></path></svg></span><span><strong><%= en ? "Shift & Leave Management" : "シフト・有休管理" %></strong></span></a>
     <nav>
       <p class="nav-label"><%= en ? "Overview" : "概要" %></p>
       <a class="nav-link <%= pageKey.equals("notifications") ? "active" : "" %>" href="<%=ctx%>/app/notifications"><span aria-hidden="true">🔔&#xFE0E;</span> <%= en ? "Notifications" : "通知" %></a>

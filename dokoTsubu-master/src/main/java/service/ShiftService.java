@@ -133,9 +133,15 @@ public class ShiftService {
       connection.setAutoCommit(false);
       try {
         long submissionId;
-        try (PreparedStatement merge = connection.prepareStatement(
-            "MERGE INTO shift_preference_submissions(user_id,target_month,status,submitted_at,updated_at,reviewed_by,reviewed_at) KEY(user_id,target_month) VALUES(?,?,'SUBMITTED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL,NULL)")) {
-          merge.setLong(1, actor.getId()); merge.setObject(2, month.atDay(1)); merge.executeUpdate();
+        String upsertSql = Database.isPostgres()
+            ? "INSERT INTO shift_preference_submissions(user_id,target_month,status,submitted_at,updated_at,reviewed_by,reviewed_at) "
+                + "VALUES(?,?,'SUBMITTED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL,NULL) "
+                + "ON CONFLICT (user_id,target_month) DO UPDATE SET status='SUBMITTED',submitted_at=CURRENT_TIMESTAMP,"
+                + "updated_at=CURRENT_TIMESTAMP,reviewed_by=NULL,reviewed_at=NULL"
+            : "MERGE INTO shift_preference_submissions(user_id,target_month,status,submitted_at,updated_at,reviewed_by,reviewed_at) "
+                + "KEY(user_id,target_month) VALUES(?,?,'SUBMITTED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL,NULL)";
+        try (PreparedStatement upsert = connection.prepareStatement(upsertSql)) {
+          upsert.setLong(1, actor.getId()); upsert.setObject(2, month.atDay(1)); upsert.executeUpdate();
         }
         try (PreparedStatement find = connection.prepareStatement(
             "SELECT id FROM shift_preference_submissions WHERE user_id=? AND target_month=?")) {

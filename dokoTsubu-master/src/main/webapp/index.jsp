@@ -6,7 +6,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ログイン | シフト・有休管理</title>
-<link rel="stylesheet" href="assets/app.css?v=20260626-2">
+<link rel="stylesheet" href="assets/app.css?v=20260626-3">
 </head>
 <body class="auth-page">
 <a class="skip-link" href="#main-content">本文へ移動</a>
@@ -23,7 +23,6 @@
   <section class="auth-panel">
     <p class="eyebrow">WORKFORCE PORTAL</p>
     <h1>お疲れ様です</h1>
-    <p class="muted">勤務予定と申請状況を、ひとつの場所で。</p>
     <% if (request.getAttribute("error") != null) { %>
       <div class="alert danger"><%= request.getAttribute("error") %></div>
     <% } %>

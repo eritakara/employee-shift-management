@@ -34,6 +34,9 @@ a { color: inherit; }
 .auth-panel { align-self: center; padding: 56px; }
 .auth-panel h1 { margin: 0; font-size: 32px; }
 .stack-form { display: grid; gap: 18px; margin-top: 28px; }
+.auth-back { margin: 18px 0 0; }
+.auth-back a { color: var(--teal-dark); font-weight: 700; text-decoration: none; }
+.auth-back a:hover { text-decoration: underline; }
 label { display: grid; gap: 7px; font-size: 13px; font-weight: 700; }
 .label-with-help { display: inline-flex; align-items: center; gap: 7px; }
 .help-tooltip { position: relative; display: inline-grid; place-items: center; width: 20px; height: 20px; border: 1px solid #9ab5b2; border-radius: 50%; background: #eef8f7; color: var(--teal-dark); font-size: 12px; font-weight: 900; cursor: help; }

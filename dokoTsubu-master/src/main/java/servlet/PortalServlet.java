@@ -32,7 +32,7 @@ public class PortalServlet extends HttpServlet {
     TITLES.put("dashboard", "ダッシュボード");
     TITLES.put("notifications", "通知"); TITLES.put("account", "アカウント設定");
     TITLES.put("shifts/mine", "シフト"); TITLES.put("shifts/request", "希望シフト提出");
-    TITLES.put("shifts/team", "月間シフト表"); TITLES.put("shifts/change", "シフト変更・休み申請");
+    TITLES.put("shifts/team", "月間シフト表"); TITLES.put("shifts/change", "シフト変更申請");
     TITLES.put("shifts/history", "シフト申請履歴"); TITLES.put("shifts/manage", "シフト調整");
     TITLES.put("shifts/confirm", "シフト確定確認"); TITLES.put("shifts/print", "シフト印刷");
     TITLES.put("leave", "有休");

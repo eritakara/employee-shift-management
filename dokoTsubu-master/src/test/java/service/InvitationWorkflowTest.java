@@ -29,6 +29,8 @@ public class InvitationWorkflowTest {
         "only one invitation link remains valid");
     check(count("SELECT COUNT(*) count_value FROM mail_outbox WHERE recipient=? AND subject='ShiftFlowへのご招待'", email) == 2,
         "registration and reissue each queue one invitation mail");
+    check(count("SELECT COUNT(*) count_value FROM leave_grants WHERE user_id=? AND expires_on>=CURRENT_DATE AND days_remaining>0", userId) == 1,
+        "new employee receives an active migration leave grant");
     expectDenied(() -> portal.reissueInvite(employee, userId, "https://shiftflow.example"), "non-HR reissue");
     check(count("SELECT COUNT(*) count_value FROM audit_logs WHERE action='REISSUE_INVITE' AND target_user_id=?", userId) == 1,
         "reissue is audited");
@@ -48,4 +50,3 @@ public class InvitationWorkflowTest {
     if (!condition) throw new AssertionError("Failed: " + label);
   }
 }
-

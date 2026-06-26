@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -451,23 +452,76 @@ public final class Database {
         throw e;
       }
     }
-    if (count(c, "leave_grants") == 0 && count(c, "users") > 0) {
-      System.out.println("Seeding migration leave grants...");
-      try (Statement s = c.createStatement()) {
-        String add24MonthsSql;
-        if (jdbcUrl.startsWith("jdbc:h2:")) {
-          add24MonthsSql = "DATEADD('MONTH',24,COALESCE(b.last_granted_on,CURRENT_DATE))";
-        } else {
-          add24MonthsSql = "COALESCE(b.last_granted_on,CURRENT_DATE) + INTERVAL '24 month'";
+    seedMissingLeaveGrants(c);
+  }
+
+  private static void seedMissingLeaveGrants(Connection c) throws SQLException {
+    if (count(c, "users") == 0) return;
+    System.out.println("Seeding missing migration leave grants...");
+    String findSql = "SELECT b.user_id,b.days_remaining,COALESCE(b.last_granted_on,CURRENT_DATE) grant_date "
+        + "FROM leave_balances b WHERE b.days_remaining>0 AND NOT EXISTS ("
+        + "SELECT 1 FROM leave_grants g WHERE g.user_id=b.user_id AND g.expires_on>=CURRENT_DATE AND g.days_remaining>0)";
+    String insertSql = "INSERT INTO leave_grants(user_id,grant_date,expires_on,days_granted,days_remaining,attendance_rate,source) "
+        + "SELECT ?,?,?,?,?,1.0,'MIGRATION' WHERE NOT EXISTS (SELECT 1 FROM leave_grants WHERE user_id=? AND grant_date=?)";
+    int hoursPerDay = currentLeaveHoursPerDay(c);
+    try (PreparedStatement find = c.prepareStatement(findSql);
+         PreparedStatement insert = c.prepareStatement(insertSql);
+         ResultSet grants = find.executeQuery()) {
+      while (grants.next()) {
+        long userId = grants.getLong("user_id");
+        BigDecimal days = grants.getBigDecimal("days_remaining");
+        LocalDate grantDate = grants.getObject("grant_date", LocalDate.class);
+        LocalDate expiresOn = grantDate.plusMonths(24);
+        BigDecimal remainingDays = days.subtract(approvedLeaveDays(c, userId, hoursPerDay, grantDate, expiresOn));
+        if (remainingDays.signum() < 0) remainingDays = BigDecimal.ZERO;
+        insert.setLong(1, userId);
+        insert.setObject(2, grantDate);
+        insert.setObject(3, expiresOn);
+        insert.setBigDecimal(4, days);
+        insert.setBigDecimal(5, remainingDays);
+        insert.setLong(6, userId);
+        insert.setObject(7, grantDate);
+        insert.addBatch();
+      }
+      insert.executeBatch();
+    } catch (SQLException e) {
+      System.err.println("Seeding missing migration leave grants failed.");
+      throw e;
+    }
+  }
+
+  private static int currentLeaveHoursPerDay(Connection c) throws SQLException {
+    try (PreparedStatement p = c.prepareStatement(
+        "SELECT hours_per_day FROM leave_rule_config WHERE active=TRUE ORDER BY effective_from DESC LIMIT 1");
+         ResultSet r = p.executeQuery()) {
+      if (r.next()) return Math.max(1, r.getInt("hours_per_day"));
+    }
+    return 8;
+  }
+
+  private static BigDecimal approvedLeaveDays(
+      Connection c, long userId, int hoursPerDay, LocalDate grantDate, LocalDate expiresOn) throws SQLException {
+    BigDecimal total = BigDecimal.ZERO;
+    try (PreparedStatement p = c.prepareStatement(
+        "SELECT leave_unit,hours FROM leave_requests WHERE user_id=? AND status='APPROVED' AND leave_date>=? AND leave_date<=?")) {
+      p.setLong(1, userId);
+      p.setObject(2, grantDate);
+      p.setObject(3, expiresOn);
+      try (ResultSet r = p.executeQuery()) {
+        while (r.next()) {
+          String unit = r.getString("leave_unit");
+          if ("FULL".equals(unit)) {
+            total = total.add(BigDecimal.ONE);
+          } else if ("AM".equals(unit) || "PM".equals(unit)) {
+            total = total.add(new BigDecimal("0.5"));
+          } else if ("HOURLY".equals(unit)) {
+            total = total.add(BigDecimal.valueOf(Math.max(0, r.getInt("hours")))
+                .divide(BigDecimal.valueOf(hoursPerDay), 3, RoundingMode.HALF_UP));
+          }
         }
-        s.executeUpdate("INSERT INTO leave_grants(user_id,grant_date,expires_on,days_granted,days_remaining,attendance_rate,source) "
-            + "SELECT b.user_id,COALESCE(b.last_granted_on,CURRENT_DATE)," + add24MonthsSql + ","
-            + "b.days_remaining,b.days_remaining,1.0,'MIGRATION' FROM leave_balances b WHERE b.days_remaining>0");
-      } catch (SQLException e) {
-        System.err.println("Seeding migration leave grants failed.");
-        throw e;
       }
     }
+    return total;
   }
 
   private static void importDemoUsers(Connection c) throws SQLException, IOException {

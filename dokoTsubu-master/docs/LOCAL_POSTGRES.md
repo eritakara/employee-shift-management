@@ -89,6 +89,6 @@ powershell -ExecutionPolicy Bypass -File .\test-postgres.ps1 -ResetDatabase -Tes
 - Notifications and mail outbox
 - Month-based dashboard and date aggregation
 
-## Known remaining compatibility work
+## Confirmed PostgreSQL compatibility fixes
 
-`service.AttendanceService` still contains an H2-style `MERGE INTO attendance ... KEY(user_id,work_date)` statement. It was not reached by the default `ShiftPreferenceWorkflowTest` PostgreSQL smoke test. Verify and fix it in a focused follow-up if attendance clock-in/out is added to the PostgreSQL compatibility test path.
+`service.AttendanceService` attendance UPSERT is PostgreSQL-compatible. PostgreSQL uses `INSERT ... ON CONFLICT (user_id,work_date) DO UPDATE`, while H2 keeps the existing `MERGE INTO attendance ... KEY(user_id,work_date)` path.

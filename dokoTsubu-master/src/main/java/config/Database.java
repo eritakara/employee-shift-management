@@ -19,6 +19,8 @@ import java.time.LocalDate;
 import util.PasswordUtil;
 
 public final class Database {
+  private static final int REQUIRED_DAY_STAFF = 1;
+  private static final int REQUIRED_NIGHT_STAFF = 1;
   private static String jdbcUrl;
   private static String jdbcUser;
   private static String jdbcPassword;
@@ -282,8 +284,8 @@ public final class Database {
       System.out.println("Seeding work types...");
       String sql = "INSERT INTO work_types(code,name_ja,name_en,start_time,end_time,crosses_midnight,break_minutes,required_staff) VALUES(?,?,?,?,?,?,?,?)";
       try (PreparedStatement p = c.prepareStatement(sql)) {
-        insertWorkType(p, "DAY", "日勤", "Day", "08:00:00", "17:00:00", false, 60, 5);
-        insertWorkType(p, "NIGHT", "夜勤", "Night", "17:00:00", "08:00:00", true, 120, 7);
+        insertWorkType(p, "DAY", "日勤", "Day", "08:00:00", "17:00:00", false, 60, REQUIRED_DAY_STAFF);
+        insertWorkType(p, "NIGHT", "夜勤", "Night", "17:00:00", "08:00:00", true, 120, REQUIRED_NIGHT_STAFF);
         insertWorkType(p, "OFF", "休み", "Off", null, null, false, 0, 0);
         insertWorkType(p, "LEAVE", "有休", "Paid leave", null, null, false, 0, 0);
         insertWorkType(p, "AM_LEAVE", "午前休", "AM leave", "13:00:00", "17:00:00", false, 0, 0);
@@ -301,6 +303,18 @@ public final class Database {
         System.err.println("Seeding work type NIGHT_OFF failed.");
         throw e;
       }
+    }
+    try (PreparedStatement p = c.prepareStatement(
+        "UPDATE work_types SET required_staff=? WHERE code=? AND required_staff=?")) {
+      p.setInt(1, REQUIRED_DAY_STAFF);
+      p.setString(2, "DAY");
+      p.setInt(3, 5);
+      p.addBatch();
+      p.setInt(1, REQUIRED_NIGHT_STAFF);
+      p.setString(2, "NIGHT");
+      p.setInt(3, 7);
+      p.addBatch();
+      p.executeBatch();
     }
     if (count(c, "users") == 0) {
       boolean isProduction = "true".equalsIgnoreCase(System.getenv("RENDER"))

@@ -53,12 +53,17 @@ public class ShiftWorkflowTest {
     portal.decideShiftChange(manager, rejectRequestId, false, "人員不足のため");
     check("REJECTED".equals(Sql.one("SELECT status FROM shift_change_requests WHERE id=?", rejectRequestId).get("status")), "shift rejection with reason applied");
 
-    Sql.update("UPDATE work_types SET required_staff=1 WHERE code IN('DAY','NIGHT')");
+    check(((Number) Sql.one("SELECT required_staff metric_value FROM work_types WHERE code='DAY'").get("metric_value")).intValue() == 1,
+        "day shift requires one worker");
+    check(((Number) Sql.one("SELECT required_staff metric_value FROM work_types WHERE code='NIGHT'").get("metric_value")).intValue() == 1,
+        "night shift requires one worker");
     LocalDate boundaryDate = targetMonth.atDay(Math.min(10, targetMonth.lengthOfMonth() - 1));
     List<Map<String, Object>> emptyWarnings = portal.shiftWarningsForDate(manager, boundaryDate);
     check(count(emptyWarnings, "STAFF_SHORTAGE") == 2, "zero-staff shortage by work type");
     portal.saveShift(manager, employee.getId(), boundaryDate, "NIGHT", "DRAFT", "night");
     portal.saveShift(manager, coworker.getId(), boundaryDate, "DAY", "DRAFT", "day");
+    check(count(portal.shiftWarningsForDate(manager, boundaryDate), "STAFF_SHORTAGE") == 0,
+        "one worker per day and night shift satisfies staffing");
     portal.saveShift(manager, employee.getId(), boundaryDate.plusDays(1), "DAY", "DRAFT", "overlap");
     check(count(portal.shiftWarningsForDate(manager, boundaryDate.plusDays(1)), "NIGHT_REST") == 1, "night-rest overlap detected");
     portal.saveShift(manager, employee.getId(), boundaryDate.plusDays(1), "OFF", "DRAFT", "rest");

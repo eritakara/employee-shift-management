@@ -1,5 +1,6 @@
 package service;
 
+import config.Database;
 import dao.Sql;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -76,7 +77,15 @@ public class AttendanceService {
       if (today.get("clock_in") != null) {
         throw new IllegalArgumentException("本日の打刻は完了しています。時刻の変更は打刻修正から申請してください。");
       }
-      Sql.update("MERGE INTO attendance(user_id,work_date,clock_in,in_lat,in_lng,location_status,status) KEY(user_id,work_date) VALUES(?,?,CURRENT_TIMESTAMP,?,?,?,'OPEN')",
+      String sql = Database.isPostgres()
+          ? "INSERT INTO attendance(user_id,work_date,clock_in,in_lat,in_lng,location_status,status) "
+              + "VALUES(?,?,CURRENT_TIMESTAMP,?,?,?,'OPEN') "
+              + "ON CONFLICT (user_id,work_date) DO UPDATE SET clock_in=EXCLUDED.clock_in, "
+              + "in_lat=EXCLUDED.in_lat, in_lng=EXCLUDED.in_lng, "
+              + "location_status=EXCLUDED.location_status, status=EXCLUDED.status"
+          : "MERGE INTO attendance(user_id,work_date,clock_in,in_lat,in_lng,location_status,status) "
+              + "KEY(user_id,work_date) VALUES(?,?,CURRENT_TIMESTAMP,?,?,?,'OPEN')";
+      Sql.update(sql,
           user.getId(), workDate, number(lat), number(lng), locationStatus);
     } else {
       Map<String, Object> open = Sql.one("SELECT id,work_date,finalized FROM attendance WHERE user_id=? AND clock_in IS NOT NULL AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1", user.getId());

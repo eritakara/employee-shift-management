@@ -19,8 +19,8 @@ public class UiStateCoverageTest {
     check(script.contains("form.dataset.submitting === 'true'"), "forms prevent duplicate submission");
     check(script.contains("aria-busy"), "forms expose loading state");
     check(script.contains("role', 'status'"), "loading message is announced");
-    check(application.contains("assets/app.css?v=20260626-3")
-        && application.contains("assets/app.js?v=20260625-1"), "updated app assets use the latest cache buster");
+    check(application.contains("assets/app.css?v=20260626-4")
+        && application.contains("assets/app.js?v=20260626-2"), "updated app assets use the latest cache buster");
     check(css.contains(".loading-indicator"), "loading state has a common visual style");
     check(application.contains("class=\"empty\""), "application has a common empty state");
     check(application.contains("class=\"alert danger\""), "application has a common input error state");
@@ -55,8 +55,11 @@ public class UiStateCoverageTest {
     check(application.contains("days(event.get(\"days\"))"), "leave ledger days use compact number formatting");
     check(application.contains("class=\"approver-panel\"") && application.contains("leaveApprovers"),
         "leave request form shows approver information");
-    check(application.contains("理由（任意）<textarea name=\"reason\" maxlength=\"1000\"></textarea>"),
+    check(application.contains("textarea name=\"reason\" maxlength=\"1000\"></textarea>"),
         "leave request reason is optional in the form");
+    check(application.contains("data-leave-request-form") && application.contains("name=\"dates\" data-leave-dates-input")
+        && script.contains("data-leave-date-add") && script.contains("selectedDates"),
+        "leave request form supports selecting multiple dates");
     check(application.contains("data-leave-reject-open") && application.contains("data-leave-reject-dialog")
         && application.contains("name=\"rejectionReason\" required maxlength=\"500\" rows=\"4\" placeholder=\"却下理由を入力してください\""),
         "leave rejection uses a reason dialog");

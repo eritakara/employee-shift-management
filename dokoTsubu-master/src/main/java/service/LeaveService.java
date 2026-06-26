@@ -1,9 +1,17 @@
 package service;
 
+import config.Database;
 import dao.Sql;
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.time.LocalDate;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import model.User;
@@ -39,14 +47,76 @@ public class LeaveService {
   }
 
   public void requestLeave(User user, LocalDate date, String unit, Integer hours, String reason) {
-    validateLeaveRequestDate(date);
-    validateLeaveBalance(user.getId(), date, unit, hours);
+    requestLeave(user, List.of(date), unit, hours, reason);
+  }
 
-    long id = Sql.insert("INSERT INTO leave_requests(user_id,leave_date,leave_unit,hours,reason) VALUES(?,?,?,?,?)",
-        user.getId(), date, unit, hours, reason == null ? "" : reason.trim());
+  public void requestLeave(User user, List<LocalDate> dates, String unit, Integer hours, String reason) {
+    List<LocalDate> selectedDates = normalizeLeaveDates(dates);
+    validateLeaveUnit(unit, hours);
+    for (LocalDate date : selectedDates) validateLeaveRequestDate(date);
+    validateNoActiveLeaveRequests(user.getId(), selectedDates);
+    validateLeaveBalance(user.getId(), selectedDates, unit, hours);
+
+    List<Long> ids = insertLeaveRequests(user.getId(), selectedDates, unit, hours, reason);
     NotificationService notificationService = new NotificationService();
     notificationService.notifyLeaveApprovers(user, "LEAVE_REQUEST", "有休申請", user.getName() + "さんから有休申請があります。", "/app/leave/approvals");
-    AuditService.record(user.getId(), "REQUEST_LEAVE", "LEAVE_REQUEST", String.valueOf(id), null, unit + ":" + date);
+    for (int i = 0; i < ids.size(); i++) {
+      AuditService.record(user.getId(), "REQUEST_LEAVE", "LEAVE_REQUEST", String.valueOf(ids.get(i)), null, unit + ":" + selectedDates.get(i));
+    }
+  }
+
+  private List<LocalDate> normalizeLeaveDates(List<LocalDate> dates) {
+    if (dates == null || dates.isEmpty()) throw new IllegalArgumentException("取得日を選択してください。");
+    List<LocalDate> selectedDates = new ArrayList<>(new LinkedHashSet<>(dates));
+    Collections.sort(selectedDates);
+    if (selectedDates.isEmpty()) throw new IllegalArgumentException("取得日を選択してください。");
+    return selectedDates;
+  }
+
+  private void validateLeaveUnit(String unit, Integer hours) {
+    if (!List.of("FULL", "AM", "PM", "HOURLY").contains(unit)) throw new IllegalArgumentException("取得単位を選択してください。");
+    if ("HOURLY".equals(unit) && (hours == null || hours < 1)) throw new IllegalArgumentException("時間数を入力してください。");
+  }
+
+  private void validateNoActiveLeaveRequests(long userId, List<LocalDate> dates) {
+    for (LocalDate date : dates) {
+      if (!Sql.query("SELECT id FROM leave_requests WHERE user_id=? AND leave_date=? AND status IN ('PENDING','APPROVED')", userId, date).isEmpty()) {
+        throw new IllegalArgumentException(date + " は申請中または承認済みの有休申請があります。");
+      }
+    }
+  }
+
+  private List<Long> insertLeaveRequests(long userId, List<LocalDate> dates, String unit, Integer hours, String reason) {
+    String normalizedReason = reason == null ? "" : reason.trim();
+    List<Long> ids = new ArrayList<>();
+    try (Connection c = Database.getConnection();
+         PreparedStatement p = c.prepareStatement(
+             "INSERT INTO leave_requests(user_id,leave_date,leave_unit,hours,reason) VALUES(?,?,?,?,?)",
+             Statement.RETURN_GENERATED_KEYS)) {
+      c.setAutoCommit(false);
+      try {
+        for (LocalDate date : dates) {
+          p.setLong(1, userId);
+          p.setObject(2, date);
+          p.setString(3, unit);
+          p.setObject(4, hours);
+          p.setString(5, normalizedReason);
+          p.executeUpdate();
+          try (ResultSet rs = p.getGeneratedKeys()) {
+            ids.add(rs.next() ? rs.getLong(1) : 0);
+          }
+        }
+        c.commit();
+      } catch (SQLException | RuntimeException e) {
+        c.rollback();
+        throw e;
+      } finally {
+        c.setAutoCommit(true);
+      }
+    } catch (SQLException e) {
+      throw new IllegalStateException("有休申請の登録に失敗しました。", e);
+    }
+    return ids;
   }
 
   private void validateLeaveRequestDate(LocalDate date) {
@@ -59,16 +129,22 @@ public class LeaveService {
   }
 
   private void validateLeaveBalance(long userId, LocalDate date, String unit, Integer hours) {
+    validateLeaveBalance(userId, List.of(date), unit, hours);
+  }
+
+  private void validateLeaveBalance(long userId, List<LocalDate> dates, String unit, Integer hours) {
     Map<String, Object> balance = leaveBalance(userId);
     BigDecimal days = (BigDecimal) balance.getOrDefault("days_remaining", BigDecimal.ZERO);
     int hoursPerDay = ((Number) balance.getOrDefault("hours_per_day", 8)).intValue();
-    double needed = "FULL".equals(unit) ? 1 : ("AM".equals(unit) || "PM".equals(unit)) ? .5 : (hours == null ? 0 : hours / (double) hoursPerDay);
+    double neededPerDay = "FULL".equals(unit) ? 1 : ("AM".equals(unit) || "PM".equals(unit)) ? .5 : (hours == null ? 0 : hours / (double) hoursPerDay);
+    double needed = neededPerDay * dates.size();
     if (days.doubleValue() < needed) {
       throw new IllegalArgumentException("有効期限内の有休残数が不足しています。");
     }
     if ("HOURLY".equals(unit)) {
       int remainingHours = ((Number) balance.getOrDefault("hourly_remaining", 0)).intValue();
-      if (hours == null || hours < 1 || hours > remainingHours) {
+      int totalHours = (hours == null ? 0 : hours) * dates.size();
+      if (hours == null || hours < 1 || totalHours > remainingHours) {
         throw new IllegalArgumentException("時間単位有休の年間上限を超えています。");
       }
     }

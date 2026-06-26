@@ -20,6 +20,8 @@ if ($LASTEXITCODE -ne 0) { throw "Demo shift CSV tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Mail tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.LeavePolicyTest
 if ($LASTEXITCODE -ne 0) { throw "Leave policy tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" config.LeaveGrantBackfillTest
+if ($LASTEXITCODE -ne 0) { throw "Leave grant backfill tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.ShiftSubmissionPolicyTest
 if ($LASTEXITCODE -ne 0) { throw "Shift submission policy tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.AttendanceFinalizationTest

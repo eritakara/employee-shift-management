@@ -122,7 +122,10 @@ public class ShiftService {
 
   void submitMonthlyPreferences(User actor, YearMonth month, Map<LocalDate, String> preferences,
       Map<LocalDate, String> reasons, LocalDate today) {
-    shiftSubmissionPolicy.validate(today, month.atDay(1), settings.integer("SHIFT_SUBMISSION_DAY", 15));
+    int submissionDay = settings.integer("SHIFT_SUBMISSION_DAY", 15);
+    LocalDate deadline = preferenceDeadline(month, submissionDay);
+    rejectSubmittedPreferenceAfterDeadline(actor, month, today, deadline);
+    shiftSubmissionPolicy.validate(today, month.atDay(1), submissionDay);
     Map<LocalDate, String> selected = new LinkedHashMap<>();
     Map<LocalDate, String> selectedReasons = new LinkedHashMap<>();
     for (Map.Entry<LocalDate, String> entry : preferences.entrySet()) {
@@ -348,13 +351,30 @@ public class ShiftService {
   public Map<String, Object> shiftSubmissionWindow(YearMonth targetMonth) {
     LocalDate today = LocalDate.now();
     int submissionDay = settings.integer("SHIFT_SUBMISSION_DAY", 15);
-    YearMonth deadlineMonth = targetMonth.minusMonths(1);
-    LocalDate deadline = deadlineMonth.atDay(Math.min(Math.max(submissionDay, 1), deadlineMonth.lengthOfMonth()));
+    LocalDate deadline = preferenceDeadline(targetMonth, submissionDay);
     Map<String, Object> result = new java.util.LinkedHashMap<>();
     result.put("target_month", targetMonth);
     result.put("deadline", deadline);
     result.put("open", !today.isAfter(deadline));
     return result;
+  }
+
+  private LocalDate preferenceDeadline(YearMonth targetMonth, int submissionDay) {
+    YearMonth deadlineMonth = targetMonth.minusMonths(1);
+    return deadlineMonth.atDay(Math.min(Math.max(submissionDay, 1), deadlineMonth.lengthOfMonth()));
+  }
+
+  private void rejectSubmittedPreferenceAfterDeadline(User actor, YearMonth month, LocalDate today, LocalDate deadline) {
+    if (!today.isAfter(deadline)) return;
+    Map<String, Object> submission = preferenceSubmission(actor, month);
+    if (!"SUBMITTED".equals(submission.get("status"))) return;
+    throw new IllegalArgumentException(deadlineClosedSubmittedMessage(month, deadline));
+  }
+
+  private String deadlineClosedSubmittedMessage(YearMonth month, LocalDate deadline) {
+    return String.format(
+        "%d年%02d月の希望シフト提出期限は %d年%02d月%02d日 で終了しています。提出済みの希望シフトは変更できません。変更が必要な場合は、店長または人事へ相談してください。",
+        month.getYear(), month.getMonthValue(), deadline.getYear(), deadline.getMonthValue(), deadline.getDayOfMonth());
   }
 
   public void confirmMonth(User actor, YearMonth month, String warningReason) {

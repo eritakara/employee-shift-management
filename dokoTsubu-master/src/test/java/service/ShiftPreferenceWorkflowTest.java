@@ -44,6 +44,13 @@ public class ShiftPreferenceWorkflowTest {
     List<Map<String, Object>> managerDetails = portal.preferenceDetails(manager, month);
     check(managerDetails.size() == 3, "manager sees preference details");
 
+    Map<LocalDate, String> latePreference = Map.of(month.atDay(5), "OFF");
+    expectFailure(() -> portal.submitMonthlyPreferences(employee, month, latePreference, Map.of(), LocalDate.of(2026, 6, 16)),
+        "submitted preference edit after deadline is blocked", "提出済みの希望シフトは変更できません");
+    check(portal.preferences(employee, month).size() == 3, "late rejected submission keeps preference details");
+    check("SUBMITTED".equals(portal.preferenceSubmission(employee, month).get("status")),
+        "late rejected submission keeps submission status");
+
     // 希望シフトとしてLEAVE（有休）を送信した場合はエラーになることの検証
     Map<LocalDate, String> leavePreference = Map.of(month.atDay(21), "LEAVE");
     expectFailure(() -> portal.submitMonthlyPreferences(employee, month, leavePreference, Map.of(), policyToday),
@@ -92,6 +99,16 @@ public class ShiftPreferenceWorkflowTest {
 
   private static void expectFailure(Runnable action, String label) {
     try { action.run(); } catch (IllegalArgumentException expected) { return; }
+    throw new AssertionError("Failed: " + label);
+  }
+
+  private static void expectFailure(Runnable action, String label, String expectedMessage) {
+    try {
+      action.run();
+    } catch (IllegalArgumentException expected) {
+      if (expected.getMessage() != null && expected.getMessage().contains(expectedMessage)) return;
+      throw new AssertionError("Failed: " + label + " message: " + expected.getMessage());
+    }
     throw new AssertionError("Failed: " + label);
   }
 }

@@ -89,7 +89,7 @@
 - `id` BIGINT PRIMARY KEY (自動採番)
 - `user_id` BIGINT NOT NULL (ユーザーID、外部キー `users(id)`)
 - `target_month` DATE NOT NULL (対象年月)
-- `status` VARCHAR(20) NOT NULL DEFAULT 'DRAFT' (提出状態: `DRAFT`, `SUBMITTED`, `APPROVED`)
+- `status` VARCHAR(20) NOT NULL DEFAULT 'DRAFT' (提出状態: `DRAFT`, `SUBMITTED`, `APPROVED`, `RETURNED`)
 - `submitted_at` TIMESTAMP (提出日時)
 - `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP (更新日時)
 - `reviewed_by` BIGINT (承認者、外部キー `users(id)`)

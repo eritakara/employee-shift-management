@@ -43,7 +43,7 @@ public class UiStateCoverageTest {
         && application.contains("if (\"STAFF_SHORTAGE\".equals(warning)) return \"人員不足\""),
         "shift warning types are localized");
     check(application.contains("pageKey.equals(\"shifts/history\") || pageKey.equals(\"shifts/change\")")
-        && application.contains("} else if (!pageKey.equals(\"shifts/manage\")) {"),
+        && application.contains("} else if (!pageKey.equals(\"shifts/manage\") && !pageKey.equals(\"shifts/request\")) {"),
         "schedule editor hides change requests and monthly schedule sections");
     check(application.contains("\"shifts/manage\",\"shifts/confirm\"")
         && application.contains("<%=shiftMonthAutoSubmit?\"data-auto-submit\":\"\"%>")

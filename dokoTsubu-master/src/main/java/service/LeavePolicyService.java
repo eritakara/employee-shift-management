@@ -1,5 +1,6 @@
 package service;
 
+import config.Database;
 import dao.Sql;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -140,7 +141,14 @@ public class LeavePolicyService {
 
   public void syncBalance(long userId, LocalDate asOf) {
     Map<String, Object> total = Sql.one("SELECT COALESCE(SUM(days_remaining),0) total FROM leave_grants WHERE user_id=? AND expires_on>=?", userId, asOf);
-    Sql.update("MERGE INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) KEY(user_id) VALUES(?,?,COALESCE((SELECT hourly_used FROM leave_balances WHERE user_id=?),0),(SELECT MAX(grant_date) FROM leave_grants WHERE user_id=?))",
+    String sql = Database.isPostgres()
+        ? "INSERT INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) "
+            + "VALUES(?,?,COALESCE((SELECT hourly_used FROM leave_balances WHERE user_id=?),0),(SELECT MAX(grant_date) FROM leave_grants WHERE user_id=?)) "
+            + "ON CONFLICT (user_id) DO UPDATE SET days_remaining=EXCLUDED.days_remaining, "
+            + "hourly_used=EXCLUDED.hourly_used, last_granted_on=EXCLUDED.last_granted_on"
+        : "MERGE INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) KEY(user_id) "
+            + "VALUES(?,?,COALESCE((SELECT hourly_used FROM leave_balances WHERE user_id=?),0),(SELECT MAX(grant_date) FROM leave_grants WHERE user_id=?))";
+    Sql.update(sql,
         userId, total.get("total"), userId, userId);
   }
 

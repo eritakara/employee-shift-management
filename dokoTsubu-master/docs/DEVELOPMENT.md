@@ -163,3 +163,22 @@ SELECT 'employment_types', COUNT(*) FROM employment_types;
 -- 4. 勤務タイプ (work_types) の確認
 SELECT code, name_ja, start_time, end_time FROM work_types;
 ```
+
+## Local PostgreSQL compatibility checks
+
+H2 remains the default local and automated test database. For SQL compatibility checks closer to Render/Supabase PostgreSQL, use the local Docker PostgreSQL environment described in `LOCAL_POSTGRES.md`.
+
+Quick start:
+
+```powershell
+docker compose -f docker-compose.postgres.yml up -d
+powershell -ExecutionPolicy Bypass -File .\run-dev-postgres.ps1
+```
+
+Targeted PostgreSQL smoke test:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\test-postgres.ps1 -ResetDatabase
+```
+
+This local database uses `localhost:5433` and local-only credentials from `.env.postgres.example`. Do not use Render or Supabase production credentials in this environment.

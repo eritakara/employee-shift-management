@@ -71,7 +71,14 @@ public class ShiftService {
     assertCanManage(actor, userId);
     if (!workTypes().stream().anyMatch(r -> type.equals(r.get("code")))) throw new IllegalArgumentException("勤務区分が不正です。");
     assertShiftLeaveBalance(userId, date, type);
-    Sql.update("MERGE INTO shifts(user_id,work_date,work_type_code,status,note,updated_by,updated_at) KEY(user_id,work_date) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+    String sql = Database.isPostgres()
+        ? "INSERT INTO shifts(user_id,work_date,work_type_code,status,note,updated_by,updated_at) "
+            + "VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP) "
+            + "ON CONFLICT (user_id,work_date) DO UPDATE SET work_type_code=EXCLUDED.work_type_code, "
+            + "status=EXCLUDED.status, note=EXCLUDED.note, updated_by=EXCLUDED.updated_by, updated_at=CURRENT_TIMESTAMP"
+        : "MERGE INTO shifts(user_id,work_date,work_type_code,status,note,updated_by,updated_at) "
+            + "KEY(user_id,work_date) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP)";
+    Sql.update(sql,
         userId, date, type, status, note, actor.getId());
     AuditService.record(actor.getId(), "SAVE_SHIFT", "SHIFT", userId + ":" + date, null, type + "/" + status);
   }

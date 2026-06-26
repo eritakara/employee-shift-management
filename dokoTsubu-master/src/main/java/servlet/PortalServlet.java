@@ -9,7 +9,10 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import model.User;
 
@@ -195,7 +198,7 @@ public class PortalServlet extends HttpServlet {
         case "requestShiftChange" -> shiftService.requestShiftChange(user, LocalDate.parse(req.getParameter("date")), req.getParameter("workType"), req.getParameter("reason"));
         case "decideShiftChange" -> shiftService.decideShiftChange(user, Long.parseLong(req.getParameter("id")),
             "approve".equals(req.getParameter("decision")), req.getParameter("rejectionReason"));
-        case "requestLeave" -> leaveService.requestLeave(user, LocalDate.parse(req.getParameter("date")),
+        case "requestLeave" -> leaveService.requestLeave(user, parseLeaveDates(req),
             req.getParameter("unit"), integer(req.getParameter("hours")), req.getParameter("reason"));
         case "decideLeave" -> leaveService.decideLeave(user, Long.parseLong(req.getParameter("id")),
             "approve".equals(req.getParameter("decision")), req.getParameter("rejectionReason"));
@@ -269,6 +272,18 @@ public class PortalServlet extends HttpServlet {
   private YearMonth parseMonth(String value) {
     try { return value == null || value.isBlank() ? YearMonth.now() : YearMonth.parse(value); }
     catch (Exception e) { return YearMonth.now(); }
+  }
+  private List<LocalDate> parseLeaveDates(HttpServletRequest req) {
+    LinkedHashSet<LocalDate> dates = new LinkedHashSet<>();
+    String multiple = req.getParameter("dates");
+    if (multiple != null && !multiple.isBlank()) {
+      for (String value : multiple.split(",")) {
+        if (!value.isBlank()) dates.add(LocalDate.parse(value.trim()));
+      }
+    }
+    String single = req.getParameter("date");
+    if (single != null && !single.isBlank()) dates.add(LocalDate.parse(single.trim()));
+    return new ArrayList<>(dates);
   }
   private String value(HttpServletRequest req, String name, String fallback) {
     String value = req.getParameter(name); return value == null || value.isBlank() ? fallback : value;

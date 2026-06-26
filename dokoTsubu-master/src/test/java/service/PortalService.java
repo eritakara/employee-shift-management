@@ -161,6 +161,10 @@ public class PortalService {
     leaveService.requestLeave(user, date, unit, hours, reason);
   }
 
+  public void requestLeave(User user, java.util.List<LocalDate> dates, String unit, Integer hours, String reason) {
+    leaveService.requestLeave(user, dates, unit, hours, reason);
+  }
+
   public void decideLeave(User actor, long requestId, boolean approve) {
     leaveService.decideLeave(actor, requestId, approve);
   }

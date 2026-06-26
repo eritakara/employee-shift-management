@@ -158,6 +158,69 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  const leaveRequestForm = document.querySelector('[data-leave-request-form]');
+  if (leaveRequestForm) {
+    const datePicker = leaveRequestForm.querySelector('[data-leave-date-picker]');
+    const addButton = leaveRequestForm.querySelector('[data-leave-date-add]');
+    const datesInput = leaveRequestForm.querySelector('[data-leave-dates-input]');
+    const dateList = leaveRequestForm.querySelector('[data-leave-date-list]');
+    const selectedDates = new Set();
+    const formatDate = value => {
+      const [year, month, day] = value.split('-');
+      return `${year}年${month}月${day}日`;
+    };
+    const renderDates = () => {
+      const values = [...selectedDates].sort();
+      datesInput.value = values.join(',');
+      dateList.replaceChildren();
+      if (!values.length) {
+        const empty = document.createElement('span');
+        empty.className = 'muted';
+        empty.textContent = '取得日を追加してください。';
+        dateList.append(empty);
+        return;
+      }
+      values.forEach(value => {
+        const chip = document.createElement('span');
+        chip.className = 'leave-date-chip';
+        chip.textContent = formatDate(value);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.setAttribute('aria-label', `${formatDate(value)}を削除`);
+        remove.textContent = '×';
+        remove.addEventListener('click', () => {
+          selectedDates.delete(value);
+          renderDates();
+        });
+        chip.append(remove);
+        dateList.append(chip);
+      });
+    };
+    const addDate = () => {
+      if (!datePicker.value) return false;
+      selectedDates.add(datePicker.value);
+      datePicker.value = '';
+      datePicker.setCustomValidity('');
+      renderDates();
+      return true;
+    };
+    datePicker.required = false;
+    datePicker.addEventListener('change', addDate);
+    addButton?.addEventListener('click', addDate);
+    leaveRequestForm.addEventListener('submit', event => {
+      addDate();
+      if (!selectedDates.size) {
+        event.preventDefault();
+        datePicker.setCustomValidity('取得日を選択してください。');
+        datePicker.reportValidity();
+        return;
+      }
+      datePicker.setCustomValidity('');
+      renderDates();
+    });
+    renderDates();
+  }
+
   document.querySelectorAll('[data-print-page]').forEach(button => {
     button.addEventListener('click', () => window.print());
   });

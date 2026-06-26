@@ -53,6 +53,15 @@ public class LeavePolicyTest {
     new PortalService().requestLeave(employee, leaveDate.plusDays(20), "FULL", null, "");
     check("".equals(Sql.one("SELECT reason FROM leave_requests WHERE user_id=? AND leave_date=?", employeeId, leaveDate.plusDays(20)).get("reason")),
         "leave request reason is optional");
+    new PortalService().requestLeave(employee, java.util.List.of(leaveDate.plusDays(21), leaveDate.plusDays(22), leaveDate.plusDays(23)), "FULL", null, "multi day");
+    check(((Number) Sql.one("SELECT COUNT(*) count_value FROM leave_requests WHERE user_id=? AND reason='multi day'", employeeId).get("count_value")).intValue() == 3,
+        "multi-day leave request creates one row per day");
+    expectFailure(() -> new PortalService().requestLeave(employee, java.util.List.of(leaveDate.plusDays(21), leaveDate.plusDays(24)), "FULL", null, "duplicate"),
+        "duplicate active leave request is rejected");
+    expectFailure(() -> new PortalService().requestLeave(employee,
+        java.util.List.of(leaveDate.plusDays(31), leaveDate.plusDays(32), leaveDate.plusDays(33), leaveDate.plusDays(34), leaveDate.plusDays(35),
+            leaveDate.plusDays(36), leaveDate.plusDays(37), leaveDate.plusDays(38), leaveDate.plusDays(39), leaveDate.plusDays(40), leaveDate.plusDays(41)),
+        "FULL", null, "too many days"), "multi-day leave balance shortage");
 
     long halfDayId = Sql.insert("INSERT INTO leave_requests(user_id,leave_date,leave_unit,reason) VALUES(?,?,'AM','half day')", employeeId, leaveDate.plusDays(1));
     ledger.consume(halfDayId);

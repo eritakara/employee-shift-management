@@ -4,6 +4,9 @@
 /data/
 /backups/
 /restore-check/
+.env
+.env.local
+.env.postgres
 *.mv.db
 *.trace.db
 /src/main/webapp/WEB-INF/lib/postgresql-*.jar

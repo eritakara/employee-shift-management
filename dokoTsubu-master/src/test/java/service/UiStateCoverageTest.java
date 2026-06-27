@@ -10,6 +10,7 @@ public class UiStateCoverageTest {
     String script = Files.readString(web.resolve("assets/app.js"));
     String css = Files.readString(web.resolve("assets/app.css"));
     String application = Files.readString(web.resolve("WEB-INF/jsp/app.jsp"));
+    String shiftRoster = Files.readString(web.resolve("WEB-INF/jsp/_shiftRoster.jspf"));
     String error = Files.readString(web.resolve("WEB-INF/jsp/error.jsp"));
     String deployment = Files.readString(web.resolve("WEB-INF/web.xml"));
     String leaveService = Files.readString(main.resolve("service/LeaveService.java"));
@@ -19,7 +20,7 @@ public class UiStateCoverageTest {
     check(script.contains("form.dataset.submitting === 'true'"), "forms prevent duplicate submission");
     check(script.contains("aria-busy"), "forms expose loading state");
     check(script.contains("role', 'status'"), "loading message is announced");
-    check(application.contains("assets/app.css?v=20260626-4")
+    check(application.contains("assets/app.css?v=20260627-1")
         && application.contains("assets/app.js?v=20260626-2"), "updated app assets use the latest cache buster");
     check(css.contains(".loading-indicator"), "loading state has a common visual style");
     check(application.contains("class=\"empty\""), "application has a common empty state");
@@ -43,8 +44,10 @@ public class UiStateCoverageTest {
         && application.contains("if (\"STAFF_SHORTAGE\".equals(warning)) return \"人員不足\""),
         "shift warning types are localized");
     check(application.contains("pageKey.equals(\"shifts/history\") || pageKey.equals(\"shifts/change\")")
-        && application.contains("} else if (!pageKey.equals(\"shifts/manage\") && !pageKey.equals(\"shifts/request\")) {"),
-        "schedule editor hides change requests and monthly schedule sections");
+        && application.contains("pageKey.equals(\"shifts/manage\") || pageKey.equals(\"shifts/confirm\")"),
+        "schedule editor and confirmation use the monthly roster");
+    check(shiftRoster.contains("rosterAllConfirmed") && shiftRoster.contains("rosterMixedStatus")
+        && shiftRoster.contains("rosterCellUnconfirmed"), "monthly roster summarizes confirmation status");
     check(application.contains("\"shifts/manage\",\"shifts/confirm\"")
         && application.contains("<%=shiftMonthAutoSubmit?\"data-auto-submit\":\"\"%>")
         && application.contains("<%if(!shiftMonthAutoSubmit){%><button type=\"submit\">表示</button><%}%>"),

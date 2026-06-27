@@ -302,6 +302,34 @@ document.addEventListener('DOMContentLoaded', () => {
     refresh();
   });
 
+  const shiftEditor = document.querySelector('[data-shift-editor]');
+  if (shiftEditor) {
+    const cells = [...document.querySelectorAll('[data-shift-edit-cell]')];
+    const userId = shiftEditor.querySelector('[data-shift-editor-user-id]');
+    const employee = shiftEditor.querySelector('[data-shift-editor-employee]');
+    const date = shiftEditor.querySelector('[data-shift-editor-date]');
+    const before = shiftEditor.querySelector('[data-shift-editor-before]');
+    const workType = shiftEditor.querySelector('[data-shift-editor-work-type]');
+    const status = shiftEditor.querySelector('[data-shift-editor-status]');
+    const note = shiftEditor.querySelector('[data-shift-editor-note]');
+    cells.forEach(cell => cell.addEventListener('click', () => {
+      cells.forEach(item => {
+        item.classList.toggle('selected', item === cell);
+        item.setAttribute('aria-pressed', String(item === cell));
+      });
+      userId.value = cell.dataset.userId;
+      employee.value = cell.dataset.employee;
+      date.value = cell.dataset.date;
+      before.textContent = cell.dataset.workTypeLabel || '未登録';
+      workType.value = cell.dataset.workType || workType.options[0]?.value || '';
+      status.value = cell.dataset.status || 'DRAFT';
+      note.value = cell.dataset.note || '';
+      shiftEditor.hidden = false;
+      shiftEditor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      workType.focus({ preventScroll: true });
+    }));
+  }
+
   const clock = document.querySelector('[data-clock]');
   if (clock) {
     const update = () => clock.textContent = new Intl.DateTimeFormat(document.documentElement.lang || 'ja', {
@@ -347,7 +375,7 @@ function translatePage() {
     '対象月':'Month','表示':'Show','印刷':'Print','印刷する':'Print','シフトへ戻る':'Back to schedule','調整する':'Edit schedule','勤務区分を変更':'Change work type','変更・休みを申請':'Request a change',
     '従業員':'Employee','日付':'Date','勤務区分':'Work type','状態':'Status','備考・理由':'Note or reason','変更を保存':'Save change','申請する':'Submit',
     '希望を確認してから自動割当へ進みます。':'Review preferences before automatic assignment.','提出済み':'Submitted','未提出・再提出待ち':'Not submitted / awaiting resubmission','希望一覧を開く':'Open preference list','提出希望日を確認':'Review requested dates',
-    'シフト充足状況':'Shift coverage','不足がある勤務区分を確認してください。':'Review work types with shortages.','確認事項の詳細を開く':'Open review details','個別に勤務区分を変更':'Change an individual work type',
+    'シフト充足状況':'Shift coverage','不足がある勤務区分を確認してください。':'Review work types with shortages.','確認事項の詳細を開く':'Open review details','選択中のシフトを変更':'Edit selected shift','月間シフトで選択したセルを編集します。':'Edit the cell selected in the monthly schedule.','変更前の勤務区分':'Current work type','変更後の勤務区分':'New work type','未登録':'Not assigned',
     '確定前チェック':'Pre-confirmation checks','警告はありません。':'No warnings.','種類':'Type','内容':'Details','必要':'Required','実績':'Actual','警告を確認して確定':'Confirm after reviewing warnings',
     '変更・休み申請':'Change and leave requests','申請者':'Requester','変更前':'Before','変更後':'After','理由':'Reason','緊急':'Urgent','操作':'Actions','承認':'Approve','却下':'Reject',
     '社員番号':'Employee no.','氏名':'Name','備考':'Note','対象月のシフトはありません。':'No schedules for this month.',

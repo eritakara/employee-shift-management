@@ -20,8 +20,8 @@ public class UiStateCoverageTest {
     check(script.contains("form.dataset.submitting === 'true'"), "forms prevent duplicate submission");
     check(script.contains("aria-busy"), "forms expose loading state");
     check(script.contains("role', 'status'"), "loading message is announced");
-    check(application.contains("assets/app.css?v=20260627-2")
-        && application.contains("assets/app.js?v=20260627-2"), "updated app assets use the latest cache buster");
+    check(application.contains("assets/app.css?v=20260627-3")
+        && application.contains("assets/app.js?v=20260627-3"), "updated app assets use the latest cache buster");
     check(css.contains(".loading-indicator"), "loading state has a common visual style");
     check(application.contains("class=\"empty\""), "application has a common empty state");
     check(application.contains("class=\"alert danger\""), "application has a common input error state");
@@ -59,8 +59,12 @@ public class UiStateCoverageTest {
         && script.contains("'変更を保存':'Save change'"), "shift adjustment wording supports English display");
     check(application.contains("shift-workflow-metrics") && application.contains("希望一覧を開く")
         && application.contains("提出希望日を確認"), "shift adjustment summarizes and collapses preferences");
-    check(application.contains("shift-coverage-summary") && application.contains("個別に勤務区分を変更")
-        && application.contains("workflow-editor"), "shift adjustment prioritizes coverage and monthly roster");
+    check(application.contains("shift-coverage-summary") && application.contains("選択中のシフトを変更")
+        && application.contains("data-shift-editor hidden"), "shift adjustment prioritizes coverage and reveals editing on selection");
+    check(shiftRoster.contains("rosterEditable=pageKey.equals(\"shifts/manage\")")
+        && shiftRoster.contains("data-shift-edit-cell"), "only shift adjustment roster exposes editable cells");
+    check(script.contains("const shiftEditor = document.querySelector('[data-shift-editor]')")
+        && script.contains("cell.dataset.workTypeLabel"), "shift cell selection populates the editor");
     check(shiftRoster.contains("rosterAllConfirmed") && shiftRoster.contains("rosterMixedStatus")
         && shiftRoster.contains("rosterCellUnconfirmed"), "monthly roster summarizes confirmation status");
     check(application.contains("\"shifts/manage\",\"shifts/confirm\"")

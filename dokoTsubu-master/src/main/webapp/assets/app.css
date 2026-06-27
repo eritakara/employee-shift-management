@@ -310,7 +310,7 @@ tbody tr:hover { background: #f7fbfa; }
 .attendance-step { margin: 0; }
 .attendance-step-header, .attendance-detail-heading { display: flex; align-items: flex-start; gap: 12px; }
 .attendance-step-header { margin-bottom: 16px; }
-.attendance-step-header > span, .attendance-detail-heading > span { flex: 0 0 34px; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--teal); color: white; font-weight: 900; }
+.attendance-step-header > span, .attendance-detail-heading > span { flex: 0 0 34px; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--teal); color: white; font-size: 16px; font-weight: 900; line-height: 1; }
 .attendance-step-header h2, .attendance-detail-heading h2 { margin: 0; font-size: 18px; }
 .attendance-step-header p, .attendance-detail-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
 .attendance-step-body { max-width: 680px; margin-left: 46px; }

@@ -306,6 +306,32 @@ tbody tr:hover { background: #f7fbfa; }
 .attendance-summary div { min-height: 82px; border: 1px solid var(--line); border-radius: 6px; background: white; padding: 14px; }
 .attendance-summary strong { display: block; margin-top: 6px; font-size: 24px; }
 .attendance-summary .attention { border-color: #e4c45d; background: var(--yellow-soft); }
+.attendance-control-grid { display: grid; grid-template-columns: minmax(210px,.8fr) repeat(2,minmax(280px,1fr)); gap: 14px; align-items: stretch; margin-bottom: 20px; }
+.attendance-control-card { display: flex; flex-direction: column; margin: 0; }
+.attendance-control-card .section-header { margin-bottom: 14px; }
+.attendance-filter-form, .attendance-employee-close, .attendance-month-close { display: flex; flex-direction: column; align-items: stretch; gap: 12px; margin: 0; }
+.attendance-filter-form { height: 100%; }
+.attendance-filter-form button { margin-top: auto; }
+.attendance-scope { display: grid; gap: 5px; }
+.attendance-scope span { color: var(--muted); font-size: 12px; font-weight: 700; }
+.attendance-scope strong { font-size: 14px; }
+.attendance-close-details { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin: 0 0 12px; }
+.attendance-close-details div { padding: 9px; background: var(--surface); border: 1px solid var(--line); }
+.attendance-close-details dt { color: var(--muted); font-size: 11px; font-weight: 700; }
+.attendance-close-details dd { margin: 5px 0 0; font-weight: 800; }
+.attendance-close-notice { min-height: 42px; margin: 0 0 12px; color: var(--muted); font-size: 12px; }
+.attendance-close-notice.attention { color: #775d13; }
+.attendance-control-card button:disabled { cursor: not-allowed; border-color: #d3dae0; background: #e5e9ec; color: #6b7780; opacity: 1; }
+.attendance-employee-close, .attendance-month-close { flex-direction: column; align-items: stretch; }
+.attendance-close-status { display: grid; gap: 4px; min-height: 38px; margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+.attendance-close-status strong { color: var(--ink); }
+.attendance-normal-actions, .attendance-secondary-actions { width: 100%; }
+.attendance-normal-actions button, .attendance-secondary-actions button { width: 100%; }
+.attendance-secondary-actions { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.attendance-secondary-actions > span { display: block; margin-bottom: 7px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.caution-button { border-color: #c9a7a7; background: white; color: #7d3c3c; }
+.caution-button:hover { background: #fff7f7; }
+.topbar-meta form, .topbar-meta .button { flex: 0 0 auto; white-space: nowrap; }
 tr.attendance-open { background: var(--yellow-soft); }
 tr.attendance-finalized td:first-child { border-left: 4px solid var(--teal); }
 .notification { border-bottom: 1px solid var(--line); padding: 16px 2px; display: grid; grid-template-columns: 1fr auto; gap: 12px; }
@@ -458,6 +484,10 @@ form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
   /* 勤怠打刻・勤怠サマリー */
   .clock-status-grid { grid-template-columns: 1fr; }
   .attendance-summary { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .attendance-control-grid { grid-template-columns: 1fr; gap: 10px; }
+  .attendance-filter-form, .attendance-employee-close, .attendance-month-close { width: 100%; }
+  .attendance-close-details { grid-template-columns: 1fr 1fr 1fr; }
+  .attendance-control-card button { width: 100%; }
   .clock-actions { flex-direction: column; gap: 8px; }
   .clock-actions button { width: 100%; }
 

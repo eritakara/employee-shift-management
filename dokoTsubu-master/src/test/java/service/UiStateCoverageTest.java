@@ -20,11 +20,30 @@ public class UiStateCoverageTest {
     check(script.contains("form.dataset.submitting === 'true'"), "forms prevent duplicate submission");
     check(script.contains("aria-busy"), "forms expose loading state");
     check(script.contains("role', 'status'"), "loading message is announced");
-    check(application.contains("assets/app.css?v=20260627-3")
-        && application.contains("assets/app.js?v=20260627-3"), "updated app assets use the latest cache buster");
+    check(application.contains("assets/app.css?v=20260627-4")
+        && application.contains("assets/app.js?v=20260627-4"), "updated app assets use the latest cache buster");
     check(css.contains(".loading-indicator"), "loading state has a common visual style");
     check(application.contains("class=\"empty\""), "application has a common empty state");
     check(application.contains("class=\"alert danger\""), "application has a common input error state");
+    check(application.contains("data-attendance-employee-select")
+        && application.contains("data-attendance-employee-confirm")
+        && application.contains("data-attendance-employee-release"),
+        "attendance employee close actions expose state-aware controls");
+    check(application.contains("この従業員を確定する")
+        && application.contains("この従業員の確定を解除する")
+        && application.contains("この月を一括確定する")
+        && application.contains("この月の確定を解除する"),
+        "attendance close actions use clear labels");
+    check(application.contains("attendance-control-grid")
+        && application.contains("<h2>対象条件</h2>")
+        && application.contains("<h2>月次確定</h2>")
+        && application.contains("<h2>従業員別確定</h2>"),
+        "attendance close controls are separated by purpose");
+    check(application.contains("対象件数が0件のため、月次確定できません。")
+        && application.contains("rows.isEmpty()?\"disabled\""),
+        "empty attendance months cannot be finalized");
+    check(script.contains("dataset.confirmMessage") && script.contains("window.confirm(confirmMessage)"),
+        "sensitive attendance close actions require confirmation");
     check(application.contains("href=\"<%=ctx%>/app/leave\">"), "leave navigation is consolidated into one menu item");
     check(application.contains("class=\"page-tabs leave-tabs\""), "leave page exposes in-page tabs");
     check(application.contains("leave?tab=balance") && application.contains("leave?tab=request")

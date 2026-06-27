@@ -65,6 +65,9 @@ public class UiStateCoverageTest {
         && shiftRoster.contains("data-shift-edit-cell"), "only shift adjustment roster exposes editable cells");
     check(script.contains("const shiftEditor = document.querySelector('[data-shift-editor]')")
         && script.contains("cell.dataset.workTypeLabel"), "shift cell selection populates the editor");
+    check(application.contains("<input type=\"hidden\" name=\"status\" data-shift-editor-status>")
+        && !application.contains("<label>状態<select name=\"status\" data-shift-editor-status>"),
+        "shift cell editor preserves status without exposing an editable field");
     check(shiftRoster.contains("rosterAllConfirmed") && shiftRoster.contains("rosterMixedStatus")
         && shiftRoster.contains("rosterCellUnconfirmed"), "monthly roster summarizes confirmation status");
     check(application.contains("\"shifts/manage\",\"shifts/confirm\"")

@@ -129,6 +129,20 @@ button:hover, .button:hover { border-color: var(--teal); }
 .section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .section h2 { margin: 0; font-size: 17px; }
 .section h3 { font-size: 15px; }
+.shift-workflow-metrics,.shift-coverage-summary { display: flex; flex-wrap: wrap; gap: 10px; }
+.shift-workflow-overview,.shift-coverage-section { padding: 16px; margin-bottom: 14px; }
+.shift-workflow-overview .section-header,.shift-coverage-section .section-header { margin-bottom: 10px; }
+.shift-workflow-metrics > span { min-width: 170px; padding: 10px 12px; border-left: 3px solid var(--teal); background: #f4f8f8; }
+.shift-workflow-metrics > span.attention { border-left-color: #c88716; background: #fff8e9; }
+.shift-workflow-metrics small { display: block; color: var(--muted); font-weight: 700; }
+.shift-workflow-metrics strong { display: block; margin-top: 3px; font-size: 18px; }
+.workflow-details { margin-top: 7px; border-top: 1px solid var(--line); }
+.workflow-details > summary,.workflow-editor > summary { padding: 9px 2px; color: var(--teal-dark); font-weight: 800; cursor: pointer; }
+.workflow-details[open] > summary,.workflow-editor[open] > summary { margin-bottom: 10px; }
+.shift-coverage-summary > span { display: inline-flex; align-items: center; gap: 9px; min-width: 180px; padding: 9px 12px; border: 1px solid var(--line); background: white; }
+.shift-coverage-summary > span.ok { border-left: 4px solid var(--teal); }
+.shift-coverage-summary > span.shortage { border-left: 4px solid #c88716; background: #fff8e9; color: #8a4b00; }
+.workflow-editor > form { margin-top: 8px; }
 .metric-grid { display: grid; grid-template-columns: repeat(5, minmax(150px,1fr)); gap: 14px; margin-bottom: 22px; }
 .metric-grid.employee-metrics { grid-template-columns: repeat(3, minmax(150px,1fr)); }
 .metric { background: white; border: 1px solid var(--line); border-radius: 6px; padding: 18px; }
@@ -360,6 +374,8 @@ form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
 }
 
 @media (max-width: 760px) {
+  .shift-workflow-metrics,.shift-coverage-summary { display: grid; grid-template-columns: 1fr; }
+  .shift-workflow-metrics > span,.shift-coverage-summary > span { min-width: 0; }
   /* 全体レイアウト & 横揺れ防止 */
   html, body {
     overflow-x: hidden;

@@ -30,6 +30,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('form').forEach(form => {
     form.addEventListener('submit', event => {
+      const submitter = event.submitter;
+      const confirmMessage = submitter?.dataset.confirmMessage;
+      if (confirmMessage && !window.confirm(confirmMessage)) {
+        event.preventDefault();
+        return;
+      }
       if (form.dataset.submitting === 'true') {
         event.preventDefault();
         return;
@@ -48,6 +54,28 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-auto-submit]').forEach(input => {
     input.addEventListener('change', () => input.form?.requestSubmit());
   });
+
+  const attendanceEmployeeSelect = document.querySelector('[data-attendance-employee-select]');
+  if (attendanceEmployeeSelect) {
+    const employeeStatus = document.querySelector('[data-attendance-employee-status]');
+    const confirmAction = document.querySelector('[data-attendance-employee-confirm]');
+    const confirmButton = document.querySelector('[data-attendance-employee-confirm-button]');
+    const releaseAction = document.querySelector('[data-attendance-employee-release]');
+    const updateEmployeeCloseAction = () => {
+      const selected = attendanceEmployeeSelect.selectedOptions[0];
+      const count = Number(selected?.dataset.count || 0);
+      const finalized = selected?.dataset.finalized === 'true';
+      if (employeeStatus) employeeStatus.textContent = count === 0 ? '対象月の勤怠データはありません' : finalized ? '状態：この従業員は確定済み' : '状態：この従業員は未確定';
+      if (confirmButton) {
+        confirmButton.disabled = count === 0;
+        confirmButton.dataset.confirmMessage = `選択した従業員の${attendanceEmployeeSelect.dataset.displayMonth}の勤怠を確定します。よろしいですか？`;
+      }
+      if (confirmAction) confirmAction.hidden = finalized;
+      if (releaseAction) releaseAction.hidden = !finalized;
+    };
+    attendanceEmployeeSelect.addEventListener('change', updateEmployeeCloseAction);
+    updateEmployeeCloseAction();
+  }
 
   const leaveRejectDialog = document.querySelector('[data-leave-reject-dialog]');
   if (leaveRejectDialog) {

@@ -318,7 +318,7 @@ String ctx = request.getContextPath();
           <% { String rosterTitle="月間シフト"; String rosterLink=null; List<Map<String,Object>> rosterBranches=(pageKey.equals("shifts/mine")||pageKey.equals("shifts/print"))?(List<Map<String,Object>>)request.getAttribute("shiftBranches"):null; Long rosterBranchId=rosterBranches==null?null:(selectedShiftBranch==null?user.getBranchId():selectedShiftBranch.longValue()); %>
             <%@ include file="_shiftRoster.jspf" %>
           <% } %>
-        <% } else if (!pageKey.equals("shifts/manage") && !pageKey.equals("shifts/request")) { %>
+        <% } else if (!pageKey.equals("shifts/manage") && !pageKey.equals("shifts/request") && !pageKey.equals("shifts/change")) { %>
         <section class="section"><div class="section-header"><h2><%=month%> 月間シフト</h2><span class="muted"><%=rows.size()%>件</span></div>
           <div class="table-wrap"><table><thead><tr><th>日付</th><th>社員番号</th><th>氏名</th><th>勤務区分</th><th>状態</th><th>備考</th></tr></thead><tbody>
           <% for(Map<String,Object> row:rows){ %><tr><td><%=e(row.get("work_date"))%></td><td><%=e(row.get("employee_number"))%></td><td><%=e(row.get("name"))%></td><td><%=e(row.get("work_type"))%></td><td><span class="status <%=status(row.get("status"))%>"><%=shiftStatusLabel(row.get("status"))%></span></td><td><%=e(row.get("note"))%></td></tr><% } %>

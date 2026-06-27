@@ -46,6 +46,8 @@ public class UiStateCoverageTest {
     check(application.contains("pageKey.equals(\"shifts/history\") || pageKey.equals(\"shifts/change\")")
         && application.contains("pageKey.equals(\"shifts/manage\") || pageKey.equals(\"shifts/confirm\")"),
         "schedule editor and confirmation use the monthly roster");
+    check(application.contains("!pageKey.equals(\"shifts/change\")"),
+        "shift change request view hides the all-employee monthly schedule");
     check(shiftRoster.contains("rosterAllConfirmed") && shiftRoster.contains("rosterMixedStatus")
         && shiftRoster.contains("rosterCellUnconfirmed"), "monthly roster summarizes confirmation status");
     check(application.contains("\"shifts/manage\",\"shifts/confirm\"")

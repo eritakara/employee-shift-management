@@ -44,6 +44,9 @@ public class UiStateCoverageTest {
     check(application.indexOf("<h2>従業員別に確定する</h2>")
         < application.indexOf("<h2>全員確認後、月次一括確定する</h2>"),
         "employee finalization precedes monthly finalization");
+    check(application.contains("name=\"month\" value=\"<%=month%>\" data-auto-submit")
+        && !application.contains("<button>対象月を表示</button>"),
+        "attendance month selection refreshes automatically without a display button");
     check(application.contains("対象件数が0件のため、月次確定できません。")
         && application.contains("rows.isEmpty()?\"disabled\""),
         "empty attendance months cannot be finalized");

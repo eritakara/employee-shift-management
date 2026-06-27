@@ -42,6 +42,8 @@ public class ShiftWorkflowTest {
 
     portal.requestShiftChange(employee, targetDate, "OFF", "予定変更");
     long requestId = ((Number) Sql.one("SELECT MAX(id) id FROM shift_change_requests WHERE user_id=?", employee.getId()).get("id")).longValue();
+    check("日勤".equals(portal.shiftChangeRequests(employee).get(0).get("current_type")),
+        "shift change current work type is localized");
     portal.decideShiftChange(manager, requestId, true);
     check("OFF".equals(Sql.one("SELECT work_type_code FROM shifts WHERE user_id=? AND work_date=?", employee.getId(), targetDate).get("work_type_code")), "approved change applied");
     expectFailure(() -> portal.requestShiftChange(employee, targetMonth.atDay(2), "LEAVE", "paid leave through shift change"), "paid leave hidden from shift change");

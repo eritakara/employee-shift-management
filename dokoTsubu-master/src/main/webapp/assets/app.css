@@ -302,16 +302,23 @@ tbody tr:hover { background: #f7fbfa; }
 .clock-actions { display: flex; justify-content: center; gap: 14px; margin-top: 22px; }
 .clock-actions button { min-width: 150px; min-height: 54px; }
 .clock-actions button:disabled { cursor: not-allowed; opacity: .45; }
-.attendance-summary { display: grid; grid-template-columns: repeat(5, minmax(130px,1fr)); gap: 12px; margin-bottom: 20px; }
+.attendance-summary { display: grid; grid-template-columns: repeat(5, minmax(130px,1fr)); gap: 12px; margin-bottom: 0; }
 .attendance-summary div { min-height: 82px; border: 1px solid var(--line); border-radius: 6px; background: white; padding: 14px; }
 .attendance-summary strong { display: block; margin-top: 6px; font-size: 24px; }
 .attendance-summary .attention { border-color: #e4c45d; background: var(--yellow-soft); }
-.attendance-control-grid { display: grid; grid-template-columns: minmax(210px,.8fr) repeat(2,minmax(280px,1fr)); gap: 14px; align-items: stretch; margin-bottom: 20px; }
-.attendance-control-card { display: flex; flex-direction: column; margin: 0; }
-.attendance-control-card .section-header { margin-bottom: 14px; }
+.attendance-step-flow { display: grid; gap: 14px; margin-bottom: 22px; }
+.attendance-step { margin: 0; }
+.attendance-step-header, .attendance-detail-heading { display: flex; align-items: flex-start; gap: 12px; }
+.attendance-step-header { margin-bottom: 16px; }
+.attendance-step-header > span, .attendance-detail-heading > span { flex: 0 0 34px; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--teal); color: white; font-weight: 900; }
+.attendance-step-header h2, .attendance-detail-heading h2 { margin: 0; font-size: 18px; }
+.attendance-step-header p, .attendance-detail-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.attendance-step-body { max-width: 680px; margin-left: 46px; }
+.attendance-final-step { border-top-color: #276b91; }
+.attendance-detail-heading { margin: 28px 0 14px; }
+.attendance-check-warning { margin: 10px 0 0; padding: 10px 12px; border-left: 3px solid #d4a72c; background: var(--yellow-soft); color: #775d13; font-size: 13px; }
 .attendance-filter-form, .attendance-employee-close, .attendance-month-close { display: flex; flex-direction: column; align-items: stretch; gap: 12px; margin: 0; }
-.attendance-filter-form { height: 100%; }
-.attendance-filter-form button { margin-top: auto; }
+.attendance-filter-form { height: auto; }
 .attendance-scope { display: grid; gap: 5px; }
 .attendance-scope span { color: var(--muted); font-size: 12px; font-weight: 700; }
 .attendance-scope strong { font-size: 14px; }
@@ -321,7 +328,7 @@ tbody tr:hover { background: #f7fbfa; }
 .attendance-close-details dd { margin: 5px 0 0; font-weight: 800; }
 .attendance-close-notice { min-height: 42px; margin: 0 0 12px; color: var(--muted); font-size: 12px; }
 .attendance-close-notice.attention { color: #775d13; }
-.attendance-control-card button:disabled { cursor: not-allowed; border-color: #d3dae0; background: #e5e9ec; color: #6b7780; opacity: 1; }
+.attendance-step button:disabled { cursor: not-allowed; border-color: #d3dae0; background: #e5e9ec; color: #6b7780; opacity: 1; }
 .attendance-employee-close, .attendance-month-close { flex-direction: column; align-items: stretch; }
 .attendance-close-status { display: grid; gap: 4px; min-height: 38px; margin: 0 0 12px; color: var(--muted); font-size: 13px; }
 .attendance-close-status strong { color: var(--ink); }
@@ -484,10 +491,12 @@ form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
   /* 勤怠打刻・勤怠サマリー */
   .clock-status-grid { grid-template-columns: 1fr; }
   .attendance-summary { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .attendance-control-grid { grid-template-columns: 1fr; gap: 10px; }
+  .attendance-step-flow { gap: 10px; }
+  .attendance-step-body { max-width: none; margin-left: 0; }
+  .attendance-step-header h2, .attendance-detail-heading h2 { font-size: 16px; }
   .attendance-filter-form, .attendance-employee-close, .attendance-month-close { width: 100%; }
   .attendance-close-details { grid-template-columns: 1fr 1fr 1fr; }
-  .attendance-control-card button { width: 100%; }
+  .attendance-step button { width: 100%; }
   .clock-actions { flex-direction: column; gap: 8px; }
   .clock-actions button { width: 100%; }
 

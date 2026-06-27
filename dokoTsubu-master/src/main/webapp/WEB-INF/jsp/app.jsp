@@ -296,7 +296,7 @@ String ctx = request.getContextPath();
           </form>
         </section>
         <% } else if (pageKey.equals("shifts/manage") || pageKey.equals("shifts/change")) { %>
-        <section class="section no-print"><div class="section-header"><h2><%=pageKey.equals("shifts/change")?"シフト変更を申請":"勤務区分を登録"%></h2></div>
+        <section class="section no-print"><div class="section-header"><h2><%=pageKey.equals("shifts/change")?"シフト変更を申請":"勤務区分を変更"%></h2></div>
           <form method="post" class="form-grid">
             <input type="hidden" name="action" value="<%=pageKey.equals("shifts/change")?"requestShiftChange":"saveShift"%>"><input type="hidden" name="returnPage" value="<%=pageKey%>">
             <% if(manager){ %><label>従業員<select name="userId" required><% for(Map<String,Object> person:people){ %><option value="<%=person.get("id")%>"><%=e(person.get("employee_number"))%> <%=e(person.get("name"))%></option><% } %></select></label><% } %>
@@ -304,7 +304,7 @@ String ctx = request.getContextPath();
             <label>勤務区分<select name="workType" required><% for(Map<String,Object> wt:workTypes){ String workTypeCode=String.valueOf(wt.get("code")); if(pageKey.equals("shifts/change") && List.of("LEAVE","AM_LEAVE","PM_LEAVE").contains(workTypeCode)) continue; %><option value="<%=wt.get("code")%>"><%=e(en?wt.get("name_en"):wt.get("name_ja"))%></option><% } %></select></label>
             <% if(manager && !pageKey.equals("shifts/change")){ %><label>状態<select name="status"><option value="DRAFT">下書き</option><option value="SUBMITTED">提出済み</option><option value="CONFIRMED">確定</option></select></label><% } %>
             <label class="span-2">備考・理由<input type="text" name="<%=pageKey.equals("shifts/change")?"reason":"note"%>" maxlength="1000" <%=pageKey.equals("shifts/change")?"required":""%>></label>
-            <div class="span-all"><button class="primary" type="submit"><%=pageKey.equals("shifts/change")?"申請する":"保存する"%></button></div>
+            <div class="span-all"><button class="primary" type="submit"><%=pageKey.equals("shifts/change")?"申請する":"変更を保存"%></button></div>
           </form>
         </section><% } %>
         <% if(pageKey.equals("shifts/manage")){ List<Map<String,Object>> preferenceSubmissions=(List<Map<String,Object>>)request.getAttribute("preferenceSubmissions"); List<Map<String,Object>> preferenceDetails=(List<Map<String,Object>>)request.getAttribute("preferenceDetails"); %>
@@ -450,6 +450,6 @@ String ctx = request.getContextPath();
     <footer class="app-footer"><a href="<%=ctx%>/privacy"><%=en?"Privacy and location data":"個人情報・位置情報の取扱い"%></a></footer>
   </div>
 </div>
-<script src="<%=ctx%>/assets/app.js?v=20260626-2"></script>
+<script src="<%=ctx%>/assets/app.js?v=20260627-1"></script>
 </body>
 </html>

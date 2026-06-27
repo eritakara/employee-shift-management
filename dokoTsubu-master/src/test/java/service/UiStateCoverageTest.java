@@ -21,7 +21,7 @@ public class UiStateCoverageTest {
     check(script.contains("aria-busy"), "forms expose loading state");
     check(script.contains("role', 'status'"), "loading message is announced");
     check(application.contains("assets/app.css?v=20260627-1")
-        && application.contains("assets/app.js?v=20260626-2"), "updated app assets use the latest cache buster");
+        && application.contains("assets/app.js?v=20260627-1"), "updated app assets use the latest cache buster");
     check(css.contains(".loading-indicator"), "loading state has a common visual style");
     check(application.contains("class=\"empty\""), "application has a common empty state");
     check(application.contains("class=\"alert danger\""), "application has a common input error state");
@@ -52,6 +52,10 @@ public class UiStateCoverageTest {
         "shift change request form hides the editable shift status");
     check(application.contains("<%if(!pageKey.equals(\"shifts/change\")){%><div class=\"toolbar no-print\">"),
         "shift change request view hides the month toolbar");
+    check(application.contains("\"勤務区分を変更\"") && application.contains("\"変更を保存\""),
+        "shift adjustment form uses change-oriented wording");
+    check(script.contains("'勤務区分を変更':'Change work type'")
+        && script.contains("'変更を保存':'Save change'"), "shift adjustment wording supports English display");
     check(shiftRoster.contains("rosterAllConfirmed") && shiftRoster.contains("rosterMixedStatus")
         && shiftRoster.contains("rosterCellUnconfirmed"), "monthly roster summarizes confirmation status");
     check(application.contains("\"shifts/manage\",\"shifts/confirm\"")

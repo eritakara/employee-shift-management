@@ -403,9 +403,10 @@ public class ShiftService {
         ? " AND u.branch_id=? AND u.department_id=?" : " AND r.user_id=?";
     Object[] args = viewer.isHr() ? new Object[]{} : viewer.isManager()
         ? new Object[]{viewer.getBranchId(), viewer.getDepartmentId()} : new Object[]{viewer.getId()};
-    return Sql.query("SELECT r.*,u.name,u.employee_number,wt.name_ja requested_name,s.work_type_code current_type "
+    return Sql.query("SELECT r.*,u.name,u.employee_number,wt.name_ja requested_name,COALESCE(current_wt.name_ja,s.work_type_code) current_type "
         + "FROM shift_change_requests r JOIN users u ON u.id=r.user_id JOIN work_types wt ON wt.code=r.requested_work_type "
-        + "LEFT JOIN shifts s ON s.user_id=r.user_id AND s.work_date=r.work_date WHERE 1=1" + filter
+        + "LEFT JOIN shifts s ON s.user_id=r.user_id AND s.work_date=r.work_date "
+        + "LEFT JOIN work_types current_wt ON current_wt.code=s.work_type_code WHERE 1=1" + filter
         + " ORDER BY r.created_at DESC", args);
   }
 

@@ -48,6 +48,10 @@ public class UiStateCoverageTest {
         "schedule editor and confirmation use the monthly roster");
     check(application.contains("!pageKey.equals(\"shifts/change\")"),
         "shift change request view hides the all-employee monthly schedule");
+    check(application.contains("manager && !pageKey.equals(\"shifts/change\")"),
+        "shift change request form hides the editable shift status");
+    check(application.contains("<%if(!pageKey.equals(\"shifts/change\")){%><div class=\"toolbar no-print\">"),
+        "shift change request view hides the month toolbar");
     check(shiftRoster.contains("rosterAllConfirmed") && shiftRoster.contains("rosterMixedStatus")
         && shiftRoster.contains("rosterCellUnconfirmed"), "monthly roster summarizes confirmation status");
     check(application.contains("\"shifts/manage\",\"shifts/confirm\"")

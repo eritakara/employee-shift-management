@@ -190,6 +190,8 @@ button:hover, .button:hover { border-color: var(--teal); }
 .shift-summary small { display: block; overflow: hidden; margin-top: 2px; color: #667985; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .shift-roster-wrap { overflow-x: auto; border: 1px solid var(--line); }
 .roster-header-actions { display: flex; align-items: end; gap: 14px; }
+.roster-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.roster-status-legend { color: #8a5a00; font-weight: 700; }
 .roster-branch-filter label { min-width: 150px; }
 .roster-branch-filter select { min-height: 36px; padding: 6px 10px; }
 .shift-roster { width: max-content; min-width: 100%; table-layout: fixed; }
@@ -205,6 +207,7 @@ button:hover, .button:hover { border-color: var(--teal); }
 .shift-roster .roster-date.sunday { color: #b73535; }
 .shift-roster .roster-date.saturday { color: #28699a; }
 .shift-roster .roster-cell { width: 42px; min-width: 42px; max-width: 42px; font-weight: 900; line-height: 1.05; }
+.shift-roster .roster-cell.roster-unconfirmed { outline: 1px dashed #b7791f; outline-offset: -2px; }
 .shift-roster .roster-cell span, .shift-roster .roster-cell small { display: block; }
 .shift-roster .roster-cell small { margin-top: 3px; font-size: 8px; font-weight: 800; white-space: nowrap; }
 .shift-roster .roster-cell.day { background: #ffe0b2; color: #8a4b00; }

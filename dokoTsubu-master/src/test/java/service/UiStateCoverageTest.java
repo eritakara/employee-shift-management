@@ -34,11 +34,19 @@ public class UiStateCoverageTest {
         && application.contains("この月を一括確定する")
         && application.contains("この月の確定を解除する"),
         "attendance close actions use clear labels");
-    check(application.contains("attendance-control-grid")
-        && application.contains("<h2>対象条件</h2>")
-        && application.contains("<h2>月次確定</h2>")
-        && application.contains("<h2>従業員別確定</h2>"),
-        "attendance close controls are separated by purpose");
+    check(application.contains("attendance-step-flow")
+        && application.contains("<h2>対象月を選ぶ</h2>")
+        && application.contains("<h2>確定前チェックを確認する</h2>")
+        && application.contains("<h2>従業員別に確定する</h2>")
+        && application.contains("<h2>全員確認後、月次一括確定する</h2>")
+        && application.contains("<h2>詳細確認</h2>"),
+        "attendance finalization is presented as a five-step flow");
+    check(application.indexOf("<h2>従業員別に確定する</h2>")
+        < application.indexOf("<h2>全員確認後、月次一括確定する</h2>"),
+        "employee finalization precedes monthly finalization");
+    check(application.contains("name=\"month\" value=\"<%=month%>\" data-auto-submit")
+        && !application.contains("<button>対象月を表示</button>"),
+        "attendance month selection refreshes automatically without a display button");
     check(application.contains("対象件数が0件のため、月次確定できません。")
         && application.contains("rows.isEmpty()?\"disabled\""),
         "empty attendance months cannot be finalized");

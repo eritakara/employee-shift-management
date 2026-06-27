@@ -346,6 +346,8 @@ function translatePage() {
     '勤務時間・残業時間の推移':'Work and overtime trend','勤務時間・残業時間・有休取得数の推移':'Work, overtime, and leave trend','直近6か月':'Last 6 months','今月の予定':'This month','すべて見る':'View all',
     '対象月':'Month','表示':'Show','印刷':'Print','印刷する':'Print','シフトへ戻る':'Back to schedule','調整する':'Edit schedule','勤務区分を変更':'Change work type','変更・休みを申請':'Request a change',
     '従業員':'Employee','日付':'Date','勤務区分':'Work type','状態':'Status','備考・理由':'Note or reason','変更を保存':'Save change','申請する':'Submit',
+    '希望を確認してから自動割当へ進みます。':'Review preferences before automatic assignment.','提出済み':'Submitted','未提出・再提出待ち':'Not submitted / awaiting resubmission','希望一覧を開く':'Open preference list','提出希望日を確認':'Review requested dates',
+    'シフト充足状況':'Shift coverage','不足がある勤務区分を確認してください。':'Review work types with shortages.','確認事項の詳細を開く':'Open review details','個別に勤務区分を変更':'Change an individual work type',
     '確定前チェック':'Pre-confirmation checks','警告はありません。':'No warnings.','種類':'Type','内容':'Details','必要':'Required','実績':'Actual','警告を確認して確定':'Confirm after reviewing warnings',
     '変更・休み申請':'Change and leave requests','申請者':'Requester','変更前':'Before','変更後':'After','理由':'Reason','緊急':'Urgent','操作':'Actions','承認':'Approve','却下':'Reject',
     '社員番号':'Employee no.','氏名':'Name','備考':'Note','対象月のシフトはありません。':'No schedules for this month.',

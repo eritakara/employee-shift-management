@@ -3,6 +3,7 @@ package service;
 import config.Database;
 import dao.Sql;
 import dao.UserDAO;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -46,6 +47,12 @@ public class ExportServiceTest {
     check(csv.startsWith("\ufeff") && csv.contains("山田 花子") && csv.contains("'=SUM(1,1)"), "safe UTF-8 CSV");
     String excel = exports.excelHtml(List.of(unsafe));
     check(excel.contains("山田 花子") && excel.contains("&lt;script&gt;"), "escaped Excel HTML");
+    StringWriter streamedCsv = new StringWriter();
+    exports.writeCsv(List.of(unsafe), streamedCsv);
+    check(csv.equals(streamedCsv.toString()), "streamed CSV content");
+    StringWriter streamedExcel = new StringWriter();
+    exports.writeExcelHtml(List.of(unsafe), streamedExcel);
+    check(excel.equals(streamedExcel.toString()), "streamed Excel content");
 
     for (String type : List.of("shifts", "attendance", "leave")) {
       List<Map<String, Object>> rows = exports.rows(hr, type, date, date, null, null, employee.getId());

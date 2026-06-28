@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('form').forEach(form => {
     form.addEventListener('submit', event => {
+      if (form.matches('[data-export-form]')) return;
       const submitter = event.submitter;
       const confirmMessage = submitter?.dataset.confirmMessage;
       if (confirmMessage && !window.confirm(confirmMessage)) {
@@ -50,6 +51,48 @@ document.addEventListener('DOMContentLoaded', () => {
       form.appendChild(status);
     });
   });
+
+  const exportForm = document.querySelector('[data-export-form]');
+  if (exportForm) {
+    const exportButton = exportForm.querySelector('[data-export-button]');
+    const exportStatus = exportForm.querySelector('[data-export-status]');
+    exportForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (!exportForm.checkValidity() || exportForm.dataset.submitting === 'true') return;
+      exportForm.dataset.submitting = 'true';
+      exportForm.setAttribute('aria-busy', 'true');
+      exportButton.disabled = true;
+      exportStatus.textContent = document.documentElement.lang === 'en'
+        ? 'Preparing export…' : '出力ファイルを準備しています…';
+      try {
+        const url = new URL(exportForm.action, window.location.href);
+        url.search = new URLSearchParams(new FormData(exportForm)).toString();
+        const response = await fetch(url, { credentials: 'same-origin' });
+        if (!response.ok) throw new Error(`Export failed (${response.status})`);
+        const blob = await response.blob();
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || 'export.csv';
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+        exportStatus.textContent = document.documentElement.lang === 'en'
+          ? 'Download started.' : 'ダウンロードを開始しました。';
+      } catch (error) {
+        console.error(error);
+        exportStatus.textContent = document.documentElement.lang === 'en'
+          ? 'Export failed. Please try again.' : '出力に失敗しました。条件を確認して再度お試しください。';
+      } finally {
+        exportForm.dataset.submitting = 'false';
+        exportForm.removeAttribute('aria-busy');
+        exportButton.disabled = false;
+      }
+    });
+  }
 
   document.querySelectorAll('[data-auto-submit]').forEach(input => {
     input.addEventListener('change', () => input.form?.requestSubmit());

@@ -1,11 +1,13 @@
 package service;
 
 import dao.Sql;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import model.User;
 
 public class ExportService {
@@ -31,28 +33,49 @@ public class ExportService {
   }
 
   public String csv(List<Map<String, Object>> rows) {
-    StringBuilder out = new StringBuilder("\ufeff");
-    if (rows.isEmpty()) return out.toString();
-    out.append(String.join(",", rows.get(0).keySet())).append('\n');
-    for (Map<String, Object> row : rows) {
-      out.append(row.values().stream().map(this::csvCell).collect(Collectors.joining(","))).append('\n');
-    }
+    StringWriter out = new StringWriter();
+    try { writeCsv(rows, out); }
+    catch (IOException impossible) { throw new IllegalStateException(impossible); }
     return out.toString();
   }
 
   public String excelHtml(List<Map<String, Object>> rows) {
-    StringBuilder out = new StringBuilder("<html><head><meta charset=\"UTF-8\"></head><body><table border=\"1\">");
+    StringWriter out = new StringWriter();
+    try { writeExcelHtml(rows, out); }
+    catch (IOException impossible) { throw new IllegalStateException(impossible); }
+    return out.toString();
+  }
+
+  public void writeCsv(List<Map<String, Object>> rows, Writer out) throws IOException {
+    out.write("\ufeff");
+    if (rows.isEmpty()) return;
+    out.write(String.join(",", rows.get(0).keySet()));
+    out.write('\n');
+    for (Map<String, Object> row : rows) {
+      boolean first = true;
+      for (Object value : row.values()) {
+        if (!first) out.write(',');
+        out.write(csvCell(value));
+        first = false;
+      }
+      out.write('\n');
+    }
+  }
+
+  public void writeExcelHtml(List<Map<String, Object>> rows, Writer out) throws IOException {
+    out.write("<html><head><meta charset=\"UTF-8\"></head><body><table border=\"1\">");
     if (!rows.isEmpty()) {
-      out.append("<tr>");
-      for (String key : rows.get(0).keySet()) out.append("<th>").append(util.HtmlEscaper.escape(key)).append("</th>");
-      out.append("</tr>");
+      StringBuilder line = new StringBuilder("<tr>");
+      for (String key : rows.get(0).keySet()) line.append("<th>").append(util.HtmlEscaper.escape(key)).append("</th>");
+      out.write(line.append("</tr>").toString());
       for (Map<String, Object> row : rows) {
-        out.append("<tr>");
-        for (Object value : row.values()) out.append("<td>").append(util.HtmlEscaper.escape(value)).append("</td>");
-        out.append("</tr>");
+        line.setLength(0);
+        line.append("<tr>");
+        for (Object value : row.values()) line.append("<td>").append(util.HtmlEscaper.escape(value)).append("</td>");
+        out.write(line.append("</tr>").toString());
       }
     }
-    return out.append("</table></body></html>").toString();
+    out.write("</table></body></html>");
   }
 
   private String csvCell(Object value) {

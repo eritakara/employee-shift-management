@@ -21,7 +21,7 @@ public class UiStateCoverageTest {
     check(script.contains("aria-busy"), "forms expose loading state");
     check(script.contains("role', 'status'"), "loading message is announced");
     check(application.contains("assets/app.css?v=20260627-4")
-        && application.contains("assets/app.js?v=20260627-4"), "updated app assets use the latest cache buster");
+        && application.contains("assets/app.js?v=20260628-1"), "updated app assets use the latest cache buster");
     check(css.contains(".loading-indicator"), "loading state has a common visual style");
     check(application.contains("class=\"empty\""), "application has a common empty state");
     check(application.contains("class=\"alert danger\""), "application has a common input error state");

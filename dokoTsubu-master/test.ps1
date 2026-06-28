@@ -34,6 +34,8 @@ if ($LASTEXITCODE -ne 0) { throw "Audit search tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Audit action label tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.ExportServiceTest
 if ($LASTEXITCODE -ne 0) { throw "Export service tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.ExportPerformanceTest
+if ($LASTEXITCODE -ne 0) { throw "Export performance tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.AttendanceCalculatorTest
 if ($LASTEXITCODE -ne 0) { throw "Attendance calculator tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.SecurityAuthorizationTest

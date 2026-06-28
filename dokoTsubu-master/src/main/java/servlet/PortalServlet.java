@@ -192,7 +192,14 @@ public class PortalServlet extends HttpServlet {
           }
           shiftService.submitMonthlyPreferences(user, preferenceMonth, preferences, reasons);
         }
-        case "autoAssignShifts" -> shiftService.autoAssignShifts(user, parseMonth(req.getParameter("month")));
+        case "autoAssignShifts" -> {
+          int count = shiftService.autoAssignShifts(user, parseMonth(req.getParameter("month")));
+          req.getSession().setAttribute("flash", "自動割当を実行しました。（" + count + "件割り当て）");
+        }
+        case "autoFillShifts" -> {
+          int count = shiftService.autoFillShifts(user, parseMonth(req.getParameter("month")));
+          req.getSession().setAttribute("flash", "自動補完を実行しました。（" + count + "件補完）");
+        }
         case "reviewShiftPreferences" -> shiftService.reviewPreferenceSubmission(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
         case "confirmShifts" -> shiftService.confirmMonth(user, parseMonth(req.getParameter("month")), req.getParameter("warningReason"));
         case "requestShiftChange" -> shiftService.requestShiftChange(user, LocalDate.parse(req.getParameter("date")), req.getParameter("workType"), req.getParameter("reason"));
@@ -248,7 +255,9 @@ public class PortalServlet extends HttpServlet {
             Boolean.parseBoolean(req.getParameter("active")));
         default -> throw new IllegalArgumentException("操作が指定されていません。");
       }
-      req.getSession().setAttribute("flash", "保存しました。");
+      if (req.getSession().getAttribute("flash") == null) {
+        req.getSession().setAttribute("flash", "保存しました。");
+      }
     } catch (IllegalArgumentException | SecurityException e) {
       req.getSession().setAttribute("error", e.getMessage());
     } catch (Exception e) {

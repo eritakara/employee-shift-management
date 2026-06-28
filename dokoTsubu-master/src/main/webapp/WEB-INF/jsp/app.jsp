@@ -378,7 +378,34 @@ String ctx = request.getContextPath();
           </form>
         </section><% } %>
         <% if(pageKey.equals("shifts/manage")){ List<Map<String,Object>> preferenceSubmissions=(List<Map<String,Object>>)request.getAttribute("preferenceSubmissions"); List<Map<String,Object>> preferenceDetails=(List<Map<String,Object>>)request.getAttribute("preferenceDetails"); List<Map<String,Object>> warnings=(List<Map<String,Object>>)request.getAttribute("warnings"); long submittedPeople=preferenceSubmissions.stream().filter(item->List.of("SUBMITTED","APPROVED").contains(String.valueOf(item.get("status")))).count(); int targetPeople=preferenceSubmissions.size(); int pendingPeople=targetPeople-(int)submittedPeople; long dayShortageCount=warnings.stream().filter(item->"STAFF_SHORTAGE".equals(String.valueOf(item.get("warning")))&&"日勤".equals(String.valueOf(item.get("detail")))).count(); long nightShortageCount=warnings.stream().filter(item->"STAFF_SHORTAGE".equals(String.valueOf(item.get("warning")))&&"夜勤".equals(String.valueOf(item.get("detail")))).count(); %>
-        <section class="section shift-workflow-overview"><div class="section-header"><div><h2>希望シフト提出状況</h2><p class="muted">希望を確認してから自動割当へ進みます。</p></div><form method="post"><input type="hidden" name="action" value="autoAssignShifts"><input type="hidden" name="returnPage" value="shifts/manage"><input type="hidden" name="returnMonth" value="<%=month%>"><input type="hidden" name="month" value="<%=month%>"><button class="primary" type="submit">希望を考慮して自動割当</button></form></div>
+        <section class="section shift-workflow-overview">
+          <div class="section-header">
+            <div>
+              <h2>希望シフト提出状況</h2>
+              <p class="muted">希望を確認してから自動割当へ進みます。</p>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <form method="post">
+                  <input type="hidden" name="action" value="autoAssignShifts">
+                  <input type="hidden" name="returnPage" value="shifts/manage">
+                  <input type="hidden" name="returnMonth" value="<%=month%>">
+                  <input type="hidden" name="month" value="<%=month%>">
+                  <button class="primary" type="submit">希望を考慮して自動割当</button>
+                </form>
+                <form method="post">
+                  <input type="hidden" name="action" value="autoFillShifts">
+                  <input type="hidden" name="returnPage" value="shifts/manage">
+                  <input type="hidden" name="returnMonth" value="<%=month%>">
+                  <input type="hidden" name="month" value="<%=month%>">
+                  <button type="submit">未割り当てを自動補完</button>
+                </form>
+              </div>
+              <div style="font-size: 11px; color: var(--muted); text-align: right; max-width: 420px; line-height: 1.4;">
+                未割り当ての勤務日だけを対象に、不足している日勤・夜勤を自動で補完します。既存の割当は変更しません。
+              </div>
+            </div>
+          </div>
           <div class="shift-workflow-metrics" aria-label="希望シフト提出サマリー"><span><small>提出済み</small><strong><%=submittedPeople%>名 / <%=targetPeople%>名</strong></span><span class="<%=pendingPeople>0?"attention":""%>"><small>未提出・再提出待ち</small><strong><%=pendingPeople%>名</strong></span></div>
           <details class="workflow-details"><summary>希望一覧を開く</summary><div class="table-wrap"><table><thead><tr><th>社員番号</th><th>氏名</th><th>支店</th><th>提出状態</th><th>希望日数</th><th>提出日時</th><th>確認</th></tr></thead><tbody><%for(Map<String,Object> summary:preferenceSubmissions){String submissionStatus=String.valueOf(summary.get("status"));String submissionLabel="APPROVED".equals(submissionStatus)?(en?"Approved":"承認済み"):"RETURNED".equals(submissionStatus)?(en?"Returned":"差戻し"):"SUBMITTED".equals(submissionStatus)?(en?"Submitted":"提出済み"):(en?"Not submitted":"未提出");%><tr><td><%=e(summary.get("employee_number"))%></td><td><%=e(summary.get("name"))%></td><td><%=e(summary.get("branch_name"))%></td><td><span class="status <%=List.of("SUBMITTED","APPROVED").contains(submissionStatus)?"approved":"pending"%>"><%=submissionLabel%></span></td><td><%=e(summary.get("preference_count"))%><%=en?" days":"日"%></td><td><%=e(summary.get("submitted_at"))%></td><td><%if("SUBMITTED".equals(submissionStatus)){%><form method="post" class="actions"><input type="hidden" name="action" value="reviewShiftPreferences"><input type="hidden" name="returnPage" value="shifts/manage"><input type="hidden" name="returnMonth" value="<%=month%>"><input type="hidden" name="id" value="<%=summary.get("submission_id")%>"><button class="primary" name="decision" value="approve"><%=en?"Approve":"承認"%></button><button name="decision" value="return"><%=en?"Return":"差戻し"%></button></form><%}else{%>-<%}%></td></tr><%}%></tbody></table></div></details>
           <details class="workflow-details"><summary>提出希望日を確認（<%=preferenceDetails.size()%>件）</summary><div class="table-wrap"><table><thead><tr><th>日付</th><th>社員番号</th><th>氏名</th><th>希望</th><th>有休希望の理由</th></tr></thead><tbody><%for(Map<String,Object> detail:preferenceDetails){%><tr><td><%=e(detail.get("preference_date"))%></td><td><%=e(detail.get("employee_number"))%></td><td><%=e(detail.get("name"))%></td><td><span class="preference-label <%=shiftClass(detail.get("request_type"))%>"><%=preferenceLabel(detail.get("request_type"), en)%></span></td><td><%="LEAVE".equals(String.valueOf(detail.get("request_type")))?e(detail.get("note")):"-"%></td></tr><%}%><%if(preferenceDetails.isEmpty()){%><tr><td colspan="5" class="empty"><%=en?"No preferences submitted.":"提出された希望日はありません。"%></td></tr><%}%></tbody></table></div></details>

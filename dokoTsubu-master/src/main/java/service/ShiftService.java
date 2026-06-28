@@ -288,6 +288,76 @@ public class ShiftService {
     return assigned;
   }
 
+  public int autoFillShifts(User actor, YearMonth month) {
+    requireManager(actor);
+    
+    // 確定済みチェック：もし対象月に対象スコープの確定シフト (CONFIRMED) が1件でもあれば、補完処理を制限する。
+    String scope = actor.isHr() ? "" : " AND u.branch_id=? AND u.department_id=?";
+    Object[] args = actor.isHr() ? new Object[]{month.atDay(1), month.atEndOfMonth()} 
+                                 : new Object[]{month.atDay(1), month.atEndOfMonth(), actor.getBranchId(), actor.getDepartmentId()};
+    boolean isConfirmed = !Sql.query("SELECT s.id FROM shifts s JOIN users u ON u.id=s.user_id "
+        + "WHERE s.work_date BETWEEN ? AND ? AND s.status='CONFIRMED'" + scope + " LIMIT 1", args).isEmpty();
+    if (isConfirmed) {
+      throw new IllegalArgumentException("確定済みの月は自動補完を実行できません。");
+    }
+
+    String userScope = actor.isHr() ? "" : " AND branch_id=? AND department_id=?";
+    Object[] userArgs = actor.isHr() ? new Object[]{} : new Object[]{actor.getBranchId(), actor.getDepartmentId()};
+    List<Map<String, Object>> people = Sql.query("SELECT id,employee_number,role,weekly_work_days FROM users WHERE active=TRUE AND role<>'HR'" + userScope
+        + " ORDER BY CASE WHEN role='MANAGER' THEN 0 ELSE 1 END,employee_number", userArgs);
+    AutoAssignmentState state = loadAutoAssignmentState(actor, month, people);
+
+    int dayRequired = requiredStaff("DAY");
+    int nightRequired = requiredStaff("NIGHT");
+
+    // 日ごとに未割り当てセルへ補完
+    for (int day = 1; day <= month.lengthOfMonth(); day++) {
+      LocalDate date = month.atDay(day);
+      fillWorkTypeForFill(state, people, date, "DAY", dayRequired);
+      fillWorkTypeForFill(state, people, date, "NIGHT", nightRequired);
+    }
+
+    saveAutoAssignments(actor, state.pending);
+    int assigned = state.pending.size();
+    AuditService.record(actor.getId(), "AUTO_FILL_SHIFTS", "SHIFT_MONTH", month.toString(), null, assigned + " shifts filled");
+    return assigned;
+  }
+
+  private void fillWorkTypeForFill(AutoAssignmentState state, List<Map<String, Object>> people, LocalDate date, String type, int required) {
+    int actual = state.count(date, type);
+    if (actual >= required) return;
+
+    // 「同じ従業員に偏りすぎないようにする」ため、現在の総勤務日数（DAY + NIGHT）が少ない順にソートして割り当てる
+    List<Map<String, Object>> sortedPeople = new ArrayList<>(people);
+    sortedPeople.sort((p1, p2) -> {
+      long u1 = ((Number) p1.get("id")).longValue();
+      long u2 = ((Number) p2.get("id")).longValue();
+      int count1 = state.totalAssignedWorkDays(u1);
+      int count2 = state.totalAssignedWorkDays(u2);
+      if (count1 != count2) {
+        return Integer.compare(count1, count2);
+      }
+      String role1 = String.valueOf(p1.get("role"));
+      String role2 = String.valueOf(p2.get("role"));
+      if (!role1.equals(role2)) {
+        return "MANAGER".equals(role1) ? -1 : 1;
+      }
+      return String.valueOf(p1.get("employee_number")).compareTo(String.valueOf(p2.get("employee_number")));
+    });
+
+    for (Map<String, Object> person : sortedPeople) {
+      if (actual >= required) break;
+      long userId = ((Number) person.get("id")).longValue();
+      int maxConsecutive = Math.max(1, ((Number) person.get("weekly_work_days")).intValue());
+      if (!state.canAssignForFill(userId, date, type, maxConsecutive)) continue;
+      state.add(userId, date, type, "未割り当ての自動補完");
+      actual++;
+      if ("NIGHT".equals(type) && date.plusDays(1).getMonthValue() == date.getMonthValue() && !state.hasShift(userId, date.plusDays(1))) {
+        state.add(userId, date.plusDays(1), "NIGHT_OFF", "夜勤明け自動設定（補完）");
+      }
+    }
+  }
+
   private void fillWorkType(AutoAssignmentState state, List<Map<String, Object>> people, LocalDate date, String type, int required) {
     int actual = state.count(date, type);
     for (Map<String, Object> person : people) {
@@ -383,6 +453,27 @@ public class ShiftService {
     }
     private void add(long userId, LocalDate date, String type, String note) {
       shifts.put(new UserDate(userId, date), type); pending.add(new PendingShift(userId, date, type, note));
+    }
+
+    private int totalAssignedWorkDays(long userId) {
+      return (int) shifts.entrySet().stream()
+          .filter(e -> e.getKey().userId() == userId && ("DAY".equals(e.getValue()) || "NIGHT".equals(e.getValue())))
+          .count();
+    }
+
+    private boolean canAssignForFill(long userId, LocalDate date, String type, int maxConsecutive) {
+      if (!canAssign(userId, date, maxConsecutive)) return false;
+
+      // NIGHTを割り当てる場合、翌日が今月内であれば、翌日へ安全にNIGHT_OFFを割り当てられることを確認する
+      if ("NIGHT".equals(type)) {
+        LocalDate tomorrow = date.plusDays(1);
+        if (tomorrow.getMonthValue() == date.getMonthValue()) {
+          if (hasShift(userId, tomorrow) || approvedLeaves.containsKey(new UserDate(userId, tomorrow)) || preferredOffOrLeave.contains(new UserDate(userId, tomorrow))) {
+            return false;
+          }
+        }
+      }
+      return true;
     }
   }
 

@@ -370,7 +370,18 @@ String ctx = request.getContextPath();
         <%if(pageKey.equals("attendance/clock")||pageKey.equals("attendance/mine")||pageKey.equals("attendance/adjust")||pageKey.equals("attendance/history")){%>
           <nav class="attendance-tabs" aria-label="勤怠画面">
             <a class="attendance-tab-clock <%=pageKey.equals("attendance/clock")?"active":""%>" href="<%=ctx%>/app/attendance/clock"><span aria-hidden="true">◉</span><span><strong><%=en?"Time Clock":"出退勤打刻"%></strong><small><%=en?"Record your work time":"日々の打刻を記録"%></small></span></a>
-            <a class="attendance-tab-mine <%=pageKey.equals("attendance/mine")?"active":""%>" href="<%=ctx%>/app/attendance/mine"><span aria-hidden="true">▦</span><span><strong><%=en?"My Attendance":"自分の勤怠"%></strong><small><%=en?"View monthly attendance":"月間の状況を確認"%></small></span></a>
+            <%
+              String attDescJa = "自分の月間勤怠を確認";
+              String attDescEn = "View your monthly attendance";
+              if (user.isHr()) {
+                attDescJa = "全従業員の月間勤怠を確認";
+                attDescEn = "View all employees' monthly attendance";
+              } else if (user.isManager()) {
+                attDescJa = "自店舗スタッフの月間勤怠を確認";
+                attDescEn = "View branch staff's monthly attendance";
+              }
+            %>
+            <a class="attendance-tab-mine <%=pageKey.equals("attendance/mine")?"active":""%>" href="<%=ctx%>/app/attendance/mine"><span aria-hidden="true">▦</span><span><strong><%=en?"Attendance Records":"勤怠実績"%></strong><small><%=en?attDescEn:attDescJa%></small></span></a>
             <a class="attendance-tab-adjust <%=pageKey.equals("attendance/adjust")?"active":""%>" href="<%=ctx%>/app/attendance/adjust"><span aria-hidden="true">✎</span><span><strong><%=en?"Adjust Time":"打刻修正"%></strong><small><%=en?"Request time adjustments":"打刻忘れなどを修正"%></small></span></a>
             <a class="attendance-tab-history <%=pageKey.equals("attendance/history")?"active":""%>" href="<%=ctx%>/app/attendance/history"><span aria-hidden="true">↻</span><span><strong><%=en?"History":"修正履歴"%></strong><small><%=en?"Check adjustment status":"修正の承認状態を確認"%></small></span></a>
           </nav>

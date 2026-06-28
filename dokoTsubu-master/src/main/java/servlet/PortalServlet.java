@@ -41,7 +41,7 @@ public class PortalServlet extends HttpServlet {
     TITLES.put("leave", "有休");
     TITLES.put("leave/balance", "有休残数・取得履歴"); TITLES.put("leave/request", "有休申請");
     TITLES.put("leave/history", "有休申請履歴"); TITLES.put("leave/approvals", "有休承認");
-    TITLES.put("attendance/clock", "出勤・退勤打刻"); TITLES.put("attendance/mine", "自分の勤怠");
+    TITLES.put("attendance/clock", "出勤・退勤打刻"); TITLES.put("attendance/mine", "勤怠実績");
     TITLES.put("attendance/adjust", "打刻修正申請"); TITLES.put("attendance/history", "打刻修正履歴");
     TITLES.put("attendance/manage", "勤怠確認・月次確定"); TITLES.put("attendance/company", "全社勤怠確認");
     TITLES.put("employees", "従業員一覧"); TITLES.put("employees/edit", "従業員登録・編集");

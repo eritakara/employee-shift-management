@@ -453,7 +453,7 @@ function translatePage() {
     '時間有休残':'Hourly leave remaining','有休を申請':'Request leave','取得日':'Leave date','取得単位':'Leave unit','時間数':'Hours','有休申請がありません。':'No leave requests.',
     '打刻時に端末の位置情報を記録します。場所による打刻制限はありません。':'Your device location is recorded when clocking. Location does not restrict clocking.',
     '出勤':'Clock in','退勤':'Clock out','打刻修正を申請':'Request correction','対象勤怠':'Attendance record','修正後の出勤':'Corrected clock-in','修正後の退勤':'Corrected clock-out',
-    '勤怠実績':'Attendance records','勤務':'Shift','遅刻':'Late','早退':'Early','残業':'Overtime','位置情報':'Location','確定':'Finalize','解除':'Reopen','勤怠データはありません。':'No attendance records.',
+    '勤怠実績':'Attendance Records','自分の月間勤怠を確認':'View your monthly attendance','自店舗スタッフの月間勤怠を確認':'View branch staff\'s monthly attendance','全従業員の月間勤怠を確認':'View all employees\' monthly attendance','勤務':'Shift','遅刻':'Late','早退':'Early','残業':'Overtime','位置情報':'Location','確定':'Finalize','解除':'Reopen','勤怠データはありません。':'No attendance records.',
     'すべて既読にする':'Mark all as read','通知はありません。':'No notifications.','詳細':'Details',
     '従業員を登録':'Add employee','メールアドレス':'Email','入社日':'Hire date','営業所':'Branch','部署':'Department','雇用形態':'Employment type','役割':'Role','登録して招待':'Register and invite','招待再発行':'Reissue invitation',
     '資格を登録':'Add qualification','資格名':'Qualification','有効期限':'Expiry date','登録':'Add','代理者':'Delegate','開始日':'Start date','終了日':'End date','設定':'Set',

@@ -27,6 +27,14 @@ public class AuditLogService {
 
   public List<Map<String, Object>> auditActions(User user) {
     if (!user.isHr()) throw new SecurityException("人事担当者のみ利用できます。");
-    return Sql.query("SELECT DISTINCT action FROM audit_logs ORDER BY action");
+    List<Map<String, Object>> list = new java.util.ArrayList<>();
+    java.util.List<String> sortedActions = new java.util.ArrayList<>(util.AuditActionLabel.actions());
+    java.util.Collections.sort(sortedActions);
+    for (String action : sortedActions) {
+      Map<String, Object> map = new java.util.HashMap<>();
+      map.put("action", action);
+      list.add(map);
+    }
+    return list;
   }
 }

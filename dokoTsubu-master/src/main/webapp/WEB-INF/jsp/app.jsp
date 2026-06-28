@@ -29,13 +29,13 @@
     if ("AM_LEAVE".equals(value) || "PM_LEAVE".equals(value)) return "半";
     return "-";
   }
-  private String preferenceLabel(Object code) {
+  private String preferenceLabel(Object code, boolean en) {
     String value = String.valueOf(code);
-    if ("DAY".equals(value)) return "日勤";
-    if ("NIGHT".equals(value)) return "夜勤";
-    if ("OFF".equals(value)) return "休日希望";
-    if ("LEAVE".equals(value)) return "有休希望";
-    return "希望なし";
+    if ("DAY".equals(value)) return en ? "Day" : "日勤";
+    if ("NIGHT".equals(value)) return en ? "Night" : "夜勤";
+    if ("OFF".equals(value)) return en ? "Off request" : "休日希望";
+    if ("LEAVE".equals(value)) return en ? "Leave request" : "有休希望";
+    return en ? "No preference" : "希望なし";
   }
   private String workTypeLabel(Object code, Object name, boolean en) {
     if (name != null && !String.valueOf(name).isBlank()) return e(name);
@@ -281,7 +281,7 @@ String ctx = request.getContextPath();
         </div><%}%>
         <%if(printDialogRequested){%><div class="alert no-print" hidden data-print-on-load>印刷ダイアログを表示できませんでした。ブラウザの <strong>Ctrl+P</strong>（Macは <strong>⌘+P</strong>）を押してください。</div><%}%>
         <% if (pageKey.equals("shifts/request")) { Map<String,Object> submissionWindow=(Map<String,Object>)request.getAttribute("submissionWindow"); boolean submissionOpen=Boolean.TRUE.equals(submissionWindow.get("open")); Map<String,Object> preferenceSubmission=(Map<String,Object>)request.getAttribute("preferenceSubmission"); String preferenceStatus=String.valueOf(preferenceSubmission.get("status")); boolean deadlineClosedSubmitted=!submissionOpen&&"SUBMITTED".equals(preferenceStatus); LocalDate preferenceDeadline=(LocalDate)submissionWindow.get("deadline"); String deadlineClosedMessage=String.format("%d年%02d月の希望シフト提出期限は %d年%02d月%02d日 で終了しています。提出済みの希望シフトは変更できません。変更が必要な場合は、店長または人事へ相談してください。", month.getYear(), month.getMonthValue(), preferenceDeadline.getYear(), preferenceDeadline.getMonthValue(), preferenceDeadline.getDayOfMonth()); boolean canSubmitPreference=submissionOpen||deadlineClosedSubmitted; List<Map<String,Object>> preferenceRows=(List<Map<String,Object>>)request.getAttribute("preferenceRows"); Map<String,String> preferenceByDate=new HashMap<>(); Map<String,String> preferenceReasonByDate=new HashMap<>(); for(Map<String,Object> preference:preferenceRows){String preferenceDate=String.valueOf(preference.get("preference_date"));preferenceByDate.put(preferenceDate,String.valueOf(preference.get("request_type")));if(preference.get("note")!=null)preferenceReasonByDate.put(preferenceDate,String.valueOf(preference.get("note")));} %>
-        <div class="<%=submissionOpen?"alert":"error-banner"%>">対象月: <strong><%=e(submissionWindow.get("target_month"))%></strong> / 提出期限: <strong><%=e(submissionWindow.get("deadline"))%></strong><%=submissionOpen?"":"（受付終了）"%> / 状態: <strong><%=submissionStatusLabel(preferenceSubmission.get("status"))%></strong></div>
+        <div class="<%=submissionOpen?"alert":"error-banner"%>">対象月: <strong><%=e(submissionWindow.get("target_month"))%></strong> / 提出期限: <strong><%=e(submissionWindow.get("deadline"))%></strong><%=submissionOpen?"":"（受付終了）"%> / 状態: <strong><%=submissionStatusLabel(preferenceSubmission.get("status"), en)%></strong></div>
         <section class="section preference-section"><div class="section-header"><div><h2>希望日をまとめて選択</h2><p class="muted">希望がある日だけ選択してください。未選択日は自動割当の対象になります。</p></div></div>
           <div class="alert info-banner" style="margin-bottom: 1.5rem; background: #f0f9ff; border-left: 4px solid #0284c7; padding: 1rem; border-radius: 4px;">
             <strong style="color: #0369a1;">【有休の申請について】</strong><br>
@@ -335,7 +335,7 @@ String ctx = request.getContextPath();
         <% } else if (!pageKey.equals("shifts/manage") && !pageKey.equals("shifts/request") && !pageKey.equals("shifts/change")) { %>
         <section class="section"><div class="section-header"><h2><%=month%> 月間シフト</h2><span class="muted"><%=rows.size()%>件</span></div>
           <div class="table-wrap"><table><thead><tr><th>日付</th><th>社員番号</th><th>氏名</th><th>勤務区分</th><th>状態</th><th>備考</th></tr></thead><tbody>
-          <% for(Map<String,Object> row:rows){ %><tr><td><%=e(row.get("work_date"))%></td><td><%=e(row.get("employee_number"))%></td><td><%=e(row.get("name"))%></td><td><%=e(row.get("work_type"))%></td><td><span class="status <%=status(row.get("status"))%>"><%=shiftStatusLabel(row.get("status"))%></span></td><td><%=e(row.get("note"))%></td></tr><% } %>
+          <% for(Map<String,Object> row:rows){ %><tr><td><%=e(row.get("work_date"))%></td><td><%=e(row.get("employee_number"))%></td><td><%=e(row.get("name"))%></td><td><%=e(row.get("work_type"))%></td><td><span class="status <%=status(row.get("status"))%>"><%=shiftStatusLabel(row.get("status"), en)%></span></td><td><%=e(row.get("note"))%></td></tr><% } %>
           <% if(rows.isEmpty()){%><tr><td colspan="6" class="empty">対象月のシフトはありません。</td></tr><%}%></tbody></table></div>
         </section>
         <% } %>

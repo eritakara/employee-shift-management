@@ -152,6 +152,10 @@ public class AttendanceService {
   }
 
   public void decideAttendanceAdjustment(User actor, long requestId, boolean approve) {
+    decideAttendanceAdjustment(actor, requestId, approve, null);
+  }
+
+  public void decideAttendanceAdjustment(User actor, long requestId, boolean approve, String rejectionReason) {
     requireManager(actor);
     Map<String, Object> row = Sql.one("SELECT r.*,u.branch_id,u.department_id FROM attendance_adjustments r JOIN users u ON u.id=r.requested_by WHERE r.id=?", requestId);
     if (row.isEmpty() || !"PENDING".equals(row.get("status"))) throw new IllegalArgumentException("未処理の申請が見つかりません。");
@@ -171,8 +175,15 @@ public class AttendanceService {
         row.get("requested_in"), row.get("requested_out"), row.get("requested_in"), row.get("requested_out"), row.get("attendance_id"));
     Sql.update("UPDATE attendance_adjustments SET status=?,decided_by=?,decided_at=CURRENT_TIMESTAMP WHERE id=?",
         approve ? "APPROVED" : "REJECTED", actor.getId(), requestId);
+
+    String decisionMessage = "申請結果を確認してください。";
+    if (!approve && rejectionReason != null && !rejectionReason.isBlank()) {
+      decisionMessage += " 却下理由: " + rejectionReason.trim();
+      afterAudit += ";rejection_reason=" + rejectionReason.trim();
+    }
+
     notificationService.notify(((Number) row.get("requested_by")).longValue(), "ATTENDANCE_ADJUSTMENT_DECISION",
-        approve ? "打刻修正が承認されました" : "打刻修正が却下されました", "申請結果を確認してください。", "/app/attendance/history");
+        approve ? "打刻修正が承認されました" : "打刻修正が却下されました", decisionMessage, "/app/attendance/history");
     AuditService.record(actor.getId(), approve ? "APPROVE_ATTENDANCE_ADJUSTMENT" : "REJECT_ATTENDANCE_ADJUSTMENT",
         "ATTENDANCE_ADJUSTMENT", String.valueOf(requestId), beforeAudit, afterAudit);
   }

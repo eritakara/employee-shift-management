@@ -210,7 +210,11 @@ public class PortalServlet extends HttpServlet {
             parseMonth(req.getParameter("month")), Boolean.parseBoolean(req.getParameter("finalized")));
         case "requestAttendanceAdjustment" -> attendanceService.requestAttendanceAdjustment(user, Long.parseLong(req.getParameter("attendanceId")),
             LocalDateTime.parse(req.getParameter("requestedIn")), LocalDateTime.parse(req.getParameter("requestedOut")), req.getParameter("reason"));
-        case "decideAttendanceAdjustment" -> attendanceService.decideAttendanceAdjustment(user, Long.parseLong(req.getParameter("id")), "approve".equals(req.getParameter("decision")));
+        case "decideAttendanceAdjustment" -> {
+          boolean approve = "approve".equals(req.getParameter("decision"));
+          String rejectionReason = req.getParameter("rejectionReason");
+          attendanceService.decideAttendanceAdjustment(user, Long.parseLong(req.getParameter("id")), approve, rejectionReason);
+        }
         case "markNotificationsRead" -> notificationService.markNotificationsRead(user);
         case "retryMail" -> notificationService.retryMail(user, Long.parseLong(req.getParameter("id")));
         case "addEmployee" -> employeeService.addEmployee(user, req.getParameter("employeeNumber"), req.getParameter("name"), req.getParameter("email"),

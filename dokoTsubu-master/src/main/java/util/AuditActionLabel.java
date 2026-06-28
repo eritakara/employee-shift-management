@@ -63,4 +63,84 @@ public final class AuditActionLabel {
     String code = String.valueOf(action);
     return LABELS.getOrDefault(code, code);
   }
+
+  private static final Map<String, String> TARGET_LABELS = Map.ofEntries(
+      Map.entry("USER", "ユーザー"),
+      Map.entry("ATTENDANCE", "勤怠実績"),
+      Map.entry("ATTENDANCE_MONTH", "月次勤怠"),
+      Map.entry("ATTENDANCE_ADJUSTMENT", "打刻修正申請"),
+      Map.entry("QUALIFICATION", "資格"),
+      Map.entry("DELEGATION", "代理店長"),
+      Map.entry("LEAVE_RULE", "有休付与ルール"),
+      Map.entry("LEAVE_REQUEST", "有休申請"),
+      Map.entry("WORK_TYPE", "勤務区分"),
+      Map.entry("MAIL_OUTBOX", "送信メール"),
+      Map.entry("APP_SETTING", "システム設定"),
+      Map.entry("SHIFT", "シフト"),
+      Map.entry("SHIFT_PREFERENCE", "希望シフト"),
+      Map.entry("SHIFT_PREFERENCE_SUBMISSION", "希望シフト提出"),
+      Map.entry("SHIFT_MONTH", "月間シフト"),
+      Map.entry("SHIFT_CHANGE", "シフト変更申請"),
+      Map.entry("BRANCH", "営業所"),
+      Map.entry("DEPARTMENT", "部署"),
+      Map.entry("EMPLOYMENT_TYPE", "雇用形態")
+  );
+
+  public static String targetLabelOf(Object targetType) {
+    if (targetType == null) return "";
+    String code = String.valueOf(targetType);
+    return TARGET_LABELS.getOrDefault(code, code);
+  }
+
+  public static String decodeValue(Object val) {
+    if (val == null) return "-";
+    String text = String.valueOf(val);
+    if (text.isBlank() || "null".equals(text)) return "-";
+
+    text = text.replace("request_status=", "申請状態=")
+               .replace("clock_in=", "出勤=")
+               .replace("clock_out=", "退勤=")
+               .replace("rejection_reason=", "却下理由=")
+               .replace("status=", "状態=")
+               .replace("employee_number=", "社員番号=")
+               .replace("hire_date=", "入社日=")
+               .replace("branch_id=", "営業所ID=")
+               .replace("department_id=", "部署ID=")
+               .replace("employment_type_id=", "雇用形態ID=")
+               .replace("role=", "役割=")
+               .replace("active=", "有効=")
+               .replace("name=", "氏名=")
+               .replace("email=", "メールアドレス=")
+               .replace("delegateId=", "代理店長ID=")
+               .replace("start=", "開始日=")
+               .replace("end=", "終了日=")
+               .replace("expires=", "有効期限=")
+               .replace("expires in 24h", "24時間で失効")
+               .replace("CONFIRMED reason=", "確定 理由=")
+               .replace("PENDING", "申請中")
+               .replace("APPROVED", "承認済み")
+               .replace("REJECTED", "却下")
+               .replace("CANCELLED", "取消済み")
+               .replace("COMPLETE", "完了")
+               .replace("OPEN", "未完了")
+               .replace("DRAFT", "下書き")
+               .replace("QUEUED", "送信待ち")
+               .replace("FAILED", "送信失敗")
+               .replace("EMPLOYEE", "従業員")
+               .replace("MANAGER", "店長")
+               .replace("HR", "人事")
+               .replace("ADMIN", "管理者")
+               .replace("ACQUIRED", "取得済み")
+               .replace("DENIED", "拒否")
+               .replace("UNAVAILABLE", "利用不可")
+               .replace("UNKNOWN", "不明")
+               .replace("FULL:", "1日:")
+               .replace("AM:", "午前休:")
+               .replace("PM:", "午後休:")
+               .replace("HOURLY:", "時間有休:")
+               .replace("true", "有効")
+               .replace("false", "無効");
+
+    return text;
+  }
 }

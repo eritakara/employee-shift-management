@@ -209,6 +209,48 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const attendanceRejectDialog = document.querySelector('[data-attendance-reject-dialog]');
+  if (attendanceRejectDialog) {
+    const rejectForm = attendanceRejectDialog.querySelector('[data-attendance-reject-form]');
+    const reasonInput = attendanceRejectDialog.querySelector('[data-attendance-reject-reason-input]');
+    const error = attendanceRejectDialog.querySelector('[data-attendance-reject-error]');
+    document.querySelectorAll('[data-attendance-reject-open]').forEach(button => {
+      button.addEventListener('click', () => {
+        rejectForm.reset();
+        rejectForm.querySelector('[data-attendance-reject-id]').value = button.dataset.requestId;
+        rejectForm.querySelector('[data-attendance-reject-return-page]').value = button.dataset.returnPage;
+        setText('[data-attendance-reject-requester]', button.dataset.requester);
+        setText('[data-attendance-reject-date]', button.dataset.workDate);
+        setText('[data-attendance-reject-before-in]', button.dataset.beforeIn);
+        setText('[data-attendance-reject-after-in]', button.dataset.afterIn);
+        setText('[data-attendance-reject-before-out]', button.dataset.beforeOut);
+        setText('[data-attendance-reject-after-out]', button.dataset.afterOut);
+        setText('[data-attendance-reject-reason]', button.dataset.reason);
+        setText('[data-attendance-reject-status]', button.dataset.status);
+        error.hidden = true;
+        reasonInput.setCustomValidity('');
+        attendanceRejectDialog.showModal();
+      });
+    });
+    attendanceRejectDialog.querySelector('[data-attendance-reject-cancel]')?.addEventListener('click', () => attendanceRejectDialog.close());
+    reasonInput.addEventListener('input', () => {
+      if (reasonInput.value.trim()) {
+        error.hidden = true;
+        reasonInput.setCustomValidity('');
+      }
+    });
+    rejectForm.addEventListener('submit', event => {
+      if (reasonInput.value.trim()) return;
+      event.preventDefault();
+      rejectForm.dataset.submitting = 'false';
+      rejectForm.removeAttribute('aria-busy');
+      rejectForm.querySelector('.loading-indicator')?.remove();
+      error.hidden = false;
+      reasonInput.setCustomValidity('却下理由を入力してください');
+      reasonInput.reportValidity();
+    });
+  }
+
   const leaveUnitSelect = document.querySelector('form select[name="unit"]');
   if (leaveUnitSelect) {
     const leaveHoursInput = leaveUnitSelect.closest('form').querySelector('input[name="hours"]');

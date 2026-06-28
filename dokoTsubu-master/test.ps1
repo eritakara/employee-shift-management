@@ -30,6 +30,8 @@ if ($LASTEXITCODE -ne 0) { throw "Attendance finalization tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Attendance clock guard tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.AuditSearchTest
 if ($LASTEXITCODE -ne 0) { throw "Audit search tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.AuditActionLabelTest
+if ($LASTEXITCODE -ne 0) { throw "Audit action label tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.ExportServiceTest
 if ($LASTEXITCODE -ne 0) { throw "Export service tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.AttendanceCalculatorTest

@@ -25,17 +25,18 @@ public class ExportServlet extends HttpServlet {
     YearMonth month = YearMonth.now();
     LocalDate from = date(req.getParameter("from"), month.atDay(1));
     LocalDate to = date(req.getParameter("to"), month.atEndOfMonth());
-    List<Map<String, Object>> rows;
-    try { rows = exports.rows(user, type, from, to, number(req.getParameter("branchId")), number(req.getParameter("departmentId")), number(req.getParameter("userId"))); }
-    catch (IllegalArgumentException e) { res.sendError(400, e.getMessage()); return; }
+
     res.setCharacterEncoding("UTF-8");
     res.setContentType("xls".equals(format) ? "application/vnd.ms-excel;charset=UTF-8" : "text/csv;charset=UTF-8");
     res.setHeader("Content-Disposition", "attachment; filename=\"" + (type == null ? "shifts" : type) + "-" + from + "-" + to + "." + format + "\"");
     res.setHeader("Cache-Control", "no-store");
-    res.setHeader("X-Export-Row-Count", String.valueOf(rows.size()));
     res.setBufferSize(32 * 1024);
-    if ("xls".equals(format)) exports.writeExcelHtml(rows, res.getWriter());
-    else exports.writeCsv(rows, res.getWriter());
+
+    try {
+      exports.export(user, type, from, to, number(req.getParameter("branchId")), number(req.getParameter("departmentId")), number(req.getParameter("userId")), format, res.getWriter());
+    } catch (IllegalArgumentException e) {
+      res.sendError(400, e.getMessage());
+    }
   }
   private LocalDate date(String value, LocalDate fallback) { try { return LocalDate.parse(value); } catch (Exception e) { return fallback; } }
   private Long number(String value) { try { return value == null || value.isBlank() ? null : Long.valueOf(value); } catch (Exception e) { return null; } }

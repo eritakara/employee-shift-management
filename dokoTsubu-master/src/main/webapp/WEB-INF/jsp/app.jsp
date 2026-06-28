@@ -139,6 +139,15 @@
     String note = String.valueOf(value);
     if ("FULL".equals(note) || "AM".equals(note) || "PM".equals(note) || "HOURLY".equals(note)) return leaveUnitLabel(note, en);
     if ("statutory expiry".equals(note)) return en ? "Statutory expiry" : "法定失効";
+    if ("cancelled".equals(note)) return en ? "Cancelled" : "取消済み";
+    if (note.startsWith("attendance_rate=")) {
+      String rate = note.substring("attendance_rate=".length());
+      return en ? "Attendance rate: " + rate : "出勤率: " + rate;
+    }
+    if (note.startsWith("statutory sequence=")) {
+      String seq = note.substring("statutory sequence=".length());
+      return en ? "Statutory sequence: " + seq : "法定付与回数: " + seq;
+    }
     return e(value);
   }
   private boolean pageIs(String page, String prefix) { return page.equals(prefix) || page.startsWith(prefix + "/"); }

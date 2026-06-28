@@ -280,13 +280,52 @@ String ctx = request.getContextPath();
           <div class="metric"><span class="label">今月の実勤務</span><strong><%=String.format("%.1f",stats.get("monthHours"))%><small>時間</small></strong></div>
         </div>
         <div class="dashboard-grid">
-          <section class="section"><div class="section-header"><h2>勤務時間・残業時間・有休取得数の推移</h2><span class="muted"><%=en?"Work / overtime / leave":"直近6か月"%></span></div>
-            <% if (chart.isEmpty()) { %><div class="empty">集計できる勤怠データがありません。</div><% } else { %>
-            <div class="chart"><% for (Map<String,Object> item : chart) {
-              double hours = ((Number)item.get("total_hours")).doubleValue(); double overtime = ((Number)item.get("overtime_hours")).doubleValue(); double leave = ((Number)item.get("leave_days")).doubleValue(); %>
-              <div class="chart-column"><span class="bar" style="height:<%=Math.min(100,hours/2)%>%" title="勤務 <%=hours%>時間"></span><span class="bar overtime" style="height:<%=Math.min(100,overtime*2)%>%" title="残業 <%=overtime%>時間"></span><span class="bar leave" style="height:<%=Math.min(100,leave*12)%>%" title="<%=en?"Leave":"有休"%> <%=leave%>日"></span><small><%=e(item.get("month_label"))%></small></div>
-            <% } %></div><% } %>
-          </section>
+          <div class="dashboard-charts">
+            <section class="section">
+              <div class="section-header">
+                <h2><%=en?"Work Hours":"勤務時間の推移"%></h2>
+                <span class="muted"><%=en?"(Hours)":"(時間)"%></span>
+              </div>
+              <% if (chart.isEmpty()) { %><div class="empty">集計できる勤怠データがありません。</div><% } else { %>
+              <div class="chart"><% for (Map<String,Object> item : chart) {
+                double hours = ((Number)item.get("total_hours")).doubleValue(); %>
+                <div class="chart-column">
+                  <span class="bar" style="height:<%=Math.min(100,hours/2)%>%" title="勤務 <%=hours%>時間"></span>
+                  <small><%=e(item.get("month_label"))%></small>
+                </div>
+              <% } %></div><% } %>
+            </section>
+
+            <section class="section">
+              <div class="section-header">
+                <h2><%=en?"Overtime Hours":"残業時間の推移"%></h2>
+                <span class="muted"><%=en?"(Hours)":"(時間)"%></span>
+              </div>
+              <% if (chart.isEmpty()) { %><div class="empty">集計できる勤怠データがありません。</div><% } else { %>
+              <div class="chart"><% for (Map<String,Object> item : chart) {
+                double overtime = ((Number)item.get("overtime_hours")).doubleValue(); %>
+                <div class="chart-column">
+                  <span class="bar overtime" style="height:<%=Math.min(100,overtime*2)%>%" title="残業 <%=overtime%>時間"></span>
+                  <small><%=e(item.get("month_label"))%></small>
+                </div>
+              <% } %></div><% } %>
+            </section>
+
+            <section class="section">
+              <div class="section-header">
+                <h2><%=en?"Leave Days":"有休取得日数の推移"%></h2>
+                <span class="muted"><%=en?"(Days)":"(日)"%></span>
+              </div>
+              <% if (chart.isEmpty()) { %><div class="empty">集計できる勤怠データがありません。</div><% } else { %>
+              <div class="chart"><% for (Map<String,Object> item : chart) {
+                double leave = ((Number)item.get("leave_days")).doubleValue(); %>
+                <div class="chart-column">
+                  <span class="bar leave" style="height:<%=Math.min(100,leave*12)%>%" title="<%=en?"Leave":"有休"%> <%=leave%>日"></span>
+                  <small><%=e(item.get("month_label"))%></small>
+                </div>
+              <% } %></div><% } %>
+            </section>
+          </div>
           <% { String rosterTitle="シフト"; String rosterLink=null; List<Map<String,Object>> rosterBranches=(List<Map<String,Object>>)request.getAttribute("dashboardBranches"); Number selectedRosterBranch=(Number)request.getAttribute("dashboardBranchId"); Long rosterBranchId=selectedRosterBranch==null?user.getBranchId():selectedRosterBranch.longValue(); if(rosterBranches==null)rosterBranches=Collections.emptyList(); String selectedRosterBranchQuery=rosterBranchId==null?"":"&amp;branchId="+rosterBranchId; %>
             <div class="toolbar no-print">
               <form method="get"><%if(rosterBranchId!=null){%><input type="hidden" name="branchId" value="<%=rosterBranchId%>"><%}%><label>対象月<input type="month" name="month" value="<%=month%>" data-auto-submit></label></form>

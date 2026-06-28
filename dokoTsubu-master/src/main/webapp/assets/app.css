@@ -567,3 +567,22 @@ form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
 }
 
 @page { size: landscape; margin: 8mm; }
+
+.dashboard-charts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  margin-bottom: 22px;
+}
+
+@media (max-width: 1050px) {
+  .dashboard-charts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard-charts {
+    grid-template-columns: 1fr;
+  }
+}

@@ -54,6 +54,10 @@ public final class AuditActionLabel {
 
   private AuditActionLabel() { }
 
+  public static java.util.Set<String> actions() {
+    return LABELS.keySet();
+  }
+
   public static String labelOf(Object action) {
     if (action == null) return "";
     String code = String.valueOf(action);

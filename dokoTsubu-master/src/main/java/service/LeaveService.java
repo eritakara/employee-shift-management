@@ -27,7 +27,8 @@ public class LeaveService {
         ? new Object[]{viewer.getBranchId()} : new Object[]{viewer.getId()};
     List<Map<String, Object>> rows = Sql.query("SELECT l.*,u.name,u.employee_number,u.role applicant_role,u.branch_id,u.department_id FROM leave_requests l JOIN users u ON u.id=l.user_id WHERE 1=1"
         + ownOrScope + " ORDER BY l.created_at DESC", args);
-    for (Map<String, Object> row : rows) row.put("can_decide_leave", canDecideLeave(viewer, row));
+    List<ApproverCandidate> all = loadAllCandidates();
+    for (Map<String, Object> row : rows) row.put("can_decide_leave", canDecideLeave(viewer, row, all));
     return rows;
   }
 
@@ -226,16 +227,83 @@ public class LeaveService {
     AuditService.record(actor.getId(), "CANCEL_LEAVE", "LEAVE_REQUEST", String.valueOf(requestId), currentStatus, "CANCELLED");
   }
 
+  private static class ApproverCandidate {
+    long id;
+    String name;
+    String role;
+    long branchId;
+    long departmentId;
+    int approvalCount;
+
+    ApproverCandidate(Map<String, Object> row) {
+      this.id = ((Number) row.get("id")).longValue();
+      this.name = String.valueOf(row.get("name"));
+      this.role = String.valueOf(row.get("role"));
+      this.branchId = ((Number) row.get("branch_id")).longValue();
+      this.departmentId = ((Number) row.get("department_id")).longValue();
+      this.approvalCount = ((Number) row.get("approval_count")).intValue();
+    }
+  }
+
+  private List<ApproverCandidate> loadAllCandidates() {
+    String dateadd = config.Database.isPostgres() ? "(CURRENT_TIMESTAMP - INTERVAL '90 day')" : "DATEADD('DAY',-90,CURRENT_TIMESTAMP)";
+    List<Map<String, Object>> rows = Sql.query("SELECT u.id, u.name, u.role, u.branch_id, u.department_id, COUNT(l.id) approval_count "
+        + "FROM users u "
+        + "LEFT JOIN leave_requests l ON l.decided_by=u.id AND l.decided_at>=" + dateadd + " "
+        + "WHERE u.active=TRUE "
+        + "GROUP BY u.id, u.name, u.role, u.branch_id, u.department_id");
+    List<ApproverCandidate> list = new ArrayList<>();
+    for (Map<String, Object> row : rows) {
+      list.add(new ApproverCandidate(row));
+    }
+    return list;
+  }
+
+  private List<Map<String, Object>> findCandidate(List<ApproverCandidate> all, String approverType, long applicantId, java.util.function.Predicate<ApproverCandidate> filter) {
+    ApproverCandidate best = null;
+    for (ApproverCandidate c : all) {
+      if (c.id == applicantId) continue;
+      if (filter.test(c)) {
+        if (best == null) {
+          best = c;
+        } else {
+          int cmp = Integer.compare(c.approvalCount, best.approvalCount);
+          if (cmp < 0 || (cmp == 0 && c.id < best.id)) {
+            best = c;
+          }
+        }
+      }
+    }
+    if (best == null) return Collections.emptyList();
+    Map<String, Object> map = new java.util.HashMap<>();
+    map.put("id", best.id);
+    map.put("name", best.name);
+    map.put("role", best.role);
+    map.put("approver_type", approverType);
+    map.put("approval_count", best.approvalCount);
+    return List.of(map);
+  }
+
   // 権限・承認者選出関連のヘルパー
   private boolean canDecideLeave(User actor, Map<String, Object> request) {
     if (actor == null || request == null || request.isEmpty()) return false;
     return canDecideLeave(actor, ((Number) request.get("user_id")).longValue(), String.valueOf(request.get("applicant_role")),
-        ((Number) request.get("branch_id")).longValue(), ((Number) request.get("department_id")).longValue());
+        ((Number) request.get("branch_id")).longValue(), ((Number) request.get("department_id")).longValue(), loadAllCandidates());
+  }
+
+  private boolean canDecideLeave(User actor, Map<String, Object> request, List<ApproverCandidate> all) {
+    if (actor == null || request == null || request.isEmpty()) return false;
+    return canDecideLeave(actor, ((Number) request.get("user_id")).longValue(), String.valueOf(request.get("applicant_role")),
+        ((Number) request.get("branch_id")).longValue(), ((Number) request.get("department_id")).longValue(), all);
   }
 
   private boolean canDecideLeave(User actor, long applicantId, String applicantRole, long branch, long department) {
+    return canDecideLeave(actor, applicantId, applicantRole, branch, department, loadAllCandidates());
+  }
+
+  private boolean canDecideLeave(User actor, long applicantId, String applicantRole, long branch, long department, List<ApproverCandidate> all) {
     if (actor.getId() == applicantId) return false;
-    return leaveApproverRows(applicantId, applicantRole, branch, department).stream()
+    return leaveApproverRows(applicantId, applicantRole, branch, department, all).stream()
         .anyMatch(approver -> ((Number) approver.get("id")).longValue() == actor.getId());
   }
 
@@ -244,30 +312,19 @@ public class LeaveService {
   }
 
   private List<Map<String, Object>> leaveApproverRows(long applicantId, String applicantRole, long branch, long department) {
-    if ("MANAGER".equals(applicantRole)) return leaveApproverCandidates(
-        "u.role='HR'", "人事", applicantId);
-    if ("HR".equals(applicantRole)) {
-      List<Map<String, Object>> sameDepartment = leaveApproverCandidates(
-          "u.role='HR' AND u.department_id=?", "人事担当", applicantId, department);
-      if (!sameDepartment.isEmpty()) return sameDepartment;
-      List<Map<String, Object>> headOfficeManagers = leaveApproverCandidates(
-          "u.role='MANAGER' AND u.branch_id=1", "本部管理者", applicantId);
-      if (!headOfficeManagers.isEmpty()) return headOfficeManagers;
-      return leaveApproverCandidates("u.role='HR'", "人事担当", applicantId);
-    }
-    return leaveApproverCandidates("u.role='MANAGER' AND u.branch_id=?", "店長", applicantId, branch);
+    return leaveApproverRows(applicantId, applicantRole, branch, department, loadAllCandidates());
   }
 
-  private List<Map<String, Object>> leaveApproverCandidates(String condition, String approverType, long applicantId, Object... args) {
-    Object[] queryArgs = new Object[args.length + 1];
-    System.arraycopy(args, 0, queryArgs, 0, args.length);
-    queryArgs[args.length] = applicantId;
-    String dateadd = config.Database.isPostgres() ? "(CURRENT_TIMESTAMP - INTERVAL '90 day')" : "DATEADD('DAY',-90,CURRENT_TIMESTAMP)";
-    return Sql.query("SELECT u.id,u.name,u.role,? approver_type,COUNT(l.id) approval_count FROM users u "
-        + "LEFT JOIN leave_requests l ON l.decided_by=u.id AND l.decided_at>=" + dateadd + " "
-        + "WHERE u.active=TRUE AND " + condition + " AND u.id<>? "
-        + "GROUP BY u.id,u.name,u.role ORDER BY approval_count,u.id LIMIT 1",
-        join(new Object[]{approverType}, queryArgs));
+  private List<Map<String, Object>> leaveApproverRows(long applicantId, String applicantRole, long branch, long department, List<ApproverCandidate> all) {
+    if ("MANAGER".equals(applicantRole)) return findCandidate(all, "人事", applicantId, c -> "HR".equals(c.role));
+    if ("HR".equals(applicantRole)) {
+      List<Map<String, Object>> sameDepartment = findCandidate(all, "人事担当", applicantId, c -> "HR".equals(c.role) && c.departmentId == department);
+      if (!sameDepartment.isEmpty()) return sameDepartment;
+      List<Map<String, Object>> headOfficeManagers = findCandidate(all, "本部管理者", applicantId, c -> "MANAGER".equals(c.role) && c.branchId == 1);
+      if (!headOfficeManagers.isEmpty()) return headOfficeManagers;
+      return findCandidate(all, "人事担当", applicantId, c -> "HR".equals(c.role));
+    }
+    return findCandidate(all, "店長", applicantId, c -> "MANAGER".equals(c.role) && c.branchId == branch);
   }
 
   private void requireManager(User user) {

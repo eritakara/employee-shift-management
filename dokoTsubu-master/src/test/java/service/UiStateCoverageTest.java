@@ -63,12 +63,12 @@ public class UiStateCoverageTest {
         && application.contains("leave-tab-balance"), "leave tabs have semantic color classes");
     check(css.contains(".leave-tabs .leave-tab-request") && css.contains(".leave-tabs .leave-tab-history")
         && css.contains(".leave-tabs .leave-tab-balance"), "leave tabs have distinct color styles");
-    check(application.contains("statusLabel(row.get(\"status\"))"), "leave request statuses use display labels");
-    check(application.contains("leaveUnitLabel(row.get(\"leave_unit\"))"), "leave request units use display labels");
-    check(application.contains("if (\"APPROVED\".equals(status)) return \"承認済み\"")
-        && application.contains("if (\"FULL\".equals(unit)) return \"1日\""), "leave status and unit labels are localized");
-    check(application.contains("warningLabel(w.get(\"warning\"))")
-        && application.contains("if (\"STAFF_SHORTAGE\".equals(warning)) return \"人員不足\""),
+    check(application.contains("statusLabel(row.get(\"status\"), en)"), "leave request statuses use display labels");
+    check(application.contains("leaveUnitLabel(row.get(\"leave_unit\"), en)"), "leave request units use display labels");
+    check(application.contains("if (\"APPROVED\".equals(status)) return en ? \"Approved\" : \"承認済み\"")
+        && application.contains("if (\"FULL\".equals(unit)) return en ? \"Full day\" : \"1日\""), "leave status and unit labels are localized");
+    check(application.contains("warningLabel(w.get(\"warning\"), en)")
+        && application.contains("if (\"STAFF_SHORTAGE\".equals(warning)) return en ? \"Staff shortage\" : \"人員不足\""),
         "shift warning types are localized");
     check(application.contains("pageKey.equals(\"shifts/history\") || pageKey.equals(\"shifts/change\")")
         && application.contains("String rosterTitle=\"月間シフト\"")
@@ -101,8 +101,8 @@ public class UiStateCoverageTest {
         && application.contains("<%=shiftMonthAutoSubmit?\"data-auto-submit\":\"\"%>")
         && application.contains("<%if(!shiftMonthAutoSubmit){%><button type=\"submit\">表示</button><%}%>"),
         "schedule editor and confirmation auto-submit month changes");
-    check(application.contains("leaveEventTypeLabel(event.get(\"event_type\"))")
-        && application.contains("leaveNoteLabel(event.get(\"note\"))"), "leave ledger type and note use display labels");
+    check(application.contains("leaveEventTypeLabel(event.get(\"event_type\"), en)")
+        && application.contains("leaveNoteLabel(event.get(\"note\"), en)"), "leave ledger type and note use display labels");
     check(application.contains("days(balance.get(\"days_remaining\"))"), "leave balance card uses compact day formatting");
     check(application.contains("days(event.get(\"days\"))"), "leave ledger days use compact number formatting");
     check(application.contains("class=\"approver-panel\"") && application.contains("leaveApprovers"),
@@ -141,8 +141,8 @@ public class UiStateCoverageTest {
         "leave request reason is optional on the server");
     check(leaveService.contains("throw new IllegalArgumentException(\"却下理由を入力してください。\")")
         && leaveService.contains("却下理由: "), "leave rejection reason is required and included in notification");
-    check(application.contains("if (\"USE\".equals(type)) return \"取得\"")
-        && application.contains("if (\"statutory expiry\".equals(note)) return \"法定失効\""),
+    check(application.contains("if (\"USE\".equals(type)) return en ? \"Use\" : \"取得\"")
+        && application.contains("if (\"statutory expiry\".equals(note)) return en ? \"Statutory expiry\" : \"法定失効\""),
         "leave ledger labels are localized");
     check(application.contains("pageKey.equals(\"leave/request\")") && application.contains("pageKey.equals(\"leave/history\")")
         && application.contains("pageKey.equals(\"leave/balance\")"), "legacy leave URLs map to the matching tab");

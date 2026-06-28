@@ -462,7 +462,19 @@ function translatePage() {
     '表示と言語':'Display and language','表示言語':'Language','新しいパスワード':'New password','設定を保存':'Save settings','有効':'Active','無効':'Inactive','提出済み':'Submitted','下書き':'Draft',
     '日勤':'Day','夜勤':'Night','夜勤明け':'Post-night rest','休み':'Off','有休':'Paid leave','午前休':'AM leave','午後休':'PM leave','1日':'Full day','時間単位':'Hourly'
   };
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode: function(node) {
+      let parent = node.parentElement;
+      while (parent) {
+        const tagName = parent.tagName.toLowerCase();
+        if (tagName === 'tbody' || parent.classList.contains('chart-wrap')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        parent = parent.parentElement;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
   const nodes = [];
   while (walker.nextNode()) nodes.push(walker.currentNode);
   nodes.forEach(node => {

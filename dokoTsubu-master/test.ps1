@@ -40,6 +40,8 @@ if ($LASTEXITCODE -ne 0) { throw "Security authorization tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Shift workflow tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.ShiftPreferenceWorkflowTest
 if ($LASTEXITCODE -ne 0) { throw "Shift preference workflow tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.ShiftAutoAssignmentPerformanceTest
+if ($LASTEXITCODE -ne 0) { throw "Shift auto-assignment performance tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.NotificationRoutingTest
 if ($LASTEXITCODE -ne 0) { throw "Notification routing tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.SecurityHardeningTest

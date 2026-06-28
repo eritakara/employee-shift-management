@@ -10,9 +10,12 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import model.User;
 import static util.DateUtil.*;
 
@@ -230,17 +233,16 @@ public class ShiftService {
     Object[] userArgs = actor.isHr() ? new Object[]{} : new Object[]{actor.getBranchId(), actor.getDepartmentId()};
     List<Map<String, Object>> people = Sql.query("SELECT id,employee_number,role,weekly_work_days FROM users WHERE active=TRUE AND role<>'HR'" + userScope
         + " ORDER BY CASE WHEN role='MANAGER' THEN 0 ELSE 1 END,employee_number", userArgs);
-    int assigned = 0;
+    AutoAssignmentState state = loadAutoAssignmentState(actor, month, people);
 
     // 1. 承認済み有休の事前反映
     for (Map<String, Object> person : people) {
       long userId = ((Number) person.get("id")).longValue();
       for (int day = 1; day <= month.lengthOfMonth(); day++) {
         LocalDate date = month.atDay(day);
-        if (shiftMissing(userId, date)) {
-          Map<String, Object> leaveReq = Sql.one("SELECT leave_unit FROM leave_requests WHERE user_id=? AND leave_date=? AND status='APPROVED'", userId, date);
-          if (!leaveReq.isEmpty()) {
-            String leaveUnit = String.valueOf(leaveReq.get("leave_unit"));
+        if (!state.hasShift(userId, date)) {
+          String leaveUnit = state.approvedLeaves.get(new UserDate(userId, date));
+          if (leaveUnit != null) {
             String leaveType = switch (leaveUnit) {
               case "FULL" -> "LEAVE";
               case "AM" -> "AM_LEAVE";
@@ -248,8 +250,7 @@ public class ShiftService {
               default -> null;
             };
             if (leaveType != null) {
-              saveShift(actor, userId, date, leaveType, "DRAFT", "承認済み有休を優先して自動反映");
-              assigned++;
+              state.add(userId, date, leaveType, "承認済み有休を優先して自動反映");
             }
           }
         }
@@ -263,12 +264,12 @@ public class ShiftService {
     for (Map<String, Object> preference : preferred) {
       Long userId = employeeIds.get(String.valueOf(preference.get("employee_number")));
       if (userId == null) continue;
-      LocalDate date = LocalDate.parse(String.valueOf(preference.get("preference_date")));
-      if (shiftMissing(userId, date)) {
+      LocalDate date = toDate(preference.get("preference_date"));
+      if (!state.hasShift(userId, date)) {
         String requestType = String.valueOf(preference.get("request_type"));
-        saveShift(actor, userId, date, requestType, "DRAFT", "希望シフトから自動反映"); assigned++;
-        if ("NIGHT".equals(requestType) && YearMonth.from(date.plusDays(1)).equals(month) && shiftMissing(userId, date.plusDays(1))) {
-          saveShift(actor, userId, date.plusDays(1), "NIGHT_OFF", "DRAFT", "夜勤明け自動設定"); assigned++;
+        state.add(userId, date, requestType, "希望シフトから自動反映");
+        if ("NIGHT".equals(requestType) && YearMonth.from(date.plusDays(1)).equals(month) && !state.hasShift(userId, date.plusDays(1))) {
+          state.add(userId, date.plusDays(1), "NIGHT_OFF", "夜勤明け自動設定");
         }
       }
     }
@@ -278,66 +279,111 @@ public class ShiftService {
     int nightRequired = requiredStaff("NIGHT");
     for (int day = 1; day <= month.lengthOfMonth(); day++) {
       LocalDate date = month.atDay(day);
-      assigned += fillWorkType(actor, people, date, "DAY", dayRequired);
-      assigned += fillWorkType(actor, people, date, "NIGHT", nightRequired);
+      fillWorkType(state, people, date, "DAY", dayRequired);
+      fillWorkType(state, people, date, "NIGHT", nightRequired);
     }
+    saveAutoAssignments(actor, state.pending);
+    int assigned = state.pending.size();
     AuditService.record(actor.getId(), "AUTO_ASSIGN_SHIFTS", "SHIFT_MONTH", month.toString(), null, assigned + " shifts");
     return assigned;
   }
 
-  private int fillWorkType(User actor, List<Map<String, Object>> people, LocalDate date, String type, int required) {
-    int actual = ((Number) Sql.one("SELECT COUNT(*) metric_value FROM shifts s JOIN users u ON u.id=s.user_id WHERE s.work_date=? AND s.work_type_code=?"
-        + (actor.isHr() ? "" : " AND u.branch_id=? AND u.department_id=?"), actor.isHr() ? new Object[]{date, type} : new Object[]{date, type, actor.getBranchId(), actor.getDepartmentId()})
-        .getOrDefault("metric_value", 0)).intValue();
-    int added = 0;
+  private void fillWorkType(AutoAssignmentState state, List<Map<String, Object>> people, LocalDate date, String type, int required) {
+    int actual = state.count(date, type);
     for (Map<String, Object> person : people) {
       if (actual >= required) break;
       long userId = ((Number) person.get("id")).longValue();
       int maxConsecutive = Math.max(1, ((Number) person.get("weekly_work_days")).intValue());
-      if (!canAutoAssign(userId, date, maxConsecutive)) continue;
-      saveShift(actor, userId, date, type, "DRAFT", "希望なしの自動割当"); actual++; added++;
-      if ("NIGHT".equals(type) && date.plusDays(1).getMonthValue() == date.getMonthValue() && shiftMissing(userId, date.plusDays(1))) {
-        saveShift(actor, userId, date.plusDays(1), "NIGHT_OFF", "DRAFT", "夜勤明け自動設定"); added++;
+      if (!state.canAssign(userId, date, maxConsecutive)) continue;
+      state.add(userId, date, type, "希望なしの自動割当"); actual++;
+      if ("NIGHT".equals(type) && date.plusDays(1).getMonthValue() == date.getMonthValue() && !state.hasShift(userId, date.plusDays(1))) {
+        state.add(userId, date.plusDays(1), "NIGHT_OFF", "夜勤明け自動設定");
       }
     }
-    return added;
   }
 
-  private boolean canAutoAssign(long userId, LocalDate date, int maxConsecutive) {
-    if (isShiftAlreadyAssigned(userId, date)) return false;
-    if (hasApprovedLeave(userId, date)) return false; // 優先度1: 承認済み有休がある日は勤務割当不可
-    if (wasOnNightShiftYesterday(userId, date)) return false;
-    if (hasPreferredOffOrLeave(userId, date)) return false; // 優先度2: 希望休
-    if (exceedsMaxConsecutiveWorkDays(userId, date, maxConsecutive)) return false;
-    return true;
+  private AutoAssignmentState loadAutoAssignmentState(User actor, YearMonth month, List<Map<String, Object>> people) {
+    int lookback = people.stream().mapToInt(p -> Math.max(1, ((Number) p.get("weekly_work_days")).intValue())).max().orElse(1);
+    Map<UserDate, String> shifts = new HashMap<>();
+    for (Map<String, Object> row : Sql.query("SELECT s.user_id,s.work_date,s.work_type_code FROM shifts s JOIN users u ON u.id=s.user_id "
+        + "WHERE s.work_date BETWEEN ? AND ?" + scope(actor, "u"),
+        join(new Object[]{month.atDay(1).minusDays(lookback), month.atEndOfMonth()}, scopeArgs(actor)))) {
+      shifts.put(new UserDate(((Number) row.get("user_id")).longValue(), toDate(row.get("work_date"))), String.valueOf(row.get("work_type_code")));
+    }
+    Map<UserDate, String> approvedLeaves = new HashMap<>();
+    for (Map<String, Object> row : Sql.query("SELECT lr.user_id,lr.leave_date,lr.leave_unit FROM leave_requests lr JOIN users u ON u.id=lr.user_id "
+        + "WHERE lr.status='APPROVED' AND lr.leave_unit IN('FULL','AM','PM') AND lr.leave_date BETWEEN ? AND ?" + scope(actor, "u"),
+        join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs(actor)))) {
+      approvedLeaves.put(new UserDate(((Number) row.get("user_id")).longValue(), toDate(row.get("leave_date"))), String.valueOf(row.get("leave_unit")));
+    }
+    Set<UserDate> preferredOffOrLeave = new HashSet<>();
+    for (Map<String, Object> row : Sql.query("SELECT s.user_id,p.preference_date FROM shift_preferences p "
+        + "JOIN shift_preference_submissions s ON s.id=p.submission_id JOIN users u ON u.id=s.user_id "
+        + "WHERE p.preference_date BETWEEN ? AND ? AND p.request_type IN('OFF','LEAVE')" + scope(actor, "u"),
+        join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs(actor)))) {
+      preferredOffOrLeave.add(new UserDate(((Number) row.get("user_id")).longValue(), toDate(row.get("preference_date"))));
+    }
+    return new AutoAssignmentState(shifts, approvedLeaves, preferredOffOrLeave);
   }
 
-  private boolean hasApprovedLeave(long userId, LocalDate date) {
-    return !Sql.query("SELECT id FROM leave_requests WHERE user_id=? AND leave_date=? AND status='APPROVED' AND leave_unit IN ('FULL','AM','PM')", userId, date).isEmpty();
+  private void saveAutoAssignments(User actor, List<PendingShift> assignments) {
+    if (assignments.isEmpty()) return;
+    String shiftSql = Database.isPostgres()
+        ? "INSERT INTO shifts(user_id,work_date,work_type_code,status,note,updated_by,updated_at) VALUES(?,?,?,'DRAFT',?,?,CURRENT_TIMESTAMP) "
+            + "ON CONFLICT (user_id,work_date) DO UPDATE SET work_type_code=EXCLUDED.work_type_code,status=EXCLUDED.status,note=EXCLUDED.note,updated_by=EXCLUDED.updated_by,updated_at=CURRENT_TIMESTAMP"
+        : "MERGE INTO shifts(user_id,work_date,work_type_code,status,note,updated_by,updated_at) KEY(user_id,work_date) VALUES(?,?,?,'DRAFT',?,?,CURRENT_TIMESTAMP)";
+    String auditSql = "INSERT INTO audit_logs(actor_id,action,target_type,target_id,target_user_id,before_value,after_value) VALUES(?,'SAVE_SHIFT','SHIFT',?,?,NULL,?)";
+    try (Connection connection = Database.getConnection()) {
+      connection.setAutoCommit(false);
+      try (PreparedStatement shifts = connection.prepareStatement(shiftSql);
+           PreparedStatement audits = connection.prepareStatement(auditSql)) {
+        for (PendingShift assignment : assignments) {
+          shifts.setLong(1, assignment.userId()); shifts.setObject(2, assignment.date()); shifts.setString(3, assignment.type());
+          shifts.setString(4, assignment.note()); shifts.setLong(5, actor.getId()); shifts.addBatch();
+          audits.setLong(1, actor.getId()); audits.setString(2, assignment.userId() + ":" + assignment.date());
+          audits.setLong(3, assignment.userId()); audits.setString(4, assignment.type() + "/DRAFT"); audits.addBatch();
+        }
+        shifts.executeBatch(); audits.executeBatch(); connection.commit();
+      } catch (SQLException e) {
+        connection.rollback();
+        throw e;
+      }
+    } catch (SQLException e) {
+      throw new IllegalStateException("Could not save automatic shift assignments", e);
+    }
   }
 
-  private boolean isShiftAlreadyAssigned(long userId, LocalDate date) {
-    return !shiftMissing(userId, date);
-  }
+  private record UserDate(long userId, LocalDate date) { }
+  private record PendingShift(long userId, LocalDate date, String type, String note) { }
 
-  private boolean wasOnNightShiftYesterday(long userId, LocalDate date) {
-    return !Sql.query("SELECT id FROM shifts WHERE user_id=? AND work_date=? AND work_type_code='NIGHT'", userId, date.minusDays(1)).isEmpty();
-  }
+  private static final class AutoAssignmentState {
+    private final Map<UserDate, String> shifts;
+    private final Map<UserDate, String> approvedLeaves;
+    private final Set<UserDate> preferredOffOrLeave;
+    private final List<PendingShift> pending = new ArrayList<>();
 
-  private boolean hasPreferredOffOrLeave(long userId, LocalDate date) {
-    return !Sql.query("SELECT p.id FROM shift_preferences p JOIN shift_preference_submissions s ON s.id=p.submission_id "
-        + "WHERE s.user_id=? AND p.preference_date=? AND p.request_type IN('OFF','LEAVE')", userId, date).isEmpty();
-  }
+    private AutoAssignmentState(Map<UserDate, String> shifts, Map<UserDate, String> approvedLeaves, Set<UserDate> preferredOffOrLeave) {
+      this.shifts = shifts; this.approvedLeaves = approvedLeaves; this.preferredOffOrLeave = preferredOffOrLeave;
+    }
 
-  private boolean exceedsMaxConsecutiveWorkDays(long userId, LocalDate date, int maxConsecutive) {
-    int consecutive = ((Number) Sql.one("SELECT COUNT(*) metric_value FROM shifts WHERE user_id=? AND work_date BETWEEN ? AND ? "
-        + "AND work_type_code IN('DAY','NIGHT','AM_LEAVE','PM_LEAVE')", userId, date.minusDays(maxConsecutive), date.minusDays(1))
-        .getOrDefault("metric_value", 0)).intValue();
-    return consecutive >= maxConsecutive;
-  }
-
-  private boolean shiftMissing(long userId, LocalDate date) {
-    return Sql.query("SELECT id FROM shifts WHERE user_id=? AND work_date=?", userId, date).isEmpty();
+    private boolean hasShift(long userId, LocalDate date) { return shifts.containsKey(new UserDate(userId, date)); }
+    private int count(LocalDate date, String type) {
+      return (int) shifts.entrySet().stream().filter(e -> e.getKey().date().equals(date) && type.equals(e.getValue())).count();
+    }
+    private boolean canAssign(long userId, LocalDate date, int maxConsecutive) {
+      if (hasShift(userId, date) || approvedLeaves.containsKey(new UserDate(userId, date))) return false;
+      if ("NIGHT".equals(shifts.get(new UserDate(userId, date.minusDays(1))))) return false;
+      if (preferredOffOrLeave.contains(new UserDate(userId, date))) return false;
+      int consecutive = 0;
+      for (LocalDate previous = date.minusDays(maxConsecutive); previous.isBefore(date); previous = previous.plusDays(1)) {
+        String type = shifts.get(new UserDate(userId, previous));
+        if ("DAY".equals(type) || "NIGHT".equals(type) || "AM_LEAVE".equals(type) || "PM_LEAVE".equals(type)) consecutive++;
+      }
+      return consecutive < maxConsecutive;
+    }
+    private void add(long userId, LocalDate date, String type, String note) {
+      shifts.put(new UserDate(userId, date), type); pending.add(new PendingShift(userId, date, type, note));
+    }
   }
 
   private int requiredStaff(String type) {

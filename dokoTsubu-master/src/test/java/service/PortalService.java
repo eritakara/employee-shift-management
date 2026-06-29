@@ -105,6 +105,10 @@ public class PortalService {
     return shiftService.autoAssignShifts(actor, month);
   }
 
+  public int autoFillShifts(User actor, YearMonth month) {
+    return shiftService.autoFillShifts(actor, month);
+  }
+
   public Map<String, Object> shiftSubmissionWindow() {
     return shiftService.shiftSubmissionWindow();
   }

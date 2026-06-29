@@ -78,3 +78,5 @@ if ($LASTEXITCODE -ne 0) { throw "Invitation workflow tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Accessibility tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.UiStateCoverageTest
 if ($LASTEXITCODE -ne 0) { throw "UI state coverage tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$h2" service.ShiftAutoFillTest
+if ($LASTEXITCODE -ne 0) { throw "Shift auto fill tests failed" }

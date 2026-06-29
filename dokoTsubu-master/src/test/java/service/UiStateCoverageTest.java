@@ -25,14 +25,14 @@ public class UiStateCoverageTest {
     check(css.contains(".loading-indicator"), "loading state has a common visual style");
     check(application.contains("class=\"empty\""), "application has a common empty state");
     check(application.contains("class=\"alert danger\""), "application has a common input error state");
-    check(application.contains("今日の要対応")
-        && application.contains("今日のシフト不足")
+    check(application.contains("確認事項")
+        && application.contains("本日のシフト不足")
         && application.contains("月間シフト未確定")
         && application.contains("残業アラート"),
         "dashboard presents actionable items first");
-    check(application.indexOf("今日の要対応") < application.indexOf("今月の状況")
-        && application.indexOf("今月の状況") < application.indexOf("推移グラフ")
-        && application.indexOf("推移グラフ") < application.indexOf("dashboard-roster-heading"),
+    check(application.indexOf("確認事項") < application.indexOf("今月の勤務サマリー")
+        && application.indexOf("今月の勤務サマリー") < application.indexOf("勤務状況の推移")
+        && application.indexOf("勤務状況の推移") < application.indexOf("dashboard-roster-heading"),
         "dashboard sections follow the operational reading order");
     check(application.contains("直近6か月の実勤務時間を月別に確認できます。")
         && application.contains("所定時間を超えた残業時間の推移です。")

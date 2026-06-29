@@ -266,10 +266,10 @@ String ctx = request.getContextPath();
         for(Map<String,Object> dashboardRow:rows) if(!"CONFIRMED".equals(String.valueOf(dashboardRow.get("status")))) unconfirmedShiftCount++; %>
         <%if(manager){%>
         <section class="dashboard-priority" aria-labelledby="dashboard-priority-title">
-          <div class="dashboard-heading"><div><p class="eyebrow">TODAY</p><h2 id="dashboard-priority-title">今日の要対応</h2><p>確認が必要な項目から順に対応できます。</p></div></div>
+          <div class="dashboard-heading"><div><p class="eyebrow">TODAY</p><h2 id="dashboard-priority-title">確認事項</h2><p>確認が必要な項目から順に対応できます。</p></div></div>
           <div class="dashboard-action-grid">
             <a class="dashboard-action <%=pendingCount>0?"attention":"clear"%>" href="<%=ctx%>/app/leave/approvals"><span>承認待ち</span><strong><%=pendingCount%>件</strong><small><%=pendingCount>0?"申請内容を確認":"対応はありません"%></small></a>
-            <a class="dashboard-action <%=shortageCount>0?"attention":"clear"%>" href="<%=ctx%>/app/shifts/manage?month=<%=month%>"><span>今日のシフト不足</span><strong><%=shortageCount%>件</strong><small><%=shortageCount>0?"割当状況を確認":"不足はありません"%></small></a>
+            <a class="dashboard-action <%=shortageCount>0?"attention":"clear"%>" href="<%=ctx%>/app/shifts/manage?month=<%=month%>"><span>本日のシフト不足</span><strong><%=shortageCount%>件</strong><small><%=shortageCount>0?"割当状況を確認":"不足はありません"%></small></a>
             <a class="dashboard-action <%=unconfirmedShiftCount>0?"attention":"clear"%>" href="<%=ctx%>/app/shifts/confirm?month=<%=month%>"><span>月間シフト未確定</span><strong><%=unconfirmedShiftCount%>件</strong><small><%=rows.isEmpty()?"対象シフトはありません":unconfirmedShiftCount>0?"確定前チェックへ":"確定済みです"%></small></a>
             <a class="dashboard-action <%=overtimeLevel%>" href="<%=ctx%>/app/attendance/manage?month=<%=month%>"><span>残業アラート</span><strong><%=String.format("%.1f",overtimeHours)%>時間</strong><small><%="safe".equals(overtimeLevel)?"基準内です":"勤怠状況を確認"%></small></a>
           </div>
@@ -277,7 +277,7 @@ String ctx = request.getContextPath();
         <%}else{%>
           <div class="overtime-alert <%=overtimeLevel%>" role="<%="danger".equals(overtimeLevel)?"alert":"status"%>"><span class="overtime-alert-icon" aria-hidden="true"><%="safe".equals(overtimeLevel)?"✓":"!"%></span><div><strong>残業アラート</strong><p>今月の残業は<strong><%=String.format("%.1f",overtimeHours)%>時間</strong>です（基準 <%=String.format("%.0f",overtimeThreshold)%>時間）。<%if("danger".equals(overtimeLevel)){%>基準に達しています。勤務状況を確認してください。<%}else if("warning".equals(overtimeLevel)){%>基準に近づいています。今後の勤務予定にご注意ください。<%}else{%>現在は基準内です。<%}%></p></div></div>
         <%}%>
-        <div class="dashboard-heading dashboard-month-heading"><div><p class="eyebrow">THIS MONTH</p><h2>今月の状況</h2><p>勤務・申請・シフトの現在地をまとめて確認できます。</p></div></div>
+        <div class="dashboard-heading dashboard-month-heading"><div><p class="eyebrow">THIS MONTH</p><h2>今月の勤務サマリー</h2><p>勤務・申請・シフトの現在地をまとめて確認できます。</p></div></div>
         <div class="metric-grid <%= manager ? "" : "employee-metrics" %>">
           <% if (manager) { %>
           <div class="metric"><span class="label">今日の出勤予定</span><strong><%=e(stats.get("todayWorkers"))%><small>名</small></strong></div>
@@ -290,7 +290,7 @@ String ctx = request.getContextPath();
           <div class="metric"><span class="label">今月の実勤務</span><strong><%=String.format("%.1f",stats.get("monthHours"))%><small>時間</small></strong></div>
         </div>
         <div class="dashboard-grid">
-          <div class="dashboard-heading"><div><p class="eyebrow">TRENDS</p><h2>推移グラフ</h2><p>直近6か月の勤務実績と有休取得状況を確認できます。</p></div></div>
+          <div class="dashboard-heading"><div><p class="eyebrow">TRENDS</p><h2>勤務状況の推移</h2><p>直近6か月の勤務実績と有休取得状況を確認できます。</p></div></div>
           <div class="dashboard-charts">
             <section class="section">
               <div class="section-header">

@@ -337,7 +337,7 @@ String ctx = request.getContextPath();
 
       <% } else if (pageKey.startsWith("shifts/")) { Number selectedShiftBranch=(Number)request.getAttribute("shiftBranchId"); String selectedShiftBranchQuery=selectedShiftBranch==null?"":"&amp;branchId="+selectedShiftBranch.longValue(); boolean printDialogRequested=pageKey.equals("shifts/print")&&"1".equals(request.getParameter("printDialog")); boolean shiftMonthAutoSubmit=List.of("shifts/mine","shifts/request","shifts/change","shifts/manage","shifts/confirm").contains(pageKey); %>
         <%if(!pageKey.equals("shifts/change")){%><div class="toolbar no-print">
-          <form method="get"><%if(selectedShiftBranch!=null){%><input type="hidden" name="branchId" value="<%=selectedShiftBranch%>"><%}%><label>対象月<input type="month" name="month" value="<%=month%>" <%=shiftMonthAutoSubmit?"data-auto-submit":""%>></label><%if(!shiftMonthAutoSubmit){%><button type="submit">表示</button><%}%></form>
+          <%if(!pageKey.equals("shifts/manage")){%><form method="get"><%if(selectedShiftBranch!=null){%><input type="hidden" name="branchId" value="<%=selectedShiftBranch%>"><%}%><label>対象月<input type="month" name="month" value="<%=month%>" <%=shiftMonthAutoSubmit?"data-auto-submit":""%>></label><%if(!shiftMonthAutoSubmit){%><button type="submit">表示</button><%}%></form><%}%>
           <div class="actions"><%if(pageKey.equals("shifts/print")){%><a class="button" href="<%=ctx%>/app/shifts/mine?month=<%=month%><%=selectedShiftBranchQuery%>">シフトへ戻る</a><%if(!printDialogRequested){%><a class="button primary" href="<%=ctx%>/app/shifts/print?month=<%=month%><%=selectedShiftBranchQuery%>&amp;printDialog=1">印刷する</a><%}%><%}else{%><%if(!pageKey.equals("shifts/request") && !pageKey.equals("shifts/change")){%><a class="button" href="<%=ctx%>/app/shifts/print?month=<%=month%><%=selectedShiftBranchQuery%>&amp;printDialog=1">印刷</a><%}%><% if(manager && pageKey.equals("shifts/manage")){ %><a class="button primary" href="<%=ctx%>/app/shifts/manage?month=<%=month%>">調整を保存</a><% }} %></div>
         </div><%}%>
         <%if(printDialogRequested){%><div class="alert no-print" hidden data-print-on-load>印刷ダイアログを表示できませんでした。ブラウザの <strong>Ctrl+P</strong>（Macは <strong>⌘+P</strong>）を押してください。</div><%}%>
@@ -378,41 +378,234 @@ String ctx = request.getContextPath();
           </form>
         </section><% } %>
         <% if(pageKey.equals("shifts/manage")){ List<Map<String,Object>> preferenceSubmissions=(List<Map<String,Object>>)request.getAttribute("preferenceSubmissions"); List<Map<String,Object>> preferenceDetails=(List<Map<String,Object>>)request.getAttribute("preferenceDetails"); List<Map<String,Object>> warnings=(List<Map<String,Object>>)request.getAttribute("warnings"); long submittedPeople=preferenceSubmissions.stream().filter(item->List.of("SUBMITTED","APPROVED").contains(String.valueOf(item.get("status")))).count(); int targetPeople=preferenceSubmissions.size(); int pendingPeople=targetPeople-(int)submittedPeople; long dayShortageCount=warnings.stream().filter(item->"STAFF_SHORTAGE".equals(String.valueOf(item.get("warning")))&&"日勤".equals(String.valueOf(item.get("detail")))).count(); long nightShortageCount=warnings.stream().filter(item->"STAFF_SHORTAGE".equals(String.valueOf(item.get("warning")))&&"夜勤".equals(String.valueOf(item.get("detail")))).count(); %>
-        <section class="section shift-workflow-overview">
-          <div class="section-header">
-            <div>
-              <h2>希望シフト提出状況</h2>
-              <p class="muted">希望を確認してから自動割当へ進みます。</p>
+        <div class="attendance-step-flow">
+          <!-- 1. 対象月を選択 -->
+          <section class="section attendance-step">
+            <div class="attendance-step-header">
+              <span>1</span>
+              <div>
+                <h2>1. 対象月を選択</h2>
+                <p>対象月を選び、対象月の希望シフト・月間シフトを確認します。</p>
+              </div>
+            <div class="attendance-step-body">
+              <form method="get" class="attendance-filter-form">
+                <%if(selectedShiftBranch!=null){%><input type="hidden" name="branchId" value="<%=selectedShiftBranch%>"><%}%>
+                <label>対象月<input type="month" name="month" value="<%=month%>" data-auto-submit></label>
+              </form>
             </div>
-            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <form method="post">
-                  <input type="hidden" name="action" value="autoAssignShifts">
+          </section>
+
+          <!-- 2. 希望シフト提出状況を確認 -->
+          <section class="section attendance-step">
+            <div class="attendance-step-header">
+              <span>2</span>
+              <div>
+                <h2>2. 希望シフト提出状況を確認</h2>
+                <p>希望シフトの提出状況を確認してから自動割当に進みます。</p>
+              </div>
+            </div>
+            <div class="attendance-step-body">
+              <div class="shift-workflow-metrics" aria-label="希望シフト提出サマリー">
+                <span><small>提出済み</small><strong><%=submittedPeople%>名 / <%=targetPeople%>名</strong></span>
+                <span class="<%=pendingPeople>0?"attention":""%>"><small>未提出・再提出待ち</small><strong><%=pendingPeople%>名</strong></span>
+              </div>
+              <details class="workflow-details"><summary>希望一覧を開く</summary>
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>社員番号</th><th>氏名</th><th>支店</th><th>提出状態</th><th>希望日数</th><th>提出日時</th><th>確認</th></tr></thead>
+                    <tbody>
+                      <%for(Map<String,Object> summary:preferenceSubmissions){
+                          String submissionStatus=String.valueOf(summary.get("status"));
+                          String submissionLabel="APPROVED".equals(submissionStatus)?(en?"Approved":"承認済み"):"RETURNED".equals(submissionStatus)?(en?"Returned":"差戻し"):"SUBMITTED".equals(submissionStatus)?(en?"Submitted":"提出済み"):(en?"Not submitted":"未提出");
+                      %>
+                      <tr>
+                        <td><%=e(summary.get("employee_number"))%></td>
+                        <td><%=e(summary.get("name"))%></td>
+                        <td><%=e(summary.get("branch_name"))%></td>
+                        <td><span class="status <%=List.of("SUBMITTED","APPROVED").contains(submissionStatus)?"approved":"pending"%>"><%=submissionLabel%></span></td>
+                        <td><%=e(summary.get("preference_count"))%><%=en?" days":"日"%></td>
+                        <td><%=e(summary.get("submitted_at"))%></td>
+                        <td>
+                          <%if("SUBMITTED".equals(submissionStatus)){%>
+                          <form method="post" class="actions">
+                            <input type="hidden" name="action" value="reviewShiftPreferences">
+                            <input type="hidden" name="returnPage" value="shifts/manage">
+                            <input type="hidden" name="returnMonth" value="<%=month%>">
+                            <input type="hidden" name="id" value="<%=summary.get("submission_id")%>">
+                            <button class="primary" name="decision" value="approve"><%=en?"Approve":"承認"%></button>
+                            <button name="decision" value="return"><%=en?"Return":"差戻し"%></button>
+                          </form>
+                          <%}else{%>-<%}%>
+                        </td>
+                      </tr>
+                      <%}%>
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+              <details class="workflow-details"><summary>提出希望日を確認（<%=preferenceDetails.size()%>件）</summary>
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>日付</th><th>社員番号</th><th>氏名</th><th>希望</th><th>有休希望の理由</th></tr></thead>
+                    <tbody>
+                      <%for(Map<String,Object> detail:preferenceDetails){%>
+                      <tr>
+                        <td><%=e(detail.get("preference_date"))%></td>
+                        <td><%=e(detail.get("employee_number"))%></td>
+                        <td><%=e(detail.get("name"))%></td>
+                        <td><span class="preference-label <%=shiftClass(detail.get("request_type"))%>"><%=preferenceLabel(detail.get("request_type"), en)%></span></td>
+                        <td><%="LEAVE".equals(String.valueOf(detail.get("request_type")))?e(detail.get("note")):"-"%></td>
+                      </tr>
+                      <%}%>
+                      <%if(preferenceDetails.isEmpty()){%>
+                      <tr><td colspan="5" class="empty"><%=en?"No preferences submitted.":"提出された希望日はありません。"%></td></tr>
+                      <%}%>
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            </div>
+          </section>
+
+          <!-- 3. 希望を考慮して自動割当 -->
+          <section class="section attendance-step">
+            <div class="attendance-step-header">
+              <span>3</span>
+              <div>
+                <h2>3. 希望を考慮して自動割当</h2>
+                <p>提出された希望シフトをもとに初回の自動割当を行います。</p>
+              </div>
+            </div>
+            <div class="attendance-step-body">
+              <form method="post">
+                <input type="hidden" name="action" value="autoAssignShifts">
+                <input type="hidden" name="returnPage" value="shifts/manage">
+                <input type="hidden" name="returnMonth" value="<%=month%>">
+                <input type="hidden" name="month" value="<%=month%>">
+                <button class="primary" type="submit">希望を考慮して自動割当</button>
+              </form>
+            </div>
+          </section>
+
+          <!-- 4. 未割り当てを自動補完 -->
+          <section class="section attendance-step">
+            <div class="attendance-step-header">
+              <span>4</span>
+              <div>
+                <h2>4. 未割り当てを自動補完</h2>
+                <p>未割り当ての勤務日だけを対象に、不足している日勤・夜勤を自動で補完します。</p>
+              </div>
+            </div>
+            <div class="attendance-step-body">
+              <form method="post" style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+                <input type="hidden" name="action" value="autoFillShifts">
+                <input type="hidden" name="returnPage" value="shifts/manage">
+                <input type="hidden" name="returnMonth" value="<%=month%>">
+                <input type="hidden" name="month" value="<%=month%>">
+                <button class="primary" type="submit">未割り当てを自動補完</button>
+                <div style="font-size: 11px; color: var(--muted); line-height: 1.4; max-width: 500px;">
+                  未割り当ての勤務日だけを対象に、不足している日勤・夜勤を自動で補完します。既存の割当は変更しません。
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <!-- 5. シフト充足状況を確認 -->
+          <section class="section attendance-step shift-coverage-section">
+            <div class="attendance-step-header">
+              <span>5</span>
+              <div>
+                <h2>5. シフト充足状況を確認</h2>
+                <p>日勤・夜勤の不足や確認事項を確認します。</p>
+              </div>
+            </div>
+            <div class="attendance-step-body">
+              <div class="shift-coverage-summary" style="margin-bottom: 16px;">
+                <span class="<%=dayShortageCount>0?"shortage":"ok"%>"><strong><%=en?"Day":"日勤"%></strong><%=dayShortageCount>0?(en?"Short ":"不足 ")+dayShortageCount+(en?" days":"日"):(en?"Adequate":"不足なし")%></span>
+                <span class="<%=nightShortageCount>0?"shortage":"ok"%>"><strong><%=en?"Night":"夜勤"%></strong><%=nightShortageCount>0?(en?"Short ":"不足 ")+nightShortageCount+(en?" days":"日"):(en?"Adequate":"不足なし")%></span>
+              </div>
+              <%if(!warnings.isEmpty()){%>
+              <details class="workflow-details"><summary>確認事項の詳細を開く</summary>
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>種類</th><th>日付</th><th>内容</th><th>必要</th><th>実績</th></tr></thead>
+                    <tbody>
+                      <%for(Map<String,Object>w:warnings){%>
+                      <tr>
+                        <td class="warning-text"><%=warningLabel(w.get("warning"), en)%></td>
+                        <td><%=e(w.get("work_date"))%></td>
+                        <td><%=e(w.get("detail"))%></td>
+                        <td><%=e(w.get("required"))%></td>
+                        <td><%=e(w.get("actual"))%></td>
+                      </tr>
+                      <%}%>
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+              <%}%>
+            </div>
+          </section>
+
+          <!-- 6. 月間シフトを調整 -->
+          <section class="section attendance-step">
+            <div class="attendance-step-header">
+              <span>6</span>
+              <div>
+                <h2>6. 月間シフトを調整</h2>
+                <p>必要に応じてセルを選択し、勤務区分を手動で調整します。</p>
+              </div>
+            </div>
+            <div class="attendance-step-body" style="margin-left: 0; max-width: none;">
+              <% { String rosterTitle="月間シフト"; String rosterLink=null; List<Map<String,Object>> rosterBranches=null; Long rosterBranchId=null; %>
+              <%@ include file="_shiftRoster.jspf" %>
+              <% } %>
+              
+              <!-- 選択中のシフトを変更エディタ -->
+              <section class="section workflow-editor no-print" data-shift-editor hidden style="margin-top: 20px;">
+                <div class="section-header">
+                  <div>
+                    <h2>選択中のシフトを変更</h2>
+                    <p class="muted">月間シフトで選択したセルを編集します。</p>
+                  </div>
+                </div>
+                <form method="post" class="form-grid">
+                  <input type="hidden" name="action" value="saveShift">
                   <input type="hidden" name="returnPage" value="shifts/manage">
                   <input type="hidden" name="returnMonth" value="<%=month%>">
-                  <input type="hidden" name="month" value="<%=month%>">
-                  <button class="primary" type="submit">希望を考慮して自動割当</button>
+                  <input type="hidden" name="userId" data-shift-editor-user-id>
+                  <input type="hidden" name="status" data-shift-editor-status>
+                  <label>従業員<input type="text" readonly data-shift-editor-employee></label>
+                  <label>日付<input type="date" name="date" required readonly data-shift-editor-date></label>
+                  <label>変更前の勤務区分<output data-shift-editor-before>未登録</output></label>
+                  <label>変更後の勤務区分
+                    <select name="workType" required data-shift-editor-work-type>
+                      <%for(Map<String,Object> wt:workTypes){%>
+                      <option value="<%=wt.get("code")%>"><%=e(en?wt.get("name_en"):wt.get("name_ja"))%></option>
+                      <%}%>
+                    </select>
+                  </label>
+                  <label class="span-2">備考・理由<input type="text" name="note" maxlength="1000" data-shift-editor-note></label>
+                  <div class="span-all"><button class="primary" type="submit">変更を保存</button></div>
                 </form>
-                <form method="post">
-                  <input type="hidden" name="action" value="autoFillShifts">
-                  <input type="hidden" name="returnPage" value="shifts/manage">
-                  <input type="hidden" name="returnMonth" value="<%=month%>">
-                  <input type="hidden" name="month" value="<%=month%>">
-                  <button type="submit">未割り当てを自動補完</button>
-                </form>
-              </div>
-              <div style="font-size: 11px; color: var(--muted); text-align: right; max-width: 420px; line-height: 1.4;">
-                未割り当ての勤務日だけを対象に、不足している日勤・夜勤を自動で補完します。既存の割当は変更しません。
+              </section>
+            </div>
+          </section>
+
+          <!-- 7. 確定前チェックへ進む -->
+          <section class="section attendance-step">
+            <div class="attendance-step-header">
+              <span>7</span>
+              <div>
+                <h2>7. 確定前チェックへ進む</h2>
+                <p>調整が完了したら、確定前チェック画面で不足や警告を確認します。</p>
               </div>
             </div>
-          </div>
-          <div class="shift-workflow-metrics" aria-label="希望シフト提出サマリー"><span><small>提出済み</small><strong><%=submittedPeople%>名 / <%=targetPeople%>名</strong></span><span class="<%=pendingPeople>0?"attention":""%>"><small>未提出・再提出待ち</small><strong><%=pendingPeople%>名</strong></span></div>
-          <details class="workflow-details"><summary>希望一覧を開く</summary><div class="table-wrap"><table><thead><tr><th>社員番号</th><th>氏名</th><th>支店</th><th>提出状態</th><th>希望日数</th><th>提出日時</th><th>確認</th></tr></thead><tbody><%for(Map<String,Object> summary:preferenceSubmissions){String submissionStatus=String.valueOf(summary.get("status"));String submissionLabel="APPROVED".equals(submissionStatus)?(en?"Approved":"承認済み"):"RETURNED".equals(submissionStatus)?(en?"Returned":"差戻し"):"SUBMITTED".equals(submissionStatus)?(en?"Submitted":"提出済み"):(en?"Not submitted":"未提出");%><tr><td><%=e(summary.get("employee_number"))%></td><td><%=e(summary.get("name"))%></td><td><%=e(summary.get("branch_name"))%></td><td><span class="status <%=List.of("SUBMITTED","APPROVED").contains(submissionStatus)?"approved":"pending"%>"><%=submissionLabel%></span></td><td><%=e(summary.get("preference_count"))%><%=en?" days":"日"%></td><td><%=e(summary.get("submitted_at"))%></td><td><%if("SUBMITTED".equals(submissionStatus)){%><form method="post" class="actions"><input type="hidden" name="action" value="reviewShiftPreferences"><input type="hidden" name="returnPage" value="shifts/manage"><input type="hidden" name="returnMonth" value="<%=month%>"><input type="hidden" name="id" value="<%=summary.get("submission_id")%>"><button class="primary" name="decision" value="approve"><%=en?"Approve":"承認"%></button><button name="decision" value="return"><%=en?"Return":"差戻し"%></button></form><%}else{%>-<%}%></td></tr><%}%></tbody></table></div></details>
-          <details class="workflow-details"><summary>提出希望日を確認（<%=preferenceDetails.size()%>件）</summary><div class="table-wrap"><table><thead><tr><th>日付</th><th>社員番号</th><th>氏名</th><th>希望</th><th>有休希望の理由</th></tr></thead><tbody><%for(Map<String,Object> detail:preferenceDetails){%><tr><td><%=e(detail.get("preference_date"))%></td><td><%=e(detail.get("employee_number"))%></td><td><%=e(detail.get("name"))%></td><td><span class="preference-label <%=shiftClass(detail.get("request_type"))%>"><%=preferenceLabel(detail.get("request_type"), en)%></span></td><td><%="LEAVE".equals(String.valueOf(detail.get("request_type")))?e(detail.get("note")):"-"%></td></tr><%}%><%if(preferenceDetails.isEmpty()){%><tr><td colspan="5" class="empty"><%=en?"No preferences submitted.":"提出された希望日はありません。"%></td></tr><%}%></tbody></table></div></details>
-        </section>
-        <section class="section shift-coverage-section no-print"><div class="section-header"><div><h2>シフト充足状況</h2><p class="muted">不足がある勤務区分を確認してください。</p></div><span class="muted"><%=warnings.size()%>件の確認事項</span></div><div class="shift-coverage-summary"><span class="<%=dayShortageCount>0?"shortage":"ok"%>"><strong><%=en?"Day":"日勤"%></strong><%=dayShortageCount>0?(en?"Short ":"不足 ")+dayShortageCount+(en?" days":"日"):(en?"Adequate":"不足なし")%></span><span class="<%=nightShortageCount>0?"shortage":"ok"%>"><strong><%=en?"Night":"夜勤"%></strong><%=nightShortageCount>0?(en?"Short ":"不足 ")+nightShortageCount+(en?" days":"日"):(en?"Adequate":"不足なし")%></span></div><%if(!warnings.isEmpty()){%><details class="workflow-details"><summary>確認事項の詳細を開く</summary><div class="table-wrap"><table><thead><tr><th>種類</th><th>日付</th><th>内容</th><th>必要</th><th>実績</th></tr></thead><tbody><%for(Map<String,Object>w:warnings){%><tr><td class="warning-text"><%=warningLabel(w.get("warning"), en)%></td><td><%=e(w.get("work_date"))%></td><td><%=e(w.get("detail"))%></td><td><%=e(w.get("required"))%></td><td><%=e(w.get("actual"))%></td></tr><%}%></tbody></table></div></details><%}%></section>
-        <% { String rosterTitle="月間シフト"; String rosterLink=null; List<Map<String,Object>> rosterBranches=null; Long rosterBranchId=null; %><%@ include file="_shiftRoster.jspf" %><% } %>
-        <section class="section workflow-editor no-print" data-shift-editor hidden><div class="section-header"><div><h2>選択中のシフトを変更</h2><p class="muted">月間シフトで選択したセルを編集します。</p></div></div><form method="post" class="form-grid"><input type="hidden" name="action" value="saveShift"><input type="hidden" name="returnPage" value="shifts/manage"><input type="hidden" name="returnMonth" value="<%=month%>"><input type="hidden" name="userId" data-shift-editor-user-id><input type="hidden" name="status" data-shift-editor-status><label>従業員<input type="text" readonly data-shift-editor-employee></label><label>日付<input type="date" name="date" required readonly data-shift-editor-date></label><label>変更前の勤務区分<output data-shift-editor-before>未登録</output></label><label>変更後の勤務区分<select name="workType" required data-shift-editor-work-type><%for(Map<String,Object> wt:workTypes){%><option value="<%=wt.get("code")%>"><%=e(en?wt.get("name_en"):wt.get("name_ja"))%></option><%}%></select></label><label class="span-2">備考・理由<input type="text" name="note" maxlength="1000" data-shift-editor-note></label><div class="span-all"><button class="primary" type="submit">変更を保存</button></div></form></section>
+            <div class="attendance-step-body">
+              <a class="button primary" href="<%=ctx%>/app/shifts/confirm?month=<%=month%><%=selectedShiftBranchQuery%>">確定前チェック画面に進む</a>
+            </div>
+          </section>
+        </div>
         <%}%>
         <% if (pageKey.equals("shifts/confirm")) { List<Map<String,Object>> warnings=(List<Map<String,Object>>)request.getAttribute("warnings"); %><section class="section no-print"><h2>確定前チェック</h2><%if(warnings==null||warnings.isEmpty()){%><p class="alert">警告はありません。</p><%}else{%><div class="table-wrap"><table><thead><tr><th>種類</th><th>日付</th><th>内容</th><th>必要</th><th>実績</th></tr></thead><tbody><%for(Map<String,Object>w:warnings){%><tr><td class="warning-text"><%=warningLabel(w.get("warning"), en)%></td><td><%=e(w.get("work_date"))%></td><td><%=e(w.get("detail"))%></td><td><%=e(w.get("required"))%></td><td><%=e(w.get("actual"))%></td></tr><%}%></table></div><%}%><form method="post" class="stack-form"><input type="hidden" name="action" value="confirmShifts"><input type="hidden" name="returnPage" value="shifts/confirm"><input type="hidden" name="month" value="<%=month%>"><%if(warnings!=null&&!warnings.isEmpty()){%><label><span class="label-with-help">警告付きで確定する理由<span class="help-tooltip" tabindex="0" role="button" aria-label="人員不足 は、「必要人数に対して実際の割当人数が足りない日・勤務区分がある」という意味です。通常は調整して警告を消してから確定するのが望ましいですが、現実には以下のような理由で警告を残したまま確定するケースがあります。&#10;-------------------------------------------------------------&#10;・応援要員を別途手配済み&#10;・当日は店長・社員が兼務して対応予定&#10;・短時間営業や予約減少で必要人数を満たさなくても運用可能&#10;・欠員は把握済みで、後日追加調整する前提&#10;・夜勤明け未休などの警告について、本人同意や例外対応を確認済み&#10;-------------------------------------------------------------&#10;つまり「警告を見落として確定した」のではなく、「警告を確認したうえで、こういう理由で確定します」という記録を残すための入力欄です。">?</span></span><textarea name="warningReason" required maxlength="500"></textarea></label><%}%><button class="primary" type="submit">警告を確認して確定</button></form></section><% } %>
         <% if(pageKey.equals("shifts/history") || pageKey.equals("shifts/change")){ List<Map<String,Object>> requests=(List<Map<String,Object>>)request.getAttribute("requests"); %><section class="section"><div class="section-header"><h2>シフト変更申請</h2><span class="muted"><%=requests.size()%>件</span></div><div class="table-wrap"><table><thead><tr><th>日付</th><th>申請者</th><th>変更前</th><th>変更後</th><th>理由</th><th>緊急</th><th>状態</th><%if(manager){%><th>操作</th><%}%></tr></thead><tbody><%for(Map<String,Object>r:requests){%><tr><td><%=e(r.get("work_date"))%></td><td><%=e(r.get("name"))%></td><td><%=e(r.get("current_type"))%></td><td><%=e(r.get("requested_name"))%></td><td><%=e(r.get("reason"))%></td><td><%=Boolean.TRUE.equals(r.get("urgent"))?(en?"Urgent":"緊急"):"-"%></td><td><span class="status <%=status(r.get("status"))%>"><%=statusLabel(r.get("status"), en)%></span></td><%if(manager){%><td><%if("PENDING".equals(r.get("status"))){%><div class="actions leave-decision-actions"><form method="post"><input type="hidden" name="action" value="decideShiftChange"><input type="hidden" name="returnPage" value="<%=pageKey%>"><input type="hidden" name="id" value="<%=r.get("id")%>"><button class="primary" name="decision" value="approve"><%=en?"Approve":"承認"%></button></form><button type="button" class="danger-button" data-shift-reject-open data-request-id="<%=r.get("id")%>" data-return-page="<%=pageKey%>" data-requester="<%=e(r.get("name"))%>" data-shift-date="<%=e(r.get("work_date"))%>" data-before="<%=e(r.get("current_type"))%>" data-after="<%=e(r.get("requested_name"))%>" data-reason="<%=e(r.get("reason"))%>" data-status="<%=statusLabel(r.get("status"), en)%>"><%=en?"Reject":"却下"%></button></div><%}%></td><%}%></tr><%}%><%if(requests.isEmpty()){%><tr><td colspan="8" class="empty"><%=en?"No requests.":"申請はありません。"%></td></tr><%}%></tbody></table></div></section><%if(manager){%><dialog class="leave-reject-dialog" data-shift-reject-dialog><form method="post" class="leave-reject-card" data-shift-reject-form novalidate><input type="hidden" name="action" value="decideShiftChange"><input type="hidden" name="returnPage" data-shift-reject-return-page><input type="hidden" name="id" data-shift-reject-id><input type="hidden" name="decision" value="reject"><div class="section-header"><h2>シフト変更申請を却下</h2></div><dl class="decision-summary"><div><dt>申請者</dt><dd data-shift-reject-requester></dd></div><div><dt>日付</dt><dd data-shift-reject-date></dd></div><div><dt>変更前</dt><dd data-shift-reject-before></dd></div><div><dt>変更後</dt><dd data-shift-reject-after></dd></div><div><dt>申請理由</dt><dd data-shift-reject-reason></dd></div><div><dt>現在の状態</dt><dd data-shift-reject-status></dd></div></dl><label>却下理由<textarea name="rejectionReason" required maxlength="500" rows="4" placeholder="却下理由を入力してください" data-shift-reject-reason-input></textarea></label><p class="form-error" data-shift-reject-error hidden>却下理由を入力してください</p><div class="actions dialog-actions"><button type="button" data-shift-reject-cancel>キャンセル</button><button class="danger-button" type="submit">却下して送信</button></div></form></dialog><%}%><%}%>

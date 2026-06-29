@@ -609,3 +609,28 @@ form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
     grid-template-columns: 1fr;
   }
 }
+
+/* モバイル・スマートフォン向け表示改善 */
+@media (max-width: 768px) {
+  .metric-grid, .metric-grid.employee-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .metric-grid, .metric-grid.employee-metrics {
+    grid-template-columns: 1fr !important;
+  }
+  .dashboard-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .dashboard-heading .actions, 
+  .dashboard-heading .button,
+  .dashboard-heading a.button {
+    width: 100% !important;
+    text-align: center;
+    box-sizing: border-box;
+  }
+}

@@ -118,7 +118,7 @@ public class PortalServlet extends HttpServlet {
       req.setAttribute("leaveApprovers", leaveService.leaveApprovers(user));
     } else if (page.startsWith("attendance/")) {
       req.setAttribute("rows", attendanceService.attendance(user, month));
-      req.setAttribute("adjustments", attendanceService.attendanceAdjustments(user));
+      req.setAttribute("adjustments", attendanceService.attendanceAdjustments(user, month));
       if ("attendance/clock".equals(page)) req.setAttribute("clockSummary", attendanceService.attendanceClockSummary(user));
       if ("attendance/manage".equals(page)) req.setAttribute("people", employeeService.findEmployees(user));
     } else if ("notifications".equals(page)) {

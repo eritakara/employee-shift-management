@@ -81,11 +81,11 @@ public class EmployeeService {
     String hash = util.PasswordUtil.hash(java.util.UUID.randomUUID().toString());
     long id = Sql.insert("INSERT INTO users(employee_number,name,email,password_hash,hire_date,branch_id,department_id,employment_type_id,role) VALUES(?,?,?,?,?,?,?,?,?)",
         number, name, email, hash, hireDate, branch, department, employment, role);
-    Sql.update("INSERT INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) VALUES(?,10,0,CURRENT_DATE)", id);
-    LocalDate grantDate = LocalDate.now();
+    LocalDate grantDate = LocalDate.now(java.time.ZoneId.of("Asia/Tokyo"));
+    Sql.update("INSERT INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) VALUES(?,10,0,?)", id, grantDate);
     Sql.update("INSERT INTO leave_grants(user_id,grant_date,expires_on,days_granted,days_remaining,attendance_rate,source) "
         + "SELECT ?,?,?,?,?,1.0,'MIGRATION' WHERE NOT EXISTS (SELECT 1 FROM leave_grants WHERE user_id=? AND grant_date=?)",
-        id, grantDate, grantDate.plusMonths(24), BigDecimal.TEN, BigDecimal.TEN, id, grantDate);
+        id, grantDate, grantDate.plusMonths(24), java.math.BigDecimal.TEN, java.math.BigDecimal.TEN, id, grantDate);
     notificationService.notify(id, "INVITATION", "アカウントが登録されました", "初期パスワードを変更して利用してください。", "/app/account");
     new AccountTokenService().issue(email, "INVITE", baseUrl);
     AuditService.record(actor.getId(), "CREATE_USER", "USER", String.valueOf(id), null, number + ":" + role);
@@ -144,7 +144,8 @@ public class EmployeeService {
   }
 
   private boolean isActiveDelegate(User user) {
-    return !Sql.query("SELECT d.id FROM delegations d JOIN users m ON m.id=d.manager_id WHERE d.delegate_id=? AND d.active=TRUE AND CURRENT_DATE BETWEEN d.starts_on AND d.ends_on AND m.branch_id=? AND m.department_id=?",
-        user.getId(), user.getBranchId(), user.getDepartmentId()).isEmpty();
+    LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Tokyo"));
+    return !Sql.query("SELECT d.id FROM delegations d JOIN users m ON m.id=d.manager_id WHERE d.delegate_id=? AND d.active=TRUE AND ? BETWEEN d.starts_on AND d.ends_on AND m.branch_id=? AND m.department_id=?",
+        user.getId(), today, user.getBranchId(), user.getDepartmentId()).isEmpty();
   }
 }

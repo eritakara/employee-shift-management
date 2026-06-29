@@ -102,7 +102,7 @@ public class ShiftService {
   }
 
   public void submitPreferredShift(User actor, LocalDate date, String type, String note) {
-    submitPreferredShift(actor, date, type, note, LocalDate.now());
+    submitPreferredShift(actor, date, type, note, LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")));
   }
 
   void submitPreferredShift(User actor, LocalDate date, String type, String note, LocalDate today) {
@@ -111,7 +111,7 @@ public class ShiftService {
   }
 
   public void submitMonthlyPreferences(User actor, YearMonth month, Map<LocalDate, String> preferences) {
-    submitMonthlyPreferences(actor, month, preferences, Map.of(), LocalDate.now());
+    submitMonthlyPreferences(actor, month, preferences, Map.of(), LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")));
   }
 
   void submitMonthlyPreferences(User actor, YearMonth month, Map<LocalDate, String> preferences, LocalDate today) {
@@ -120,7 +120,7 @@ public class ShiftService {
 
   public void submitMonthlyPreferences(User actor, YearMonth month, Map<LocalDate, String> preferences,
       Map<LocalDate, String> reasons) {
-    submitMonthlyPreferences(actor, month, preferences, reasons, LocalDate.now());
+    submitMonthlyPreferences(actor, month, preferences, reasons, LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")));
   }
 
   void submitMonthlyPreferences(User actor, YearMonth month, Map<LocalDate, String> preferences,
@@ -482,11 +482,11 @@ public class ShiftService {
   }
 
   public Map<String, Object> shiftSubmissionWindow() {
-    return shiftSubmissionWindow(shiftSubmissionPolicy.targetMonth(LocalDate.now()));
+    return shiftSubmissionWindow(shiftSubmissionPolicy.targetMonth(LocalDate.now(java.time.ZoneId.of("Asia/Tokyo"))));
   }
 
   public Map<String, Object> shiftSubmissionWindow(YearMonth targetMonth) {
-    LocalDate today = LocalDate.now();
+    LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Tokyo"));
     int submissionDay = settings.integer("SHIFT_SUBMISSION_DAY", 15);
     LocalDate deadline = preferenceDeadline(targetMonth, submissionDay);
     Map<String, Object> result = new java.util.LinkedHashMap<>();
@@ -550,8 +550,8 @@ public class ShiftService {
   public void requestShiftChange(User user, LocalDate date, String type, String reason) {
     if (reason == null || reason.isBlank()) throw new IllegalArgumentException("変更理由を入力してください。");
     if ("LEAVE".equals(type)) throw new IllegalArgumentException("有休は有休申請から申請してください。");
-    boolean urgent = !date.isAfter(LocalDate.now());
-    if (date.isBefore(LocalDate.now())) throw new IllegalArgumentException("過去日の変更は打刻修正から申請してください。");
+    boolean urgent = !date.isAfter(LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")));
+    if (date.isBefore(LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")))) throw new IllegalArgumentException("過去日の変更は打刻修正から申請してください。");
     long id = Sql.insert("INSERT INTO shift_change_requests(user_id,work_date,requested_work_type,reason,urgent) VALUES(?,?,?,?,?)",
         user.getId(), date, type, reason.trim(), urgent);
     notificationService.notifyManagers(user, "SHIFT_CHANGE_REQUEST", urgent ? "緊急シフト変更申請" : "シフト変更申請",
@@ -670,8 +670,9 @@ public class ShiftService {
   }
 
   private boolean isActiveDelegate(User user) {
-    return !Sql.query("SELECT d.id FROM delegations d JOIN users m ON m.id=d.manager_id WHERE d.delegate_id=? AND d.active=TRUE AND CURRENT_DATE BETWEEN d.starts_on AND d.ends_on AND m.branch_id=? AND m.department_id=?",
-        user.getId(), user.getBranchId(), user.getDepartmentId()).isEmpty();
+    LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Tokyo"));
+    return !Sql.query("SELECT d.id FROM delegations d JOIN users m ON m.id=d.manager_id WHERE d.delegate_id=? AND d.active=TRUE AND ? BETWEEN d.starts_on AND d.ends_on AND m.branch_id=? AND m.department_id=?",
+        user.getId(), today, user.getBranchId(), user.getDepartmentId()).isEmpty();
   }
 
   private void assertCanManage(User actor, long targetId) {

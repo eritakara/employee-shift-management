@@ -105,12 +105,12 @@ public class DashboardService {
     } else {
       sql = "SELECT COALESCE(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL THEN GREATEST(0,DATEDIFF('MINUTE',a.clock_in,a.clock_out)-COALESCE(wt.break_minutes,0)) ELSE 0 END),0) AS metric_value FROM attendance a LEFT JOIN shifts s ON s.user_id=a.user_id AND s.work_date=a.work_date LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE a.user_id=? AND a.work_date BETWEEN ? AND ?";
     }
-    Map<String, Object> row = Sql.one(sql, user.getId(), YearMonth.now().atDay(1), YearMonth.now().atEndOfMonth());
+    Map<String, Object> row = Sql.one(sql, user.getId(), java.time.YearMonth.now(java.time.ZoneId.of("Asia/Tokyo")).atDay(1), java.time.YearMonth.now(java.time.ZoneId.of("Asia/Tokyo")).atEndOfMonth());
     return ((Number) row.getOrDefault("metric_value", 0)).doubleValue() / 60.0;
   }
 
   private double monthOvertimeHours(User user) {
-    YearMonth month = YearMonth.now();
+    java.time.YearMonth month = java.time.YearMonth.now(java.time.ZoneId.of("Asia/Tokyo"));
     String sql;
     if (config.Database.isPostgres()) {
       sql = "SELECT COALESCE(ROUND(CAST(SUM(CASE WHEN a.clock_in IS NOT NULL AND a.clock_out IS NOT NULL "

@@ -10,7 +10,7 @@ public class ScheduledTasks {
   private final ShiftSubmissionPolicy shiftSubmissionPolicy = new ShiftSubmissionPolicy();
 
   public void runDaily() {
-    runDaily(LocalDate.now());
+    runDaily(LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")));
   }
 
   void runDaily(LocalDate today) {
@@ -26,7 +26,7 @@ public class ScheduledTasks {
     List<Map<String, Object>> users = Sql.query("SELECT u.id,u.email,u.name FROM users u WHERE u.active=TRUE AND u.role='EMPLOYEE' AND NOT EXISTS(SELECT 1 FROM shifts s WHERE s.user_id=u.id AND s.work_date BETWEEN ? AND ? AND s.status IN('SUBMITTED','CONFIRMED'))",
         nextMonth, nextMonth.withDayOfMonth(nextMonth.lengthOfMonth()));
     for (Map<String, Object> user : users) {
-      boolean sent = !Sql.query("SELECT id FROM notifications WHERE user_id=? AND type='SHIFT_DEADLINE' AND CAST(created_at AS DATE)=CURRENT_DATE", user.get("id")).isEmpty();
+      boolean sent = !Sql.query("SELECT id FROM notifications WHERE user_id=? AND type='SHIFT_DEADLINE' AND CAST(created_at AS DATE)=?", user.get("id"), java.time.LocalDate.now(java.time.ZoneId.of("Asia/Tokyo"))).isEmpty();
       if (!sent) {
         String message = "翌月分の希望シフトは明日" + deadline.getDayOfMonth() + "日が提出期限です。";
         Sql.insert("INSERT INTO notifications(user_id,type,title,message,target_url,email_status) VALUES(?,'SHIFT_DEADLINE','希望シフト提出期限',?,'/app/shifts/request','QUEUED')", user.get("id"), message);

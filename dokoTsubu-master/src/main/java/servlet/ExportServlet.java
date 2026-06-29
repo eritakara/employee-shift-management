@@ -22,7 +22,7 @@ public class ExportServlet extends HttpServlet {
     if (user == null || !user.isHr()) { res.sendError(403); return; }
     String type = req.getParameter("type");
     String format = "xls".equals(req.getParameter("format")) ? "xls" : "csv";
-    YearMonth month = YearMonth.now();
+    YearMonth month = YearMonth.now(java.time.ZoneId.of("Asia/Tokyo"));
     LocalDate from = date(req.getParameter("from"), month.atDay(1));
     LocalDate to = date(req.getParameter("to"), month.atEndOfMonth());
 

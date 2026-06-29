@@ -61,7 +61,7 @@ public class PortalServlet extends HttpServlet {
     if (!TITLES.containsKey(page)) { res.sendError(404); return; }
     if (!allowed(user, page)) { res.sendError(403); return; }
     YearMonth month = parseMonth(req.getParameter("month"));
-    if ("shifts/request".equals(page) && req.getParameter("month") == null) month = YearMonth.now().plusMonths(1);
+    if ("shifts/request".equals(page) && req.getParameter("month") == null) month = YearMonth.now(java.time.ZoneId.of("Asia/Tokyo")).plusMonths(1);
     req.setAttribute("page", page);
     req.setAttribute("pageTitle", TITLES.get(page));
     req.setAttribute("month", month);
@@ -283,8 +283,8 @@ public class PortalServlet extends HttpServlet {
     return path == null || path.equals("/") ? "dashboard" : path.substring(1);
   }
   private YearMonth parseMonth(String value) {
-    try { return value == null || value.isBlank() ? YearMonth.now() : YearMonth.parse(value); }
-    catch (Exception e) { return YearMonth.now(); }
+    try { return value == null || value.isBlank() ? YearMonth.now(java.time.ZoneId.of("Asia/Tokyo")) : YearMonth.parse(value); }
+    catch (Exception e) { return YearMonth.now(java.time.ZoneId.of("Asia/Tokyo")); }
   }
   private List<LocalDate> parseLeaveDates(HttpServletRequest req) {
     LinkedHashSet<LocalDate> dates = new LinkedHashSet<>();

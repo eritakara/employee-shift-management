@@ -205,8 +205,8 @@ public class PortalService {
     attendanceService.finalizeAttendanceEmployeeMonth(actor, userId, month, finalized);
   }
 
-  public List<Map<String, Object>> attendanceAdjustments(User viewer) {
-    return attendanceService.attendanceAdjustments(viewer);
+  public List<Map<String, Object>> attendanceAdjustments(User viewer, YearMonth month) {
+    return attendanceService.attendanceAdjustments(viewer, month);
   }
 
   public void requestAttendanceAdjustment(User user, long attendanceId, LocalDateTime requestedIn, LocalDateTime requestedOut, String reason) {

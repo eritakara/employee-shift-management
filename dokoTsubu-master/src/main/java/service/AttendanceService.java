@@ -130,12 +130,12 @@ public class AttendanceService {
         "ATTENDANCE_EMPLOYEE_MONTH", userId + ":" + month, null, String.valueOf(finalized));
   }
 
-  public List<Map<String, Object>> attendanceAdjustments(User viewer) {
+  public List<Map<String, Object>> attendanceAdjustments(User viewer, YearMonth month) {
     String filter = viewer.isHr() ? "" : viewer.isManager() ? " AND u.branch_id=? AND u.department_id=?" : " AND r.requested_by=?";
-    Object[] args = viewer.isHr() ? new Object[]{} : viewer.isManager()
+    Object[] scope = viewer.isHr() ? new Object[]{} : viewer.isManager()
         ? new Object[]{viewer.getBranchId(), viewer.getDepartmentId()} : new Object[]{viewer.getId()};
-    return Sql.query("SELECT r.*,a.work_date,a.clock_in current_in,a.clock_out current_out,u.name,u.employee_number FROM attendance_adjustments r JOIN attendance a ON a.id=r.attendance_id JOIN users u ON u.id=r.requested_by WHERE 1=1"
-        + filter + " ORDER BY r.created_at DESC", args);
+    return Sql.query("SELECT r.*,a.work_date,a.clock_in current_in,a.clock_out current_out,u.name,u.employee_number FROM attendance_adjustments r JOIN attendance a ON a.id=r.attendance_id JOIN users u ON u.id=r.requested_by WHERE a.work_date BETWEEN ? AND ?"
+        + filter + " ORDER BY r.created_at DESC", join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scope));
   }
 
   public void requestAttendanceAdjustment(User user, long attendanceId, LocalDateTime requestedIn,

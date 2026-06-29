@@ -338,7 +338,7 @@ String ctx = request.getContextPath();
       <% } else if (pageKey.startsWith("shifts/")) { Number selectedShiftBranch=(Number)request.getAttribute("shiftBranchId"); String selectedShiftBranchQuery=selectedShiftBranch==null?"":"&amp;branchId="+selectedShiftBranch.longValue(); boolean printDialogRequested=pageKey.equals("shifts/print")&&"1".equals(request.getParameter("printDialog")); boolean shiftMonthAutoSubmit=List.of("shifts/mine","shifts/request","shifts/change","shifts/manage","shifts/confirm").contains(pageKey); %>
         <%if(!pageKey.equals("shifts/change")){%><div class="toolbar no-print">
           <%if(!pageKey.equals("shifts/manage")){%><form method="get"><%if(selectedShiftBranch!=null){%><input type="hidden" name="branchId" value="<%=selectedShiftBranch%>"><%}%><label>対象月<input type="month" name="month" value="<%=month%>" <%=shiftMonthAutoSubmit?"data-auto-submit":""%>></label><%if(!shiftMonthAutoSubmit){%><button type="submit">表示</button><%}%></form><%}%>
-          <div class="actions"><%if(pageKey.equals("shifts/print")){%><a class="button" href="<%=ctx%>/app/shifts/mine?month=<%=month%><%=selectedShiftBranchQuery%>">シフトへ戻る</a><%if(!printDialogRequested){%><a class="button primary" href="<%=ctx%>/app/shifts/print?month=<%=month%><%=selectedShiftBranchQuery%>&amp;printDialog=1">印刷する</a><%}%><%}else{%><%if(!pageKey.equals("shifts/request") && !pageKey.equals("shifts/change")){%><a class="button" href="<%=ctx%>/app/shifts/print?month=<%=month%><%=selectedShiftBranchQuery%>&amp;printDialog=1">印刷</a><%}%><% if(manager && pageKey.equals("shifts/manage")){ %><a class="button primary" href="<%=ctx%>/app/shifts/manage?month=<%=month%>">調整を保存</a><% }} %></div>
+          <div class="actions"><%if(pageKey.equals("shifts/print")){%><a class="button" href="<%=ctx%>/app/shifts/mine?month=<%=month%><%=selectedShiftBranchQuery%>">シフトへ戻る</a><%if(!printDialogRequested){%><a class="button primary" href="<%=ctx%>/app/shifts/print?month=<%=month%><%=selectedShiftBranchQuery%>&amp;printDialog=1">印刷する</a><%}%><%}else{%><%if(!pageKey.equals("shifts/request") && !pageKey.equals("shifts/change") && !pageKey.equals("shifts/manage") && !pageKey.equals("shifts/confirm")){%><a class="button" href="<%=ctx%>/app/shifts/print?month=<%=month%><%=selectedShiftBranchQuery%>&amp;printDialog=1">印刷</a><%}%><% if(manager && pageKey.equals("shifts/manage")){ %><a class="button primary" href="<%=ctx%>/app/shifts/manage?month=<%=month%>">調整を保存</a><% }} %></div>
         </div><%}%>
         <%if(printDialogRequested){%><div class="alert no-print" hidden data-print-on-load>印刷ダイアログを表示できませんでした。ブラウザの <strong>Ctrl+P</strong>（Macは <strong>⌘+P</strong>）を押してください。</div><%}%>
         <% if (pageKey.equals("shifts/request")) { Map<String,Object> submissionWindow=(Map<String,Object>)request.getAttribute("submissionWindow"); boolean submissionOpen=Boolean.TRUE.equals(submissionWindow.get("open")); Map<String,Object> preferenceSubmission=(Map<String,Object>)request.getAttribute("preferenceSubmission"); String preferenceStatus=String.valueOf(preferenceSubmission.get("status")); boolean deadlineClosedSubmitted=!submissionOpen&&"SUBMITTED".equals(preferenceStatus); LocalDate preferenceDeadline=(LocalDate)submissionWindow.get("deadline"); String deadlineClosedMessage=String.format("%d年%02d月の希望シフト提出期限は %d年%02d月%02d日 で終了しています。提出済みの希望シフトは変更できません。変更が必要な場合は、店長または人事へ相談してください。", month.getYear(), month.getMonthValue(), preferenceDeadline.getYear(), preferenceDeadline.getMonthValue(), preferenceDeadline.getDayOfMonth()); boolean canSubmitPreference=submissionOpen||deadlineClosedSubmitted; List<Map<String,Object>> preferenceRows=(List<Map<String,Object>>)request.getAttribute("preferenceRows"); Map<String,String> preferenceByDate=new HashMap<>(); Map<String,String> preferenceReasonByDate=new HashMap<>(); for(Map<String,Object> preference:preferenceRows){String preferenceDate=String.valueOf(preference.get("preference_date"));preferenceByDate.put(preferenceDate,String.valueOf(preference.get("request_type")));if(preference.get("note")!=null)preferenceReasonByDate.put(preferenceDate,String.valueOf(preference.get("note")));} %>
@@ -384,7 +384,7 @@ String ctx = request.getContextPath();
             <div class="attendance-step-header">
               <span>1</span>
               <div>
-                <h2>1. 対象月を選択</h2>
+                <h2>対象月を選択</h2>
                 <p>対象月を選び、対象月の希望シフト・月間シフトを確認します。</p>
               </div>
             <div class="attendance-step-body">
@@ -400,7 +400,7 @@ String ctx = request.getContextPath();
             <div class="attendance-step-header">
               <span>2</span>
               <div>
-                <h2>2. 希望シフト提出状況を確認</h2>
+                <h2>希望シフト提出状況を確認</h2>
                 <p>希望シフトの提出状況を確認してから自動割当に進みます。</p>
               </div>
             </div>
@@ -472,7 +472,7 @@ String ctx = request.getContextPath();
             <div class="attendance-step-header">
               <span>3</span>
               <div>
-                <h2>3. 希望を考慮して自動割当</h2>
+                <h2>希望を考慮して自動割当</h2>
                 <p>提出された希望シフトをもとに初回の自動割当を行います。</p>
               </div>
             </div>
@@ -492,7 +492,7 @@ String ctx = request.getContextPath();
             <div class="attendance-step-header">
               <span>4</span>
               <div>
-                <h2>4. 未割り当てを自動補完</h2>
+                <h2>未割り当てを自動補完</h2>
                 <p>未割り当ての勤務日だけを対象に、不足している日勤・夜勤を自動で補完します。</p>
               </div>
             </div>
@@ -515,7 +515,7 @@ String ctx = request.getContextPath();
             <div class="attendance-step-header">
               <span>5</span>
               <div>
-                <h2>5. シフト充足状況を確認</h2>
+                <h2>シフト充足状況を確認</h2>
                 <p>日勤・夜勤の不足や確認事項を確認します。</p>
               </div>
             </div>
@@ -552,7 +552,7 @@ String ctx = request.getContextPath();
             <div class="attendance-step-header">
               <span>6</span>
               <div>
-                <h2>6. 月間シフトを調整</h2>
+                <h2>月間シフトを調整</h2>
                 <p>必要に応じてセルを選択し、勤務区分を手動で調整します。</p>
               </div>
             </div>
@@ -597,7 +597,7 @@ String ctx = request.getContextPath();
             <div class="attendance-step-header">
               <span>7</span>
               <div>
-                <h2>7. 確定前チェックへ進む</h2>
+                <h2>確定前チェックへ進む</h2>
                 <p>調整が完了したら、確定前チェック画面で不足や警告を確認します。</p>
               </div>
             </div>
@@ -625,7 +625,7 @@ String ctx = request.getContextPath();
             <div class="attendance-step-header">
               <span>1</span>
               <div>
-                <h2>1. 対象月を確認</h2>
+                <h2>対象月を確認</h2>
                 <p>確定を行う対象月を確認します。</p>
               </div>
             </div>
@@ -641,7 +641,7 @@ String ctx = request.getContextPath();
             <div class="attendance-step-header">
               <span>2</span>
               <div>
-                <h2>2. 確定前チェックを確認</h2>
+                <h2>確定前チェックを確認</h2>
                 <p>シフト内のルール違反や不足警告の有無を確認します。</p>
               </div>
             </div>
@@ -663,7 +663,7 @@ String ctx = request.getContextPath();
             <div class="attendance-step-header">
               <span>3</span>
               <div>
-                <h2>3. 不足・警告内容を確認</h2>
+                <h2>不足・警告内容を確認</h2>
                 <p>警告の具体的な内容、対象日、必要数と実績値を確認します。</p>
               </div>
             </div>
@@ -698,7 +698,7 @@ String ctx = request.getContextPath();
             <div class="attendance-step-header">
               <span>4</span>
               <div>
-                <h2>4. 必要に応じてシフト調整へ戻る</h2>
+                <h2>必要に応じてシフト調整へ戻る</h2>
                 <p>警告事項を修正する場合、または調整をやり直す場合はシフト調整画面に戻ります。</p>
               </div>
             </div>
@@ -718,7 +718,7 @@ String ctx = request.getContextPath();
               <div class="attendance-step-header">
                 <span>5</span>
                 <div>
-                  <h2>5. 警告付き確定理由を入力</h2>
+                  <h2>警告付き確定理由を入力</h2>
                   <p>警告事項がある状態のまま確定する場合は、その理由を入力してください（警告がない場合は入力不要です）。</p>
                 </div>
               </div>
@@ -742,7 +742,7 @@ String ctx = request.getContextPath();
               <div class="attendance-step-header">
                 <span>6</span>
                 <div>
-                  <h2>6. シフトを確定</h2>
+                  <h2>シフトを確定</h2>
                   <p>確認がすべて完了したら、シフトを確定状態にします。確定後は通常の編集が制限されます。</p>
                 </div>
               </div>

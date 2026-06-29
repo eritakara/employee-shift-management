@@ -36,17 +36,17 @@ $env:BASE_SEED = "true"
 
 & (Join-Path $project "build.ps1") -TomcatHome $TomcatHome -JavaHome $JavaHome
 
-$h2 = Join-Path $project "src\main\webapp\WEB-INF\lib\h2-2.4.240.jar"
-$pg = Join-Path $project "src\main\webapp\WEB-INF\lib\postgresql-42.7.3.jar"
+$libDir = Join-Path $project "src\main\webapp\WEB-INF\lib"
+$libs = (Get-ChildItem $libDir -Filter *.jar | ForEach-Object FullName) -join ";"
 $testClasses = Join-Path $project "build\test-classes"
 New-Item -ItemType Directory -Force $testClasses | Out-Null
 $testSources = Get-ChildItem (Join-Path $project "src\test\java") -Recurse -Filter *.java | ForEach-Object FullName
 
-& (Join-Path $JavaHome "bin\javac.exe") --release 21 -encoding UTF-8 -cp "$(Join-Path $project 'build\classes');$h2;$pg" -d $testClasses $testSources
+& (Join-Path $JavaHome "bin\javac.exe") --release 21 -encoding UTF-8 -cp "$(Join-Path $project 'build\classes');$libs" -d $testClasses $testSources
 if ($LASTEXITCODE -ne 0) { throw "PostgreSQL test compilation failed" }
 
 foreach ($test in $Tests) {
   Write-Host "Running PostgreSQL compatibility test: $test"
-  & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $project 'build\classes');$testClasses;$h2;$pg" $test
+  & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $project 'build\classes');$testClasses;$libs" $test
   if ($LASTEXITCODE -ne 0) { throw "PostgreSQL compatibility test failed: $test" }
 }

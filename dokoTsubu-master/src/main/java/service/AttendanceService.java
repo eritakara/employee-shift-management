@@ -38,11 +38,12 @@ public class AttendanceService {
 
   public Map<String, Object> attendanceClockSummary(User user) {
     Map<String, Object> result = new LinkedHashMap<>();
+    LocalDate todayDate = LocalDate.now(java.time.ZoneId.of("Asia/Tokyo"));
     Map<String, Object> today = Sql.one("SELECT a.id,a.work_date,a.clock_in,a.clock_out,a.status,a.finalized,a.location_status,"
         + "s.work_type_code,wt.name_ja work_type,wt.start_time,wt.end_time "
-        + "FROM users u LEFT JOIN attendance a ON a.user_id=u.id AND a.work_date=CURRENT_DATE "
-        + "LEFT JOIN shifts s ON s.user_id=u.id AND s.work_date=CURRENT_DATE "
-        + "LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE u.id=?", user.getId());
+        + "FROM users u LEFT JOIN attendance a ON a.user_id=u.id AND a.work_date=? "
+        + "LEFT JOIN shifts s ON s.user_id=u.id AND s.work_date=? "
+        + "LEFT JOIN work_types wt ON wt.code=s.work_type_code WHERE u.id=?", todayDate, todayDate, user.getId());
     if (!today.isEmpty()) result.putAll(today);
     Map<String, Object> open = Sql.one("SELECT id,work_date,clock_in,finalized FROM attendance "
         + "WHERE user_id=? AND clock_in IS NOT NULL AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1", user.getId());
@@ -210,8 +211,9 @@ public class AttendanceService {
   }
 
   private boolean isActiveDelegate(User user) {
-    return !Sql.query("SELECT d.id FROM delegations d JOIN users m ON m.id=d.manager_id WHERE d.delegate_id=? AND d.active=TRUE AND CURRENT_DATE BETWEEN d.starts_on AND d.ends_on AND m.branch_id=? AND m.department_id=?",
-        user.getId(), user.getBranchId(), user.getDepartmentId()).isEmpty();
+    LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Tokyo"));
+    return !Sql.query("SELECT d.id FROM delegations d JOIN users m ON m.id=d.manager_id WHERE d.delegate_id=? AND d.active=TRUE AND ? BETWEEN d.starts_on AND d.ends_on AND m.branch_id=? AND m.department_id=?",
+        user.getId(), today, user.getBranchId(), user.getDepartmentId()).isEmpty();
   }
 
   private void assertScope(User actor, long branch, long department) {

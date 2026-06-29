@@ -670,8 +670,9 @@ public class ShiftService {
   }
 
   private boolean isActiveDelegate(User user) {
-    return !Sql.query("SELECT d.id FROM delegations d JOIN users m ON m.id=d.manager_id WHERE d.delegate_id=? AND d.active=TRUE AND CURRENT_DATE BETWEEN d.starts_on AND d.ends_on AND m.branch_id=? AND m.department_id=?",
-        user.getId(), user.getBranchId(), user.getDepartmentId()).isEmpty();
+    LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Tokyo"));
+    return !Sql.query("SELECT d.id FROM delegations d JOIN users m ON m.id=d.manager_id WHERE d.delegate_id=? AND d.active=TRUE AND ? BETWEEN d.starts_on AND d.ends_on AND m.branch_id=? AND m.department_id=?",
+        user.getId(), today, user.getBranchId(), user.getDepartmentId()).isEmpty();
   }
 
   private void assertCanManage(User actor, long targetId) {

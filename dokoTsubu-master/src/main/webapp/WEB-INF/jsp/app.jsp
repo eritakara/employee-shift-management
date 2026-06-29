@@ -607,7 +607,152 @@ String ctx = request.getContextPath();
           </section>
         </div>
         <%}%>
-        <% if (pageKey.equals("shifts/confirm")) { List<Map<String,Object>> warnings=(List<Map<String,Object>>)request.getAttribute("warnings"); %><section class="section no-print"><h2>確定前チェック</h2><%if(warnings==null||warnings.isEmpty()){%><p class="alert">警告はありません。</p><%}else{%><div class="table-wrap"><table><thead><tr><th>種類</th><th>日付</th><th>内容</th><th>必要</th><th>実績</th></tr></thead><tbody><%for(Map<String,Object>w:warnings){%><tr><td class="warning-text"><%=warningLabel(w.get("warning"), en)%></td><td><%=e(w.get("work_date"))%></td><td><%=e(w.get("detail"))%></td><td><%=e(w.get("required"))%></td><td><%=e(w.get("actual"))%></td></tr><%}%></table></div><%}%><form method="post" class="stack-form"><input type="hidden" name="action" value="confirmShifts"><input type="hidden" name="returnPage" value="shifts/confirm"><input type="hidden" name="month" value="<%=month%>"><%if(warnings!=null&&!warnings.isEmpty()){%><label><span class="label-with-help">警告付きで確定する理由<span class="help-tooltip" tabindex="0" role="button" aria-label="人員不足 は、「必要人数に対して実際の割当人数が足りない日・勤務区分がある」という意味です。通常は調整して警告を消してから確定するのが望ましいですが、現実には以下のような理由で警告を残したまま確定するケースがあります。&#10;-------------------------------------------------------------&#10;・応援要員を別途手配済み&#10;・当日は店長・社員が兼務して対応予定&#10;・短時間営業や予約減少で必要人数を満たさなくても運用可能&#10;・欠員は把握済みで、後日追加調整する前提&#10;・夜勤明け未休などの警告について、本人同意や例外対応を確認済み&#10;-------------------------------------------------------------&#10;つまり「警告を見落として確定した」のではなく、「警告を確認したうえで、こういう理由で確定します」という記録を残すための入力欄です。">?</span></span><textarea name="warningReason" required maxlength="500"></textarea></label><%}%><button class="primary" type="submit">警告を確認して確定</button></form></section><% } %>
+        <% if (pageKey.equals("shifts/confirm")) {
+             List<Map<String,Object>> warnings=(List<Map<String,Object>>)request.getAttribute("warnings");
+        %>
+        <!-- 上部の案内文 -->
+        <div class="alert info-banner" style="margin-bottom: 22px; background: var(--bg-surface); border-left: 4px solid var(--teal); padding: 16px; border-radius: 4px;">
+          <p style="margin: 0; line-height: 1.6; font-size: 13px; color: var(--text-main);">
+            この画面では、確定前の不足・警告を確認できます。<br>
+            問題がある場合はシフト調整へ戻って修正してください。<br>
+            問題がなければ、必要に応じて理由を入力し、シフトを確定します。
+          </p>
+        </div>
+
+        <div class="attendance-step-flow">
+          <!-- 1. 対象月を確認 -->
+          <section class="section attendance-step">
+            <div class="attendance-step-header">
+              <span>1</span>
+              <div>
+                <h2>1. 対象月を確認</h2>
+                <p>確定を行う対象月を確認します。</p>
+              </div>
+            </div>
+            <div class="attendance-step-body">
+              <div style="font-size: 16px; font-weight: bold;">
+                対象月: <span style="color: var(--teal); font-size: 20px;"><%=month.getYear()%>年<%=String.format("%02d", month.getMonthValue())%>月</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- 2. 確定前チェックを確認 -->
+          <section class="section attendance-step">
+            <div class="attendance-step-header">
+              <span>2</span>
+              <div>
+                <h2>2. 確定前チェックを確認</h2>
+                <p>シフト内のルール違反や不足警告の有無を確認します。</p>
+              </div>
+            </div>
+            <div class="attendance-step-body">
+              <%if(warnings==null||warnings.isEmpty()){%>
+                <div class="alert success" style="background: #ecfdf5; border-left: 4px solid #10b981; color: #065f46; padding: 12px; border-radius: 4px; font-weight: bold; margin: 0;">
+                  🎉 警告はありません。このまま確定に進めます。
+                </div>
+              <%}else{%>
+                <div class="alert danger" style="background: #fef2f2; border-left: 4px solid #ef4444; color: #991b1b; padding: 12px; border-radius: 4px; font-weight: bold; margin: 0;">
+                  ⚠️ <%=warnings.size()%>件の警告事項があります。内容を確認してください。
+                </div>
+              <%}%>
+            </div>
+          </section>
+
+          <!-- 3. 不足・警告内容を確認 -->
+          <section class="section attendance-step shift-coverage-section">
+            <div class="attendance-step-header">
+              <span>3</span>
+              <div>
+                <h2>3. 不足・警告内容を確認</h2>
+                <p>警告の具体的な内容、対象日、必要数と実績値を確認します。</p>
+              </div>
+            </div>
+            <div class="attendance-step-body" style="max-width: none; margin-left: 0;">
+              <%if(warnings==null||warnings.isEmpty()){%>
+                <p class="muted" style="margin: 0;">表示する警告はありません。</p>
+              <%}else{%>
+                <div class="table-wrap" style="margin: 0;">
+                  <table>
+                    <thead>
+                      <tr><th>種類</th><th>日付</th><th>内容</th><th>必要</th><th>実績</th></tr>
+                    </thead>
+                    <tbody>
+                      <%for(Map<String,Object>w:warnings){%>
+                      <tr>
+                        <td class="warning-text"><%=warningLabel(w.get("warning"), en)%></td>
+                        <td><%=e(w.get("work_date"))%></td>
+                        <td><%=e(w.get("detail"))%></td>
+                        <td><%=e(w.get("required"))%></td>
+                        <td><%=e(w.get("actual"))%></td>
+                      </tr>
+                      <%}%>
+                    </tbody>
+                  </table>
+                </div>
+              <%}%>
+            </div>
+          </section>
+
+          <!-- 4. 必要に応じてシフト調整へ戻る -->
+          <section class="section attendance-step">
+            <div class="attendance-step-header">
+              <span>4</span>
+              <div>
+                <h2>4. 必要に応じてシフト調整へ戻る</h2>
+                <p>警告事項を修正する場合、または調整をやり直す場合はシフト調整画面に戻ります。</p>
+              </div>
+            </div>
+            <div class="attendance-step-body">
+              <a class="button" href="<%=ctx%>/app/shifts/manage?month=<%=month%><%=selectedShiftBranchQuery%>">シフト調整画面に戻る</a>
+            </div>
+          </section>
+
+          <!-- 5 & 6 の入力フォーム -->
+          <form method="post" style="display: contents;">
+            <input type="hidden" name="action" value="confirmShifts">
+            <input type="hidden" name="returnPage" value="shifts/confirm">
+            <input type="hidden" name="month" value="<%=month%>">
+
+            <!-- 5. 警告付き確定理由を入力 -->
+            <section class="section attendance-step">
+              <div class="attendance-step-header">
+                <span>5</span>
+                <div>
+                  <h2>5. 警告付き確定理由を入力</h2>
+                  <p>警告事項がある状態のまま確定する場合は、その理由を入力してください（警告がない場合は入力不要です）。</p>
+                </div>
+              </div>
+              <div class="attendance-step-body">
+                <%if(warnings!=null&&!warnings.isEmpty()){%>
+                  <label style="margin: 0; width: 100%;">
+                    <span class="label-with-help" style="margin-bottom: 8px;">
+                      警告付きで確定する理由
+                      <span class="help-tooltip" tabindex="0" role="button" aria-label="人員不足 は、「必要人数に対して実際の割当人数が足りない日・勤務区分がある」という意味です。通常は調整して警告を消してから確定するのが望ましいですが、現実には以下のような理由で警告を残したまま確定するケースがあります。&#10;-------------------------------------------------------------&#10;・応援要員を別途手配済み&#10;・当日は店長・社員が兼務して対応予定&#10;・短時間営業や予約減少で必要人数を満たさなくても運用可能&#10;・欠員は把握済みで、後日追加調整する前提&#10;・夜勤明け未休などの警告について、本人同意や例外対応を確認済み&#10;-------------------------------------------------------------&#10;つまり「警告を見落として確定した」のではなく、「警告を確認したうえで、こういう理由で確定します」という記録を残すための入力欄です。">?</span>
+                    </span>
+                    <textarea name="warningReason" required maxlength="500" rows="4" style="width: 100%; max-width: 600px;" placeholder="確定する理由を入力してください"></textarea>
+                  </label>
+                <%}else{%>
+                  <p class="muted" style="margin: 0;">警告がないため、理由は入力不要です。</p>
+                <%}%>
+              </div>
+            </section>
+
+            <!-- 6. シフトを確定 -->
+            <section class="section attendance-step">
+              <div class="attendance-step-header">
+                <span>6</span>
+                <div>
+                  <h2>6. シフトを確定</h2>
+                  <p>確認がすべて完了したら、シフトを確定状態にします。確定後は通常の編集が制限されます。</p>
+                </div>
+              </div>
+              <div class="attendance-step-body">
+                <button class="primary" type="submit">警告を確認して確定</button>
+              </div>
+            </section>
+          </form>
+        </div>
+        <% } %>
         <% if(pageKey.equals("shifts/history") || pageKey.equals("shifts/change")){ List<Map<String,Object>> requests=(List<Map<String,Object>>)request.getAttribute("requests"); %><section class="section"><div class="section-header"><h2>シフト変更申請</h2><span class="muted"><%=requests.size()%>件</span></div><div class="table-wrap"><table><thead><tr><th>日付</th><th>申請者</th><th>変更前</th><th>変更後</th><th>理由</th><th>緊急</th><th>状態</th><%if(manager){%><th>操作</th><%}%></tr></thead><tbody><%for(Map<String,Object>r:requests){%><tr><td><%=e(r.get("work_date"))%></td><td><%=e(r.get("name"))%></td><td><%=e(r.get("current_type"))%></td><td><%=e(r.get("requested_name"))%></td><td><%=e(r.get("reason"))%></td><td><%=Boolean.TRUE.equals(r.get("urgent"))?(en?"Urgent":"緊急"):"-"%></td><td><span class="status <%=status(r.get("status"))%>"><%=statusLabel(r.get("status"), en)%></span></td><%if(manager){%><td><%if("PENDING".equals(r.get("status"))){%><div class="actions leave-decision-actions"><form method="post"><input type="hidden" name="action" value="decideShiftChange"><input type="hidden" name="returnPage" value="<%=pageKey%>"><input type="hidden" name="id" value="<%=r.get("id")%>"><button class="primary" name="decision" value="approve"><%=en?"Approve":"承認"%></button></form><button type="button" class="danger-button" data-shift-reject-open data-request-id="<%=r.get("id")%>" data-return-page="<%=pageKey%>" data-requester="<%=e(r.get("name"))%>" data-shift-date="<%=e(r.get("work_date"))%>" data-before="<%=e(r.get("current_type"))%>" data-after="<%=e(r.get("requested_name"))%>" data-reason="<%=e(r.get("reason"))%>" data-status="<%=statusLabel(r.get("status"), en)%>"><%=en?"Reject":"却下"%></button></div><%}%></td><%}%></tr><%}%><%if(requests.isEmpty()){%><tr><td colspan="8" class="empty"><%=en?"No requests.":"申請はありません。"%></td></tr><%}%></tbody></table></div></section><%if(manager){%><dialog class="leave-reject-dialog" data-shift-reject-dialog><form method="post" class="leave-reject-card" data-shift-reject-form novalidate><input type="hidden" name="action" value="decideShiftChange"><input type="hidden" name="returnPage" data-shift-reject-return-page><input type="hidden" name="id" data-shift-reject-id><input type="hidden" name="decision" value="reject"><div class="section-header"><h2>シフト変更申請を却下</h2></div><dl class="decision-summary"><div><dt>申請者</dt><dd data-shift-reject-requester></dd></div><div><dt>日付</dt><dd data-shift-reject-date></dd></div><div><dt>変更前</dt><dd data-shift-reject-before></dd></div><div><dt>変更後</dt><dd data-shift-reject-after></dd></div><div><dt>申請理由</dt><dd data-shift-reject-reason></dd></div><div><dt>現在の状態</dt><dd data-shift-reject-status></dd></div></dl><label>却下理由<textarea name="rejectionReason" required maxlength="500" rows="4" placeholder="却下理由を入力してください" data-shift-reject-reason-input></textarea></label><p class="form-error" data-shift-reject-error hidden>却下理由を入力してください</p><div class="actions dialog-actions"><button type="button" data-shift-reject-cancel>キャンセル</button><button class="danger-button" type="submit">却下して送信</button></div></form></dialog><%}%><%}%>
         <% if(pageKey.equals("shifts/mine") || pageKey.equals("shifts/print") || pageKey.equals("shifts/confirm")){ %>
           <% { String rosterTitle="月間シフト"; String rosterLink=null; List<Map<String,Object>> rosterBranches=(pageKey.equals("shifts/mine")||pageKey.equals("shifts/print"))?(List<Map<String,Object>>)request.getAttribute("shiftBranches"):null; Long rosterBranchId=rosterBranches==null?null:(selectedShiftBranch==null?user.getBranchId():selectedShiftBranch.longValue()); %>

@@ -11,18 +11,33 @@ $classes = Join-Path $project "build\classes"
 $stage = Join-Path $project "target\ROOT"
 $war = Join-Path $project "target\ROOT.war"
 
-$pgJar = Join-Path $project "src\main\webapp\WEB-INF\lib\postgresql-42.7.3.jar"
+$libDir = Join-Path $project "src\main\webapp\WEB-INF\lib"
+New-Item -ItemType Directory -Force $libDir | Out-Null
+
+$pgJar = Join-Path $libDir "postgresql-42.7.3.jar"
 if (-not (Test-Path $pgJar)) {
-  Write-Host "Downloading PostgreSQL JDBC Driver..."
-  New-Item -ItemType Directory -Force (Split-Path $pgJar) | Out-Null
+  Write-Warning "Downloading PostgreSQL JDBC Driver..."
   Invoke-WebRequest -Uri "https://jdbc.postgresql.org/download/postgresql-42.7.3.jar" -OutFile $pgJar
+}
+
+$hikariJar = Join-Path $libDir "HikariCP-5.1.0.jar"
+if (-not (Test-Path $hikariJar)) {
+  Write-Warning "Downloading HikariCP..."
+  Invoke-WebRequest -Uri "https://repo1.maven.org/maven2/com/zaxxer/HikariCP/5.1.0/HikariCP-5.1.0.jar" -OutFile $hikariJar
+}
+
+$slf4jJar = Join-Path $libDir "slf4j-api-2.0.12.jar"
+if (-not (Test-Path $slf4jJar)) {
+  Write-Warning "Downloading SLF4J API..."
+  Invoke-WebRequest -Uri "https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.12/slf4j-api-2.0.12.jar" -OutFile $slf4jJar
 }
 
 if (-not (Test-Path $servletApi)) { throw "Tomcat 10 not found: $TomcatHome" }
 New-Item -ItemType Directory -Force $classes, $stage | Out-Null
 
+$libs = (Get-ChildItem $libDir -Filter *.jar | ForEach-Object FullName) -join ";"
 $sources = Get-ChildItem (Join-Path $project "src\main\java") -Recurse -Filter *.java | ForEach-Object FullName
-& (Join-Path $JavaHome "bin\javac.exe") --release 21 -encoding UTF-8 -cp "$servletApi;$h2" -d $classes $sources
+& (Join-Path $JavaHome "bin\javac.exe") --release 21 -encoding UTF-8 -cp "$servletApi;$libs" -d $classes $sources
 if ($LASTEXITCODE -ne 0) { throw "Java compilation failed" }
 
 $resources = Join-Path $project "src\main\resources"

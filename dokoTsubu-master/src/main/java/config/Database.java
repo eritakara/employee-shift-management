@@ -17,6 +17,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 import util.PasswordUtil;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 
 public final class Database {
   private static final int REQUIRED_DAY_STAFF = 1;
@@ -24,6 +26,7 @@ public final class Database {
   private static String jdbcUrl;
   private static String jdbcUser;
   private static String jdbcPassword;
+  private static HikariDataSource dataSource;
 
   private Database() { }
 
@@ -104,12 +107,37 @@ public final class Database {
     }
   }
 
+  private static synchronized void initDataSource() {
+    if (dataSource != null) return;
+    HikariConfig config = new HikariConfig();
+    config.setJdbcUrl(jdbcUrl);
+    if (jdbcUser != null) {
+      config.setUsername(jdbcUser);
+    }
+    if (jdbcPassword != null) {
+      config.setPassword(jdbcPassword);
+    }
+    config.setMaximumPoolSize(5);
+    config.setMinimumIdle(2);
+    config.setIdleTimeout(30000);
+    config.setMaxLifetime(600000);
+    config.setConnectionTimeout(10000);
+    config.setRegisterMbeans(false);
+    
+    dataSource = new HikariDataSource(config);
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+      if (dataSource != null) {
+        dataSource.close();
+      }
+    }));
+  }
+
   public static Connection getConnection() throws SQLException {
     if (jdbcUrl == null) initialize();
-    if (jdbcUser == null) {
-      return DriverManager.getConnection(jdbcUrl);
+    if (dataSource == null) {
+      initDataSource();
     }
-    return DriverManager.getConnection(jdbcUrl, jdbcUser, jdbcPassword);
+    return dataSource.getConnection();
   }
 
   /**

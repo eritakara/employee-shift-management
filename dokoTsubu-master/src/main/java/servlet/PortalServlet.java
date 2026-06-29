@@ -55,6 +55,7 @@ public class PortalServlet extends HttpServlet {
   @Override
   protected void doGet(HttpServletRequest req, HttpServletResponse res)
       throws ServletException, IOException {
+    long start = System.currentTimeMillis();
     req.setCharacterEncoding("UTF-8");
     User user = current(req);
     String page = page(req);
@@ -78,8 +79,11 @@ public class PortalServlet extends HttpServlet {
         if (((Number) branch.get("id")).longValue() == dashboardBranchId) dashboardBranchExists = true;
       }
       if (!dashboardBranchExists && !dashboardBranches.isEmpty()) dashboardBranchId = ((Number) dashboardBranches.get(0).get("id")).longValue();
+      long dashboardStart = System.currentTimeMillis();
       req.setAttribute("stats", dashboardService.dashboard(user));
       req.setAttribute("chart", dashboardService.chart(user));
+      long dashboardServiceDuration = System.currentTimeMillis() - dashboardStart;
+      System.out.println("[PERF_SERVICE] DashboardService total time: " + dashboardServiceDuration + " ms");
       req.setAttribute("rows", shiftService.dashboardShifts(user, month, dashboardBranchId));
       req.setAttribute("dashboardBranches", dashboardBranches);
       req.setAttribute("dashboardBranchId", dashboardBranchId);
@@ -163,6 +167,7 @@ public class PortalServlet extends HttpServlet {
       req.setAttribute("people", employeeService.findEmployees(user));
     }
     req.getRequestDispatcher("/WEB-INF/jsp/app.jsp").forward(req, res);
+    System.out.println("[PERF_PORTAL] doGet total time: " + (System.currentTimeMillis() - start) + " ms | Page: " + page);
   }
 
   @Override

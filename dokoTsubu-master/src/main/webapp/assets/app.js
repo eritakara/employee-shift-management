@@ -489,6 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function translatePage() {
+  console.time('translatePage');
   const dictionary = {
     'ダッシュボード':'Dashboard','通知':'Notifications','アカウント設定':'Account settings',
     'シフト':'Schedule','希望シフト提出':'Submit schedule','月間シフト表':'Team schedule',
@@ -552,4 +553,5 @@ function translatePage() {
     const value = element.getAttribute('placeholder');
     if (dictionary[value]) element.setAttribute('placeholder', dictionary[value]);
   });
+  console.timeEnd('translatePage');
 }

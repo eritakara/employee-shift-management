@@ -14,13 +14,23 @@ public class DashboardService {
     Object[] args = scopeArgs(user);
     String todayWorkers = "SELECT COUNT(*) AS metric_value FROM shifts s JOIN users u ON u.id=s.user_id "
         + "WHERE s.work_date=CURRENT_DATE AND s.work_type_code IN('DAY','NIGHT','AM_LEAVE','PM_LEAVE') AND s.status='CONFIRMED'" + scope;
-    String pending = "SELECT COUNT(*) AS metric_value FROM leave_requests l JOIN users u ON u.id=l.user_id WHERE l.status='PENDING'" + scope;
+    String pendingLeave = "SELECT COUNT(*) AS metric_value FROM leave_requests l JOIN users u ON u.id=l.user_id WHERE l.status='PENDING'" + scope;
+    String pendingShift = "SELECT COUNT(*) AS metric_value FROM shift_change_requests r JOIN users u ON u.id=r.user_id WHERE r.status='PENDING'" + scope;
+    String pendingAttendance = "SELECT COUNT(*) AS metric_value FROM attendance_adjustments a JOIN users u ON u.id=a.requested_by WHERE a.status='PENDING'" + scope;
     String shortage = "SELECT COUNT(*) AS metric_value FROM (SELECT wt.code,wt.required_staff,COUNT(s.id) actual FROM work_types wt LEFT JOIN shifts s ON s.work_type_code=wt.code AND s.work_date=CURRENT_DATE AND s.status='CONFIRMED' LEFT JOIN users u ON u.id=s.user_id WHERE wt.required_staff>0"
-        + (user.isHr() ? "" : " AND (u.id IS NULL OR (u.branch_id=? AND u.department_id=?))")
+        + (user.isHr() ? "" : " AND (u.id IS NULL OR (u.branch_id=CAST(? AS bigint) AND u.department_id=CAST(? AS bigint)))")
         + " GROUP BY wt.code,wt.required_staff HAVING COUNT(s.id)<wt.required_staff) x";
     Map<String, Object> result = new java.util.LinkedHashMap<>();
     result.put("todayWorkers", value(todayWorkers, args));
-    result.put("pending", value(pending, args));
+    
+    long pLeave = ((Number) value(pendingLeave, args)).longValue();
+    long pShift = ((Number) value(pendingShift, args)).longValue();
+    long pAttendance = ((Number) value(pendingAttendance, args)).longValue();
+    result.put("pendingLeave", pLeave);
+    result.put("pendingShift", pShift);
+    result.put("pendingAttendance", pAttendance);
+    result.put("pending", pLeave + pShift + pAttendance);
+
     Object[] shortageArgs = user.isHr() ? new Object[]{} : new Object[]{user.getBranchId(), user.getDepartmentId()};
     result.put("shortage", value(shortage, shortageArgs));
     result.put("dayShortagePercent", staffingShortagePercent(user, "DAY"));
@@ -40,7 +50,7 @@ public class DashboardService {
         .getOrDefault("metric_value", 0);
     int required = requiredValue.intValue();
     if (required <= 0) return 0;
-    String filter = user.isHr() ? "" : " AND u.branch_id=? AND u.department_id=?";
+    String filter = user.isHr() ? "" : " AND u.branch_id=CAST(? AS bigint) AND u.department_id=CAST(? AS bigint)";
     Object[] args = user.isHr() ? new Object[]{workType}
         : new Object[]{workType, user.getBranchId(), user.getDepartmentId()};
     Number actualValue = (Number) Sql.one("SELECT COUNT(*) AS metric_value FROM shifts s JOIN users u ON u.id=s.user_id "
@@ -51,7 +61,7 @@ public class DashboardService {
   }
 
   public List<Map<String, Object>> chart(User user) {
-    String filter = user.isHr() ? "" : user.isManager() ? " AND u.branch_id=? AND u.department_id=?" : " AND u.id=?";
+    String filter = user.isHr() ? "" : user.isManager() ? " AND u.branch_id=CAST(? AS bigint) AND u.department_id=CAST(? AS bigint)" : " AND u.id=CAST(? AS bigint)";
     Object[] args = user.isHr() ? new Object[]{} : user.isManager()
         ? new Object[]{user.getBranchId(), user.getDepartmentId()} : new Object[]{user.getId()};
     List<Map<String, Object>> attendance;
@@ -133,8 +143,8 @@ public class DashboardService {
 
   private String scope(User user, String alias) {
     if (user.isHr()) return "";
-    if (user.isManager()) return " AND " + alias + ".branch_id=? AND " + alias + ".department_id=?";
-    return " AND " + alias + ".id=?";
+    if (user.isManager()) return " AND " + alias + ".branch_id=CAST(? AS bigint) AND " + alias + ".department_id=CAST(? AS bigint)";
+    return " AND " + alias + ".id=CAST(? AS bigint)";
   }
 
   private Object[] scopeArgs(User user) {

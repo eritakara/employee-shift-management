@@ -9,6 +9,7 @@
 .env.postgres
 *.mv.db
 *.trace.db
+# ビルド時に自動取得する依存JAR（リポジトリへ含めない）
 /src/main/webapp/WEB-INF/lib/postgresql-*.jar
 /src/main/webapp/WEB-INF/lib/HikariCP-*.jar
 /src/main/webapp/WEB-INF/lib/slf4j-api-*.jar

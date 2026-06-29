@@ -387,7 +387,6 @@ String ctx = request.getContextPath();
                 <h2>1. 対象月を選択</h2>
                 <p>対象月を選び、対象月の希望シフト・月間シフトを確認します。</p>
               </div>
-            </div>
             <div class="attendance-step-body">
               <form method="get" class="attendance-filter-form">
                 <%if(selectedShiftBranch!=null){%><input type="hidden" name="branchId" value="<%=selectedShiftBranch%>"><%}%>

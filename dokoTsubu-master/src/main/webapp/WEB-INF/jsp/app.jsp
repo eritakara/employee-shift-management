@@ -353,7 +353,9 @@ String ctx = request.getContextPath();
               <form method="get"><%if(rosterBranchId!=null){%><input type="hidden" name="branchId" value="<%=rosterBranchId%>"><%}%><label>対象月<input type="month" name="month" value="<%=month%>" data-auto-submit></label></form>
               <div class="actions"><a class="button" href="<%=ctx%>/app/shifts/print?month=<%=month%><%=selectedRosterBranchQuery%>&amp;printDialog=1">印刷</a><a class="button primary" href="<%=ctx%>/app/<%=manager?"shifts/manage":"shifts/mine"%>?month=<%=month%><%=selectedRosterBranchQuery%>"><%=manager?"シフト調整へ":"シフトを確認"%></a></div>
             </div>
-            <%@ include file="_shiftRoster.jspf" %>
+            <div class="roster-table-container" style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; margin-top: 8px;">
+              <%@ include file="_shiftRoster.jspf" %>
+            </div>
           <% } %>
         </div>
 

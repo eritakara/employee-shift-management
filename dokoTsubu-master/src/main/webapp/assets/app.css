@@ -571,15 +571,20 @@ form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
 }
 
 @media print {
-  .sidebar, .topbar, .no-print, .alert, .shift-tabs, .leave-tabs, .shift-legend, .app-footer { display: none !important; }
+  .sidebar, .topbar, .no-print, .alert, .shift-tabs, .leave-tabs, .shift-legend, .app-footer,
+  .toolbar, .attendance-tabs, .attendance-step-flow, .attendance-detail-heading,
+  .actions, button, .button, a.button, dialog {
+    display: none !important;
+  }
   .app-shell { display: block; }
-  body, .content { background: white; }
+  body, .content { background: white; color: black; }
   .content { padding: 0; max-width: none; }
-  .section { border: 0; padding: 0; margin: 0; }
+  .section { border: 0; padding: 0; margin: 0 0 20px 0; }
   .print-only { display: block; }
   .roster-print-branch { margin-top: 3px; color: var(--ink); font-size: 11px; font-weight: 700; }
-  table { font-size: 10px; }
-  th, td { padding: 5px; }
+  table { font-size: 9px; width: 100%; border-collapse: collapse; }
+  th, td { padding: 4px 6px; border: 1px solid #ddd; }
+  .table-wrap { overflow: visible; }
   .shift-roster-wrap { overflow: visible; }
   .shift-roster { width: 100%; min-width: 0; table-layout: fixed; }
   .shift-roster th, .shift-roster td { height: auto; padding: 2px 1px; font-size: 7px; }

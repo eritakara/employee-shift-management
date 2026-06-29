@@ -30,6 +30,18 @@ public class DashboardChartTest {
     check(((BigDecimal) row.get("leave_days")).compareTo(new BigDecimal("1.5")) == 0,
         "monthly chart includes approved leave days");
     check(((Number) row.get("total_hours")).doubleValue() == 8.0, "monthly chart includes working hours");
+
+    // 店長ユーザーが未所属 (0L) の場合のダッシュボード表示テスト (Postgres/H2 0Lバインド検証)
+    User manager = new UserDAO().authenticate("manager@example.com", "Password1!");
+    User unassignedManager = new User(manager.getId(), manager.getEmployeeNumber(), manager.getName(),
+        manager.getEmail(), "MANAGER", 0L, 0L, null, null, manager.getLocale());
+
+    Map<String, Object> stats = new DashboardService().dashboard(unassignedManager);
+    check(stats != null, "dashboard stats retrieval for unassigned (0L) manager is successful");
+    check(stats.containsKey("pendingLeave"), "stats contains pendingLeave");
+    check(stats.containsKey("pendingShift"), "stats contains pendingShift");
+    check(stats.containsKey("pendingAttendance"), "stats contains pendingAttendance");
+
     System.out.println("DashboardChartTest: all checks passed");
   }
 

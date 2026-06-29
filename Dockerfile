@@ -6,12 +6,14 @@ COPY dokoTsubu-master/src ./src
 
 RUN apt-get update && apt-get install -y curl \
     && mkdir -p src/main/webapp/WEB-INF/lib \
-    && curl -sSLo src/main/webapp/WEB-INF/lib/postgresql-42.7.3.jar https://jdbc.postgresql.org/download/postgresql-42.7.3.jar \
+    && curl -f -sSLo src/main/webapp/WEB-INF/lib/postgresql-42.7.3.jar https://jdbc.postgresql.org/download/postgresql-42.7.3.jar \
+    && curl -f -sSLo src/main/webapp/WEB-INF/lib/HikariCP-5.1.0.jar https://repo1.maven.org/maven2/com/zaxxer/HikariCP/5.1.0/HikariCP-5.1.0.jar \
+    && curl -f -sSLo src/main/webapp/WEB-INF/lib/slf4j-api-2.0.12.jar https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.12/slf4j-api-2.0.12.jar \
     && apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* \
     && mkdir -p build/classes target/shiftflow \
     && find src/main/java -name "*.java" > sources.txt \
     && javac --release 21 -encoding UTF-8 \
-      -cp "$CATALINA_HOME/lib/servlet-api.jar:src/main/webapp/WEB-INF/lib/h2-2.4.240.jar" \
+      -cp "$CATALINA_HOME/lib/servlet-api.jar:src/main/webapp/WEB-INF/lib/*" \
       -d build/classes @sources.txt \
     && if [ -d src/main/resources ]; then cp -r src/main/resources/. build/classes/; fi \
     && cp -r src/main/webapp/. target/shiftflow/ \

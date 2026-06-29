@@ -270,15 +270,20 @@ String ctx = request.getContextPath();
         double overtimeHours = ((Number)stats.get("monthOvertimeHours")).doubleValue();
         double overtimeThreshold = ((Number)stats.get("overtimeAlertThreshold")).doubleValue();
         String overtimeLevel = String.valueOf(stats.get("overtimeAlertLevel"));
-        int pendingCount = ((Number)stats.get("pending")).intValue();
+        int pendingCount = stats.get("pending") == null ? 0 : ((Number)stats.get("pending")).intValue();
+        int pendingLeave = stats.get("pendingLeave") == null ? 0 : ((Number)stats.get("pendingLeave")).intValue();
+        int pendingShift = stats.get("pendingShift") == null ? 0 : ((Number)stats.get("pendingShift")).intValue();
+        int pendingAttendance = stats.get("pendingAttendance") == null ? 0 : ((Number)stats.get("pendingAttendance")).intValue();
         int shortageCount = ((Number)stats.get("shortage")).intValue();
         int unconfirmedShiftCount = 0;
         for(Map<String,Object> dashboardRow:rows) if(!"CONFIRMED".equals(String.valueOf(dashboardRow.get("status")))) unconfirmedShiftCount++; %>
-        <%if(manager){%>
+        <%if(manager){ // 店長または人事(HR)に管理者向けToDoカードを表示 %>
         <section class="dashboard-priority" aria-labelledby="dashboard-priority-title">
           <div class="dashboard-heading"><div><p class="eyebrow">TODAY</p><h2 id="dashboard-priority-title">確認事項</h2><p>確認が必要な項目から順に対応できます。</p></div></div>
           <div class="dashboard-action-grid">
-            <a class="dashboard-action <%=pendingCount>0?"attention":"clear"%>" href="<%=ctx%>/app/leave/approvals"><span>承認待ち</span><strong><%=pendingCount%>件</strong><small><%=pendingCount>0?"申請内容を確認":"対応はありません"%></small></a>
+            <a class="dashboard-action <%=pendingLeave>0?"attention":"clear"%>" href="<%=ctx%>/app/leave/approvals"><span>有休承認待ち</span><strong><%=pendingLeave%>件</strong><small><%=pendingLeave>0?"申請内容を確認":"対応はありません"%></small></a>
+            <a class="dashboard-action <%=pendingShift>0?"attention":"clear"%>" href="<%=ctx%>/app/shifts/change?month=<%=month%>"><span>シフト申請承認待ち</span><strong><%=pendingShift%>件</strong><small><%=pendingShift>0?"申請内容を確認":"対応はありません"%></small></a>
+            <a class="dashboard-action <%=pendingAttendance>0?"attention":"clear"%>" href="<%=ctx%>/app/attendance/manage?month=<%=month%>"><span>打刻修正承認待ち</span><strong><%=pendingAttendance%>件</strong><small><%=pendingAttendance>0?"申請内容を確認":"対応はありません"%></small></a>
             <a class="dashboard-action <%=shortageCount>0?"attention":"clear"%>" href="<%=ctx%>/app/shifts/manage?month=<%=month%>"><span>本日のシフト不足</span><strong><%=shortageCount%>件</strong><small><%=shortageCount>0?"割当状況を確認":"不足はありません"%></small></a>
             <a class="dashboard-action <%=unconfirmedShiftCount>0?"attention":"clear"%>" href="<%=ctx%>/app/shifts/confirm?month=<%=month%>"><span>月間シフト未確定</span><strong><%=unconfirmedShiftCount%>件</strong><small><%=rows.isEmpty()?"対象シフトはありません":unconfirmedShiftCount>0?"確定前チェックへ":"確定済みです"%></small></a>
             <a class="dashboard-action <%=overtimeLevel%>" href="<%=ctx%>/app/attendance/manage?month=<%=month%>"><span>残業アラート</span><strong><%=String.format("%.1f",overtimeHours)%>時間</strong><small><%="safe".equals(overtimeLevel)?"基準内です":"勤怠状況を確認"%></small></a>

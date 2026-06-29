@@ -117,8 +117,8 @@ public final class Database {
     if (jdbcPassword != null) {
       config.setPassword(jdbcPassword);
     }
-    config.setMaximumPoolSize(5);
-    config.setMinimumIdle(2);
+    config.setMaximumPoolSize(3);
+    config.setMinimumIdle(0);
     config.setIdleTimeout(30000);
     config.setMaxLifetime(600000);
     config.setConnectionTimeout(10000);

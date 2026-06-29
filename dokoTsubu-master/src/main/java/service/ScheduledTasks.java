@@ -10,7 +10,7 @@ public class ScheduledTasks {
   private final ShiftSubmissionPolicy shiftSubmissionPolicy = new ShiftSubmissionPolicy();
 
   public void runDaily() {
-    runDaily(LocalDate.now());
+    runDaily(LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")));
   }
 
   void runDaily(LocalDate today) {

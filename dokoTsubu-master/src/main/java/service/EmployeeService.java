@@ -82,10 +82,10 @@ public class EmployeeService {
     long id = Sql.insert("INSERT INTO users(employee_number,name,email,password_hash,hire_date,branch_id,department_id,employment_type_id,role) VALUES(?,?,?,?,?,?,?,?,?)",
         number, name, email, hash, hireDate, branch, department, employment, role);
     Sql.update("INSERT INTO leave_balances(user_id,days_remaining,hourly_used,last_granted_on) VALUES(?,10,0,CURRENT_DATE)", id);
-    LocalDate grantDate = LocalDate.now();
+    LocalDate grantDate = LocalDate.now(java.time.ZoneId.of("Asia/Tokyo"));
     Sql.update("INSERT INTO leave_grants(user_id,grant_date,expires_on,days_granted,days_remaining,attendance_rate,source) "
         + "SELECT ?,?,?,?,?,1.0,'MIGRATION' WHERE NOT EXISTS (SELECT 1 FROM leave_grants WHERE user_id=? AND grant_date=?)",
-        id, grantDate, grantDate.plusMonths(24), BigDecimal.TEN, BigDecimal.TEN, id, grantDate);
+        id, grantDate, grantDate.plusMonths(24), java.math.BigDecimal.TEN, java.math.BigDecimal.TEN, id, grantDate);
     notificationService.notify(id, "INVITATION", "アカウントが登録されました", "初期パスワードを変更して利用してください。", "/app/account");
     new AccountTokenService().issue(email, "INVITE", baseUrl);
     AuditService.record(actor.getId(), "CREATE_USER", "USER", String.valueOf(id), null, number + ":" + role);

@@ -62,7 +62,8 @@ public class AttendanceService {
 
   public void clock(User user, boolean clockIn, String lat, String lng, String locationStatus) {
     if (settings.bool("LOCATION_REQUIRED", false) && !"ACQUIRED".equals(locationStatus)) throw new IllegalArgumentException("位置情報を取得できないため打刻できません。");
-    LocalDate workDate = LocalDate.now();
+    LocalDate workDate = LocalDate.now(java.time.ZoneId.of("Asia/Tokyo"));
+    java.time.LocalDateTime nowTokyo = java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Tokyo"));
     if (!Sql.query("SELECT id FROM attendance WHERE user_id=? AND work_date=? AND finalized=TRUE", user.getId(), workDate).isEmpty()) {
       throw new IllegalArgumentException("確定済み勤怠は変更できません。店長へ確定解除を依頼してください。");
     }
@@ -79,22 +80,22 @@ public class AttendanceService {
       }
       String sql = Database.isPostgres()
           ? "INSERT INTO attendance(user_id,work_date,clock_in,in_lat,in_lng,location_status,status) "
-              + "VALUES(?,?,CURRENT_TIMESTAMP,?,?,?,'OPEN') "
+              + "VALUES(?,?,?,?,?,?,'OPEN') "
               + "ON CONFLICT (user_id,work_date) DO UPDATE SET clock_in=EXCLUDED.clock_in, "
               + "in_lat=EXCLUDED.in_lat, in_lng=EXCLUDED.in_lng, "
               + "location_status=EXCLUDED.location_status, status=EXCLUDED.status"
           : "MERGE INTO attendance(user_id,work_date,clock_in,in_lat,in_lng,location_status,status) "
-              + "KEY(user_id,work_date) VALUES(?,?,CURRENT_TIMESTAMP,?,?,?,'OPEN')";
+              + "KEY(user_id,work_date) VALUES(?,?,?,?,?,?,'OPEN')";
       Sql.update(sql,
-          user.getId(), workDate, number(lat), number(lng), locationStatus);
+          user.getId(), workDate, nowTokyo, number(lat), number(lng), locationStatus);
     } else {
       Map<String, Object> open = Sql.one("SELECT id,work_date,finalized FROM attendance WHERE user_id=? AND clock_in IS NOT NULL AND clock_out IS NULL ORDER BY clock_in DESC LIMIT 1", user.getId());
       if (open.isEmpty()) throw new IllegalArgumentException("先に出勤打刻を行ってください。");
       if (Boolean.TRUE.equals(open.get("finalized"))) {
         throw new IllegalArgumentException("確定済み勤怠は変更できません。店長へ確定解除を依頼してください。");
       }
-      int updated = Sql.update("UPDATE attendance SET clock_out=CURRENT_TIMESTAMP,out_lat=?,out_lng=?,location_status=?,status='COMPLETE' WHERE id=? AND finalized=FALSE",
-          number(lat), number(lng), locationStatus, open.get("id"));
+      int updated = Sql.update("UPDATE attendance SET clock_out=?,out_lat=?,out_lng=?,location_status=?,status='COMPLETE' WHERE id=? AND finalized=FALSE",
+          nowTokyo, number(lat), number(lng), locationStatus, open.get("id"));
       workDate = toDate(open.get("work_date"));
       if (updated == 0) throw new IllegalArgumentException("先に出勤打刻を行ってください。");
     }

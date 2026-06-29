@@ -37,7 +37,7 @@ public class LeaveService {
   }
 
   public Map<String, Object> leaveBalance(long userId) {
-    return leaveLedger.balance(userId, LocalDate.now());
+    return leaveLedger.balance(userId, LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")));
   }
 
   public List<Map<String, Object>> leaveHistory(User viewer) {
@@ -121,10 +121,10 @@ public class LeaveService {
   }
 
   private void validateLeaveRequestDate(LocalDate date) {
-    if (!settings.bool("LEAVE_ALLOW_PAST", false) && date.isBefore(LocalDate.now())) {
+    if (!settings.bool("LEAVE_ALLOW_PAST", false) && date.isBefore(LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")))) {
       throw new IllegalArgumentException("過去日の有休は申請できません。");
     }
-    if (date.isBefore(LocalDate.now().plusDays(settings.integer("LEAVE_MIN_NOTICE_DAYS", 0)))) {
+    if (date.isBefore(LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")).plusDays(settings.integer("LEAVE_MIN_NOTICE_DAYS", 0)))) {
       throw new IllegalArgumentException("有休申請の事前期限を満たしていません。");
     }
   }
@@ -219,8 +219,8 @@ public class LeaveService {
     String currentStatus = String.valueOf(request.get("status"));
     if (!"PENDING".equals(currentStatus) && !"APPROVED".equals(currentStatus)) throw new IllegalArgumentException("この申請は取り消せません。");
     LocalDate leaveDate = toDate(request.get("leave_date"));
-    if (!leaveDate.isAfter(LocalDate.now())) throw new IllegalArgumentException("当日・過去日の有休は取り消せません。");
-    if ("APPROVED".equals(currentStatus)) leaveLedger.restore(requestId, LocalDate.now());
+    if (!leaveDate.isAfter(LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")))) throw new IllegalArgumentException("当日・過去日の有休は取り消せません。");
+    if ("APPROVED".equals(currentStatus)) leaveLedger.restore(requestId, LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")));
     Sql.update("UPDATE leave_requests SET status='CANCELLED' WHERE id=?", requestId);
     NotificationService notificationService = new NotificationService();
     notificationService.notifyLeaveApprovers(actor, "LEAVE_CANCELLED", "有休申請の取消", actor.getName() + "さんが有休申請を取り消しました。", "/app/leave/approvals");

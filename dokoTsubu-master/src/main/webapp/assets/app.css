@@ -470,7 +470,7 @@ form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
   .app-footer { padding: 0 12px 18px; }
 
   /* ダッシュボードカード: 2カラムから1カラムへ変更 */
-  .metric-grid, .metric-grid.employee-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .metric-grid, .metric-grid.employee-metrics { grid-template-columns: 1fr; gap: 10px; }
   .metric { padding: 14px; }
   .metric strong { font-size: 23px; }
   .dashboard-heading { align-items: flex-start; }
@@ -607,32 +607,5 @@ form[aria-busy="true"] button { opacity: .65; pointer-events: none; }
 @media (max-width: 760px) {
   .dashboard-charts {
     grid-template-columns: 1fr;
-  }
-}
-
-/* スマホ幅（480px以下）の追加調整 */
-@media (max-width: 480px) {
-  .section-header {
-    flex-direction: column;
-    align-items: stretch !important;
-    gap: 8px !important;
-  }
-  .section-header .button, .section-header a.button {
-    width: 100%;
-    text-align: center;
-    justify-content: center;
-  }
-  .todo-item {
-    flex-direction: column;
-    align-items: stretch !important;
-    gap: 10px !important;
-  }
-  .todo-item a.button, .todo-item button {
-    width: 100%;
-    text-align: center;
-    justify-content: center;
-  }
-  .metric-grid, .metric-grid.employee-metrics {
-    grid-template-columns: 1fr !important;
   }
 }

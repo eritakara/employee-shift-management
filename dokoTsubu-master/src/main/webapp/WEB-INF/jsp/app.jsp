@@ -270,202 +270,41 @@ String ctx = request.getContextPath();
         double overtimeHours = ((Number)stats.get("monthOvertimeHours")).doubleValue();
         double overtimeThreshold = ((Number)stats.get("overtimeAlertThreshold")).doubleValue();
         String overtimeLevel = String.valueOf(stats.get("overtimeAlertLevel"));
+        int pendingCount = ((Number)stats.get("pending")).intValue();
+        int shortageCount = ((Number)stats.get("shortage")).intValue();
         int unconfirmedShiftCount = 0;
         for(Map<String,Object> dashboardRow:rows) if(!"CONFIRMED".equals(String.valueOf(dashboardRow.get("status")))) unconfirmedShiftCount++; %>
-
-        <!-- 1. 今日の要対応 -->
-        <section class="section today-todo-section no-print" style="margin-bottom: 22px;">
-          <div class="section-header">
-            <h2>確認が必要な項目</h2>
-          </div>
-          <div class="todo-list" style="display: grid; gap: 12px;">
-            <% if (manager) { %>
-              <% 
-                int pLeave = stats.get("pendingLeave") != null ? ((Number)stats.get("pendingLeave")).intValue() : 0;
-                int pShift = stats.get("pendingShift") != null ? ((Number)stats.get("pendingShift")).intValue() : 0;
-                int pAttendance = stats.get("pendingAttendance") != null ? ((Number)stats.get("pendingAttendance")).intValue() : 0;
-                
-                int dayShortage = stats.get("dayShortagePercent") != null ? ((Number)stats.get("dayShortagePercent")).intValue() : 0;
-                int nightShortage = stats.get("nightShortagePercent") != null ? ((Number)stats.get("nightShortagePercent")).intValue() : 0;
-                boolean hasShortage = dayShortage > 0 || nightShortage > 0;
-                boolean hasOvertimeAlert = "danger".equals(overtimeLevel) || "warning".equals(overtimeLevel);
-                
-                boolean hasAnyTodo = pLeave > 0 || pShift > 0 || pAttendance > 0 || hasShortage || hasOvertimeAlert || unconfirmedShiftCount > 0;
-              %>
-              
-              <% if (pLeave > 0) { %>
-                <div class="todo-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fffbeb; border-left: 4px solid #d97706; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 8px;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.2rem;">⚠️</span>
-                    <span>未承認の有休申請が <strong><%=pLeave%>件</strong> あります。確認および承認を行ってください。</span>
-                  </div>
-                  <a class="button primary small" href="<%=ctx%>/app/leave/approvals" style="padding: 6px 12px; font-size: 12px;">有休承認へ</a>
-                </div>
-              <% } %>
-
-              <% if (pShift > 0) { %>
-                <div class="todo-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fffbeb; border-left: 4px solid #d97706; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 8px;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.2rem;">⚠️</span>
-                    <span>未承認のシフト変更申請が <strong><%=pShift%>件</strong> あります。確認および承認を行ってください。</span>
-                  </div>
-                  <a class="button primary small" href="<%=ctx%>/app/shifts/history" style="padding: 6px 12px; font-size: 12px;">シフト承認へ</a>
-                </div>
-              <% } %>
-
-              <% if (pAttendance > 0) { %>
-                <div class="todo-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fffbeb; border-left: 4px solid #d97706; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 8px;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.2rem;">⚠️</span>
-                    <span>未承認の打刻修正申請が <strong><%=pAttendance%>件</strong> あります。確認および承認を行ってください。</span>
-                  </div>
-                  <a class="button primary small" href="<%=ctx%>/app/attendance/manage" style="padding: 6px 12px; font-size: 12px;">勤怠承認へ</a>
-                </div>
-              <% } %>
-
-              <% if (hasShortage) { %>
-                <div class="todo-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fef2f2; border-left: 4px solid #dc2626; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 8px;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.2rem;">🚨</span>
-                    <span>本日のシフト不足が発生しています（日勤: <%=dayShortage%>% 不足、夜勤: <%=nightShortage%>% 不足）。</span>
-                  </div>
-                  <a class="button danger small" href="<%=ctx%>/app/shifts/manage?month=<%=month%>" style="padding: 6px 12px; font-size: 12px;">シフト調整へ</a>
-                </div>
-              <% } %>
-
-              <% if (unconfirmedShiftCount > 0) { %>
-                <div class="todo-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fffbeb; border-left: 4px solid #d97706; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 8px;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.2rem;">⚠️</span>
-                    <span>月間シフト未確定のシフトがあります。確定作業を行ってください。</span>
-                  </div>
-                  <a class="button primary small" href="<%=ctx%>/app/shifts/confirm?month=<%=month%>" style="padding: 6px 12px; font-size: 12px;">シフト確定へ</a>
-                </div>
-              <% } %>
-
-              <% if (hasOvertimeAlert) { %>
-                <div class="todo-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fff9db; border-left: 4px solid #fab005; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 8px;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.2rem;">⏰</span>
-                    <span>残業アラート：今月の残業時間が社内基準や月45時間の目安に近づいている、または超過しているメンバーがいます。</span>
-                  </div>
-                  <a class="button small" href="<%=ctx%>/app/attendance/manage?month=<%=month%>" style="padding: 6px 12px; font-size: 12px;">勤怠確認へ</a>
-                </div>
-              <% } %>
-
-              <% if (!hasAnyTodo) { %>
-                <div class="todo-item" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #f0fdf4; border-left: 4px solid #16a34a; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                  <span style="font-size: 1.2rem; color: #16a34a;">✓</span>
-                  <span style="color: #15803d;">現在、対応が必要な項目はありません。順調です！</span>
-                </div>
-              <% } %>
-            <% } else { %>
-              <% 
-                service.ShiftService shiftService = new service.ShiftService();
-                Map<String, Object> window = shiftService.shiftSubmissionWindow();
-                YearMonth targetMonth = (YearMonth) window.get("target_month");
-                Map<String, Object> pref = shiftService.preferenceSubmission(user, targetMonth);
-                String prefStatus = pref != null ? String.valueOf(pref.get("status")) : "null";
-                boolean windowOpen = Boolean.TRUE.equals(window.get("open"));
-                LocalDate deadline = (LocalDate) window.get("deadline");
-                
-                boolean hasOvertimeAlert = "danger".equals(overtimeLevel) || "warning".equals(overtimeLevel);
-              %>
-              
-              <% if (hasOvertimeAlert) { %>
-                <div class="todo-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fef2f2; border-left: 4px solid #dc2626; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 8px;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.2rem;">⚠️</span>
-                    <span>残業アラート：今月のあなたの残業時間は <strong><%=String.format("%.1f",overtimeHours)%>時間</strong> です。超過や健康管理にご注意ください。</span>
-                  </div>
-                  <a class="button small" href="<%=ctx%>/app/attendance/history?month=<%=month%>" style="padding: 6px 12px; font-size: 12px;">勤務実績へ</a>
-                </div>
-              <% } %>
-
-              <% if ("SUBMITTED".equals(prefStatus) || "APPROVED".equals(prefStatus)) { %>
-                <div class="todo-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #f0fdf4; border-left: 4px solid #16a34a; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 8px;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.2rem; color: #16a34a;">✓</span>
-                    <span style="color: #15803d;">翌月（<%=targetMonth.getYear()%>年<%=targetMonth.getMonthValue()%>月）の希望シフトは提出済みです。（状態: <%=submissionStatusLabel(prefStatus, en)%>）</span>
-                  </div>
-                  <a class="button small" href="<%=ctx%>/app/shifts/request" style="padding: 6px 12px; font-size: 12px;">希望シフト確認へ</a>
-                </div>
-              <% } else if ("RETURNED".equals(prefStatus)) { %>
-                <div class="todo-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fef2f2; border-left: 4px solid #dc2626; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 8px;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.2rem;">⚠️</span>
-                    <span>翌月（<%=targetMonth.getYear()%>年<%=targetMonth.getMonthValue()%>月）の希望シフトが差し戻されました。修正して再提出してください。（期限: <%=deadline%>）</span>
-                  </div>
-                  <a class="button danger small" href="<%=ctx%>/app/shifts/request" style="padding: 6px 12px; font-size: 12px;">希望シフトを修正する</a>
-                </div>
-              <% } else if (windowOpen) { %>
-                <div class="todo-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #f0f9ff; border-left: 4px solid #0284c7; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 8px;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.2rem;">📅</span>
-                    <span>翌月（<%=targetMonth.getYear()%>年<%=targetMonth.getMonthValue()%>月）の希望シフトが未提出です。期限までに提出してください。（期限: <%=deadline%>）</span>
-                  </div>
-                  <a class="button primary small" href="<%=ctx%>/app/shifts/request" style="padding: 6px 12px; font-size: 12px;">希望シフトを提出する</a>
-                </div>
-              <% } else { %>
-                <div class="todo-item" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #fef2f2; border-left: 4px solid #dc2626; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                  <span style="font-size: 1.2rem;">⚠️</span>
-                  <span>翌月（<%=targetMonth.getYear()%>年<%=targetMonth.getMonthValue()%>月）の希望シフト提出期限（<%=deadline%>）が終了しています。変更等が必要な場合は管理者へ相談してください。</span>
-                </div>
-              <% } %>
-            <% } %>
+        <%if(manager){%>
+        <section class="dashboard-priority" aria-labelledby="dashboard-priority-title">
+          <div class="dashboard-heading"><div><p class="eyebrow">TODAY</p><h2 id="dashboard-priority-title">確認事項</h2><p>確認が必要な項目から順に対応できます。</p></div></div>
+          <div class="dashboard-action-grid">
+            <a class="dashboard-action <%=pendingCount>0?"attention":"clear"%>" href="<%=ctx%>/app/leave/approvals"><span>承認待ち</span><strong><%=pendingCount%>件</strong><small><%=pendingCount>0?"申請内容を確認":"対応はありません"%></small></a>
+            <a class="dashboard-action <%=shortageCount>0?"attention":"clear"%>" href="<%=ctx%>/app/shifts/manage?month=<%=month%>"><span>本日のシフト不足</span><strong><%=shortageCount%>件</strong><small><%=shortageCount>0?"割当状況を確認":"不足はありません"%></small></a>
+            <a class="dashboard-action <%=unconfirmedShiftCount>0?"attention":"clear"%>" href="<%=ctx%>/app/shifts/confirm?month=<%=month%>"><span>月間シフト未確定</span><strong><%=unconfirmedShiftCount%>件</strong><small><%=rows.isEmpty()?"対象シフトはありません":unconfirmedShiftCount>0?"確定前チェックへ":"確定済みです"%></small></a>
+            <a class="dashboard-action <%=overtimeLevel%>" href="<%=ctx%>/app/attendance/manage?month=<%=month%>"><span>残業アラート</span><strong><%=String.format("%.1f",overtimeHours)%>時間</strong><small><%="safe".equals(overtimeLevel)?"基準内です":"勤怠状況を確認"%></small></a>
           </div>
         </section>
-
-        <!-- 2. 今月の状況 -->
-        <section class="section no-print" style="margin-bottom: 22px;">
-          <div class="section-header">
-            <h2>今月の勤務サマリー</h2>
-          </div>
-          <div class="metric-grid <%= manager ? "" : "employee-metrics" %>">
-            <% if (manager) { %>
-            <div class="metric"><span class="label">今日の出勤予定</span><strong><%=e(stats.get("todayWorkers"))%><small>名</small></strong></div>
-            <% } %>
-            <div class="metric"><span class="label"><%= manager ? "承認待ち" : "申請中" %></span><strong><%=e(stats.get("pending"))%><small>件</small></strong></div>
-            <div class="metric"><span class="label">有休残日数</span><strong><%=days(stats.get("leave"))%><small>日</small></strong></div>
-            <% if (manager) { %>
-            <div class="metric">
-              <span class="label">シフト不足</span>
-              <div class="staffing-shortage">
-                <span class="staffing-row <%=shortageClass(stats.get("dayShortagePercent"))%>">
-                  <em>日勤</em><strong><span class="staffing-icon" aria-hidden="true"><%=shortageIcon(stats.get("dayShortagePercent"))%></span><%=shortageLabel(stats.get("dayShortagePercent"))%></strong>
-                </span>
-                <span class="staffing-row <%=shortageClass(stats.get("nightShortagePercent"))%>">
-                  <em>夜勤</em><strong><span class="staffing-icon" aria-hidden="true"><%=shortageIcon(stats.get("nightShortagePercent"))%></span><%=shortageLabel(stats.get("nightShortagePercent"))%></strong>
-                </span>
-              </div>
-            </div>
-            <% } %>
-            <div class="metric">
-              <span class="label"><%= manager ? "残業アラート" : "残業状況" %></span>
-              <strong style="<%= "danger".equals(overtimeLevel) ? "color: #b73535;" : "warning".equals(overtimeLevel) ? "color: #b38600;" : "" %>">
-                <%=String.format("%.1f",overtimeHours)%><small>時間</small>
-              </strong>
-              <span style="font-size: 11px; display: block; margin-top: 4px; color: var(--muted);">基準: <%=String.format("%.0f",overtimeThreshold)%>時間</span>
-            </div>
-            <div class="metric"><span class="label"><%= manager ? "今月の実勤務" : "今月の勤務状況" %></span><strong><%=String.format("%.1f",stats.get("monthHours"))%><small>時間</small></strong></div>
-          </div>
-        </section>
-
-        <!-- 3. 推移グラフ -->
-        <div class="dashboard-grid no-print">
-          <div class="dashboard-heading">
-            <div>
-              <h2>勤務状況の推移</h2>
-              <p>直近6か月の勤務実績と有休取得状況を確認できます。</p>
-            </div>
-          </div>
-          <div class="dashboard-charts" style="margin-bottom: 22px;">
+        <%}else{%>
+          <div class="overtime-alert <%=overtimeLevel%>" role="<%="danger".equals(overtimeLevel)?"alert":"status"%>"><span class="overtime-alert-icon" aria-hidden="true"><%="safe".equals(overtimeLevel)?"✓":"!"%></span><div><strong>残業アラート</strong><p>今月の残業は<strong><%=String.format("%.1f",overtimeHours)%>時間</strong>です（基準 <%=String.format("%.0f",overtimeThreshold)%>時間）。<%if("danger".equals(overtimeLevel)){%>基準に達しています。勤務状況を確認してください。<%}else if("warning".equals(overtimeLevel)){%>基準に近づいています。今後の勤務予定にご注意ください。<%}else{%>現在は基準内です。<%}%></p></div></div>
+        <%}%>
+        <div class="dashboard-heading dashboard-month-heading"><div><p class="eyebrow">THIS MONTH</p><h2>今月の勤務サマリー</h2><p>勤務・申請・シフトの現在地をまとめて確認できます。</p></div></div>
+        <div class="metric-grid <%= manager ? "" : "employee-metrics" %>">
+          <% if (manager) { %>
+          <div class="metric"><span class="label">今日の出勤予定</span><strong><%=e(stats.get("todayWorkers"))%><small>名</small></strong></div>
+          <% } %>
+          <div class="metric"><span class="label">承認待ち</span><strong><%=e(stats.get("pending"))%><small>件</small></strong></div>
+          <div class="metric"><span class="label">有休残日数</span><strong><%=days(stats.get("leave"))%><small>日</small></strong></div>
+          <% if (manager) { %>
+          <div class="metric"><span class="label">シフト不足</span><div class="staffing-shortage"><span class="staffing-row <%=shortageClass(stats.get("dayShortagePercent"))%>"><em>日勤</em><strong><span class="staffing-icon" aria-hidden="true"><%=shortageIcon(stats.get("dayShortagePercent"))%></span><%=shortageLabel(stats.get("dayShortagePercent"))%></strong></span><span class="staffing-row <%=shortageClass(stats.get("nightShortagePercent"))%>"><em>夜勤</em><strong><span class="staffing-icon" aria-hidden="true"><%=shortageIcon(stats.get("nightShortagePercent"))%></span><%=shortageLabel(stats.get("nightShortagePercent"))%></strong></span></div></div>
+          <% } %>
+          <div class="metric"><span class="label">今月の実勤務</span><strong><%=String.format("%.1f",stats.get("monthHours"))%><small>時間</small></strong></div>
+        </div>
+        <div class="dashboard-grid">
+          <div class="dashboard-heading"><div><p class="eyebrow">TRENDS</p><h2>勤務状況の推移</h2><p>直近6か月の勤務実績と有休取得状況を確認できます。</p></div></div>
+          <div class="dashboard-charts">
             <section class="section">
               <div class="section-header">
-                <div>
-                  <h2><%=en?"Work Hours":"勤務時間の推移"%></h2>
-                  <p class="chart-description"><%=en?"Monthly worked hours for the last six months.":"直近6か月の実勤務時間を月別に確認できます。"%></p>
-                </div>
+                <div><h2><%=en?"Work Hours":"勤務時間の推移"%></h2><p class="chart-description"><%=en?"Monthly worked hours for the last six months.":"直近6か月の実勤務時間を月別に確認できます。"%></p></div>
                 <span class="muted"><%=en?"Hours":"時間"%></span>
               </div>
               <% if (chart.isEmpty()) { %><div class="empty">集計できる勤怠データがありません。</div><% } else { %>
@@ -480,10 +319,7 @@ String ctx = request.getContextPath();
 
             <section class="section">
               <div class="section-header">
-                <div>
-                  <h2><%=en?"Overtime Hours":"残業時間の推移"%></h2>
-                  <p class="chart-description"><%=en?"Monthly overtime beyond scheduled hours.":"所定時間を超えた残業時間の推移です。"%></p>
-                </div>
+                <div><h2><%=en?"Overtime Hours":"残業時間の推移"%></h2><p class="chart-description"><%=en?"Monthly overtime beyond scheduled hours.":"所定時間を超えた残業時間の推移です。"%></p></div>
                 <span class="muted"><%=en?"Hours":"時間"%></span>
               </div>
               <% if (chart.isEmpty()) { %><div class="empty">集計できる勤怠データがありません。</div><% } else { %>
@@ -498,51 +334,28 @@ String ctx = request.getContextPath();
 
             <section class="section">
               <div class="section-header">
-                <div>
-                  <h2><%=en?"Leave Days":"有休取得日数の推移"%></h2>
-                  <p class="chart-description"><%=en?"Monthly approved leave days.":"承認済みの有休取得日数を月別に表示します。"%></p>
-                </div>
+                <div><h2><%=en?"Leave Days":"有休取得日数の推移"%></h2><p class="chart-description"><%=en?"Monthly approved leave days.":"承認済みの有休取得日数を月別に表示します。"%></p></div>
                 <span class="muted"><%=en?"Days":"日"%></span>
               </div>
               <% if (chart.isEmpty()) { %><div class="empty">集計できる勤怠データがありません。</div><% } else { %>
               <div class="chart"><% for (Map<String,Object> item : chart) {
-                double leaveDays = ((Number)item.get("leave_days")).doubleValue(); %>
+                double leave = ((Number)item.get("leave_days")).doubleValue(); %>
                 <div class="chart-column">
-                  <span class="bar leave" style="height:<%=Math.min(100,leaveDays*12)%>%" title="<%=en?"Leave":"有休"%> <%=leaveDays%>日"></span>
+                  <span class="bar leave" style="height:<%=Math.min(100,leave*12)%>%" title="<%=en?"Leave":"有休"%> <%=leave%>日"></span>
                   <small><%=e(item.get("month_label"))%></small>
                 </div>
               <% } %></div><% } %>
             </section>
           </div>
-        </div>
-
-        <!-- 4. 月間シフト -->
-        <section class="section" style="margin-top: 22px; width: 100%;">
-          <div class="dashboard-heading dashboard-roster-heading">
-            <div>
-              <h2>月間シフト（確認用）</h2>
-              <p>対象月と配属先のシフト表です。</p>
-            </div>
-          </div>
-          <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
-            <div>
-              <p style="font-size: 12px; color: var(--muted); margin: 0;">店長・人事担当者は「シフト調整へ」から詳細な編集を行えます。</p>
-            </div>
-            <% if (manager) { %>
-            <a class="button primary" href="<%=ctx%>/app/shifts/manage?month=<%=month%>" style="padding: 8px 16px; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">⚙️ シフト調整へ</a>
-            <% } %>
-          </div>
-          <% { String rosterTitle="シフト"; String rosterLink=null; List<Map<String,Object>> rosterBranches=(List<Map<String,Object>>)request.getAttribute("dashboardBranches"); Number selectedRosterBranch=(Number)request.getAttribute("dashboardBranchId"); Long rosterBranchId=selectedRosterBranch==null?user.getBranchId():selectedRosterBranch.longValue(); if(rosterBranches==null)rosterBranches=Collections.emptyList(); String selectedRosterBranchQuery=rosterBranchId==null?"":"&amp;branchId="+rosterBranchId; %>
-            <div class="toolbar no-print" style="margin-bottom: 14px;">
+          <% { String rosterTitle="月間シフト"; String rosterLink=null; List<Map<String,Object>> rosterBranches=(List<Map<String,Object>>)request.getAttribute("dashboardBranches"); Number selectedRosterBranch=(Number)request.getAttribute("dashboardBranchId"); Long rosterBranchId=selectedRosterBranch==null?user.getBranchId():selectedRosterBranch.longValue(); if(rosterBranches==null)rosterBranches=Collections.emptyList(); String selectedRosterBranchQuery=rosterBranchId==null?"":"&amp;branchId="+rosterBranchId; %>
+            <div class="dashboard-heading dashboard-roster-heading"><div><p class="eyebrow">SCHEDULE</p><p>月間シフトの確定状況と勤務区分を確認できます。</p></div></div>
+            <div class="toolbar no-print">
               <form method="get"><%if(rosterBranchId!=null){%><input type="hidden" name="branchId" value="<%=rosterBranchId%>"><%}%><label>対象月<input type="month" name="month" value="<%=month%>" data-auto-submit></label></form>
-              <div class="actions"><a class="button" href="<%=ctx%>/app/shifts/print?month=<%=month%><%=selectedRosterBranchQuery%>&amp;printDialog=1">印刷</a></div>
+              <div class="actions"><a class="button" href="<%=ctx%>/app/shifts/print?month=<%=month%><%=selectedRosterBranchQuery%>&amp;printDialog=1">印刷</a><a class="button primary" href="<%=ctx%>/app/<%=manager?"shifts/manage":"shifts/mine"%>?month=<%=month%><%=selectedRosterBranchQuery%>"><%=manager?"シフト調整へ":"シフトを確認"%></a></div>
             </div>
-            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; margin-top: 8px;">
-              <%@ include file="_shiftRoster.jspf" %>
-            </div>
+            <%@ include file="_shiftRoster.jspf" %>
           <% } %>
-        </section>
-      <% } %>
+        </div>
 
       <% } else if (pageKey.startsWith("shifts/")) { Number selectedShiftBranch=(Number)request.getAttribute("shiftBranchId"); String selectedShiftBranchQuery=selectedShiftBranch==null?"":"&amp;branchId="+selectedShiftBranch.longValue(); boolean printDialogRequested=pageKey.equals("shifts/print")&&"1".equals(request.getParameter("printDialog")); boolean shiftMonthAutoSubmit=List.of("shifts/mine","shifts/request","shifts/change","shifts/manage","shifts/confirm").contains(pageKey); %>
         <%if(!pageKey.equals("shifts/change")){%><div class="toolbar no-print">

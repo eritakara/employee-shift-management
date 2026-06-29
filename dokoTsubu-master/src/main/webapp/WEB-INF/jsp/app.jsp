@@ -276,7 +276,7 @@ String ctx = request.getContextPath();
         <!-- 1. 今日の要対応 -->
         <section class="section today-todo-section no-print" style="margin-bottom: 22px;">
           <div class="section-header">
-            <h2>確認事項</h2>
+            <h2>確認が必要な項目</h2>
           </div>
           <div class="todo-list" style="display: grid; gap: 12px;">
             <% if (manager) { %>

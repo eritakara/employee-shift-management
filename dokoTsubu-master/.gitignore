@@ -10,3 +10,5 @@
 *.mv.db
 *.trace.db
 /src/main/webapp/WEB-INF/lib/postgresql-*.jar
+/src/main/webapp/WEB-INF/lib/HikariCP-*.jar
+/src/main/webapp/WEB-INF/lib/slf4j-api-*.jar

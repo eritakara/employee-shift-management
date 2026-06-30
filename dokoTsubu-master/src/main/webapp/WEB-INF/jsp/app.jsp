@@ -304,14 +304,22 @@ String ctx = request.getContextPath();
           <div class="dashboard-charts">
             <section class="section">
               <div class="section-header">
-                <div><h2><%=en?"Work Hours":"勤務時間の推移"%></h2><p class="chart-description"><%=en?"Monthly worked hours for the last six months.":"直近6か月の実勤務時間を月別に確認できます。"%></p></div>
+                <div><h2><%=en?"Average Work Hours":"1人あたり勤務時間の推移"%></h2><p class="chart-description"><%=en?"Average worked hours per employee for the last six months.":"直近6か月の1人あたり平均勤務時間を月別に確認できます。"%></p></div>
                 <span class="muted"><%=en?"Hours":"時間"%></span>
               </div>
               <% if (chart.isEmpty()) { %><div class="empty">集計できる勤怠データがありません。</div><% } else { %>
               <div class="chart"><% for (Map<String,Object> item : chart) {
-                double hours = ((Number)item.get("total_hours")).doubleValue(); %>
+                double avgHours = ((Number)item.getOrDefault("average_hours", 0.0)).doubleValue();
+                double totalHours = ((Number)item.getOrDefault("total_hours", 0.0)).doubleValue();
+                long workers = ((Number)item.getOrDefault("worker_count", 0L)).longValue();
+                String tooltip = en 
+                    ? String.format("%s - Avg: %.1fh, Total: %.1fh, Active workers: %d", item.get("month_label"), avgHours, totalHours, workers)
+                    : String.format("%s - 平均: %.1f時間, 合計: %.1f時間, 実勤務者数: %d人", item.get("month_label"), avgHours, totalHours, workers);
+                // 棒の高さ計算：200時間を100%とする固定スケール
+                double barHeight = Math.min(100, avgHours / 2.0);
+              %>
                 <div class="chart-column">
-                  <span class="bar" style="height:<%=Math.min(100,hours/2)%>%" title="勤務 <%=hours%>時間"></span>
+                  <span class="bar" style="height:<%=barHeight%>%" title="<%=e(tooltip)%>"></span>
                   <small><%=e(item.get("month_label"))%></small>
                 </div>
               <% } %></div><% } %>

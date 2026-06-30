@@ -30,6 +30,8 @@ public class DashboardChartTest {
     check(((BigDecimal) row.get("leave_days")).compareTo(new BigDecimal("1.5")) == 0,
         "monthly chart includes approved leave days");
     check(((Number) row.get("total_hours")).doubleValue() == 8.0, "monthly chart includes working hours");
+    check(((Number) row.get("worker_count")).longValue() == 1L, "monthly chart includes worker count");
+    check(((Number) row.get("average_hours")).doubleValue() == 8.0, "monthly chart includes average hours");
 
     // 店長ユーザーが未所属 (0L) の場合のダッシュボード表示テスト (Postgres/H2 0Lバインド検証)
     User manager = new UserDAO().authenticate("manager@example.com", "Password1!");

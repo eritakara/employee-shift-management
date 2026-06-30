@@ -35,7 +35,7 @@ public class UiStateCoverageTest {
         && application.indexOf("今月の勤務サマリー") < application.indexOf("勤務状況の推移")
         && application.indexOf("勤務状況の推移") < application.indexOf("dashboard-roster-heading"),
         "dashboard sections follow the operational reading order");
-    check(application.contains("直近6か月の実勤務時間を月別に確認できます。")
+    check(application.contains("直近6か月の1人あたり平均勤務時間を月別に確認できます。")
         && application.contains("所定時間を超えた残業時間の推移です。")
         && application.contains("承認済みの有休取得日数を月別に表示します。"),
         "dashboard charts explain their data");

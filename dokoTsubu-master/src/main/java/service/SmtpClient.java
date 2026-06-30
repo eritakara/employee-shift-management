@@ -56,20 +56,34 @@ public class SmtpClient {
       session.command("QUIT", 221);
     } catch (SocketTimeoutException e) {
       throw new SmtpTimeoutException(stage, e);
+    } catch (IOException e) {
+      throw new SmtpProtocolException(stage, e);
     } finally {
       if (socket != null) try { socket.close(); } catch (IOException ignored) { }
     }
   }
 
-  public static final class SmtpTimeoutException extends IOException {
+  public static class SmtpStageException extends IOException {
     private final String stage;
 
-    SmtpTimeoutException(String stage, SocketTimeoutException cause) {
-      super("SMTP timeout during " + stage, cause);
+    SmtpStageException(String message, String stage, IOException cause) {
+      super(message, cause);
       this.stage = stage;
     }
 
     public String stage() { return stage; }
+  }
+
+  public static final class SmtpTimeoutException extends SmtpStageException {
+    SmtpTimeoutException(String stage, SocketTimeoutException cause) {
+      super("SMTP timeout during " + stage, stage, cause);
+    }
+  }
+
+  public static final class SmtpProtocolException extends SmtpStageException {
+    SmtpProtocolException(String stage, IOException cause) {
+      super("SMTP failure during " + stage, stage, cause);
+    }
   }
 
   private Socket connect(MailConfig config) throws IOException {

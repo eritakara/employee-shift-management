@@ -173,6 +173,8 @@ public class UiStateCoverageTest {
     check(servlet.contains("招待メールを送信しました")
         && servlet.contains("招待メールの送信に失敗しました。管理者に確認してください"),
         "invitation email result messages are user friendly");
+    check(servlet.contains("getAttribute(\"flash\") == null && req.getSession().getAttribute(\"error\") == null"),
+        "default save message is not added when an action reports an error");
     check(servletUtil.contains("APP_BASE_URL is not configured")
         && servlet.contains("Invitation email configuration or delivery failed"),
         "missing production base URL fails with a safe diagnostic");

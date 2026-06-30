@@ -15,6 +15,12 @@ public class MailDeliveryTest {
   public static void main(String[] args) throws Exception {
     System.setProperty("shiftapp.dataDir", Files.createTempDirectory("shiftflow-mail-test-").toString());
     Database.initialize();
+    System.clearProperty("SMTP_SECURITY");
+    System.clearProperty("SHIFTFLOW_SMTP_SECURITY");
+    System.setProperty("SMTP_PORT", "465");
+    check("smtps".equals(config.MailConfig.load().security()), "port 465 selects implicit TLS");
+    System.setProperty("SMTP_PORT", "587");
+    check("starttls".equals(config.MailConfig.load().security()), "port 587 selects STARTTLS");
     try (FakeSmtpServer smtp = new FakeSmtpServer()) {
       System.setProperty("SMTP_HOST", "127.0.0.1");
       System.setProperty("SMTP_PORT", String.valueOf(smtp.port()));

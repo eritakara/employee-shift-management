@@ -136,7 +136,7 @@ public class AttendanceService {
     String filter = viewer.isHr() ? "" : viewer.isManager() ? " AND u.branch_id=? AND u.department_id=?" : " AND r.requested_by=?";
     Object[] scope = viewer.isHr() ? new Object[]{} : viewer.isManager()
         ? new Object[]{viewer.getBranchId(), viewer.getDepartmentId()} : new Object[]{viewer.getId()};
-    return Sql.query("SELECT r.*,a.work_date,a.clock_in current_in,a.clock_out current_out,u.name,u.employee_number FROM attendance_adjustments r JOIN attendance a ON a.id=r.attendance_id JOIN users u ON u.id=r.requested_by WHERE a.work_date BETWEEN ? AND ?"
+    return Sql.query("SELECT r.*,a.work_date,a.clock_in current_in,a.clock_out current_out,u.name,u.employee_number,u.role AS requester_role,u.branch_id AS requester_branch_id,u.department_id AS requester_department_id FROM attendance_adjustments r JOIN attendance a ON a.id=r.attendance_id JOIN users u ON u.id=r.requested_by WHERE a.work_date BETWEEN ? AND ?"
         + filter + " ORDER BY r.created_at DESC", join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scope));
   }
 
@@ -159,9 +159,11 @@ public class AttendanceService {
 
   public void decideAttendanceAdjustment(User actor, long requestId, boolean approve, String rejectionReason) {
     requireManager(actor);
-    Map<String, Object> row = Sql.one("SELECT r.*,u.branch_id,u.department_id FROM attendance_adjustments r JOIN users u ON u.id=r.requested_by WHERE r.id=?", requestId);
-    if (row.isEmpty() || !"PENDING".equals(row.get("status"))) throw new IllegalArgumentException("未処理の申請が見つかりません。");
-    assertScope(actor, ((Number) row.get("branch_id")).longValue(), ((Number) row.get("department_id")).longValue());
+    Map<String, Object> row = Sql.one("SELECT r.*,u.role AS requester_role,u.branch_id AS requester_branch_id,u.department_id AS requester_department_id FROM attendance_adjustments r JOIN users u ON u.id=r.requested_by WHERE r.id=?", requestId);
+    if (row.isEmpty()) throw new IllegalArgumentException("未処理の申請が見つかりません。");
+    if (!canDecide(actor, row)) {
+      throw new SecurityException("この申請を承認・却下する権限がありません。");
+    }
     Map<String, Object> attendance = Sql.one("SELECT clock_in,clock_out,status,finalized FROM attendance WHERE id=?", row.get("attendance_id"));
     if (approve && Boolean.TRUE.equals(attendance.get("finalized"))) {
       throw new IllegalArgumentException("確定済み勤怠は、確定解除してから修正してください。");
@@ -220,5 +222,40 @@ public class AttendanceService {
     if (!actor.isHr() && (actor.getBranchId() != branch || actor.getDepartmentId() != department)) {
       throw new SecurityException("担当外のデータです。");
     }
+  }
+
+  public static boolean canDecide(User actor, Map<String, Object> request) {
+    if (actor == null || request == null) return false;
+    if (!"PENDING".equals(request.get("status"))) return false;
+
+    long requesterId = getLong(request.get("requested_by"));
+    String requesterRole = String.valueOf(request.get("requester_role"));
+    long actorId = actor.getId();
+
+    if (actorId == requesterId) return false;
+
+    if ("EMPLOYEE".equals(requesterRole)) {
+      if (!"MANAGER".equals(actor.getRole())) return false;
+      long requesterBranchId = getLong(request.get("requester_branch_id"));
+      long requesterDeptId = getLong(request.get("requester_department_id"));
+      if (actor.getBranchId() != requesterBranchId || actor.getDepartmentId() != requesterDeptId) return false;
+    } else if ("MANAGER".equals(requesterRole)) {
+      if (!actor.isHr()) return false;
+    } else if ("HR".equals(requesterRole)) {
+      if (!actor.isHr()) return false;
+    } else {
+      return false;
+    }
+
+    return true;
+  }
+
+  private static long getLong(Object val) {
+    if (val instanceof Number n) return n.longValue();
+    if (val != null) {
+      try { return Long.parseLong(String.valueOf(val)); }
+      catch (NumberFormatException e) {}
+    }
+    return 0L;
   }
 }

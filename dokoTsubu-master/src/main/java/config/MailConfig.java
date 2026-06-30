@@ -4,11 +4,13 @@ public record MailConfig(String host, int port, String security, String username
     String password, String fromAddress, String fromName, int maxAttempts) {
 
   public static MailConfig load() {
-    String security = setting("SHIFTFLOW_SMTP_SECURITY", "starttls").toLowerCase();
-    int defaultPort = "smtps".equals(security) ? 465 : 587;
+    String configuredSecurity = setting("SMTP_SECURITY", "SHIFTFLOW_SMTP_SECURITY", "").toLowerCase();
+    int defaultPort = "smtps".equals(configuredSecurity) ? 465 : 587;
+    int port = integer("SMTP_PORT", "SHIFTFLOW_SMTP_PORT", defaultPort);
+    String security = configuredSecurity.isBlank() ? (port == 465 || port == 2465 ? "smtps" : "starttls") : configuredSecurity;
     return new MailConfig(
         setting("SMTP_HOST", "SHIFTFLOW_SMTP_HOST", ""),
-        integer("SMTP_PORT", "SHIFTFLOW_SMTP_PORT", defaultPort),
+        port,
         security,
         setting("SMTP_USER", "SHIFTFLOW_SMTP_USER", ""),
         setting("SMTP_PASSWORD", "SHIFTFLOW_SMTP_PASSWORD", ""),

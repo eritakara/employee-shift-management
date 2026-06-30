@@ -26,7 +26,10 @@ public class MailDeliveryService {
   }
 
   public boolean deliverNow(long id) {
-    if (!config.enabled()) return false;
+    if (!config.enabled()) {
+      System.err.println("[MAIL] delivery skipped: SMTP_HOST or SMTP_FROM is not configured");
+      return false;
+    }
     Map<String, Object> mail = Sql.one("SELECT * FROM mail_outbox WHERE id=? AND status IN('QUEUED','RETRY')", id);
     return !mail.isEmpty() && deliver(mail);
   }
@@ -41,6 +44,8 @@ public class MailDeliveryService {
       Sql.update("UPDATE notifications SET email_status='SENT' WHERE id=(SELECT MAX(id) FROM notifications WHERE user_id=(SELECT id FROM users WHERE email=?) AND title=?)", mail.get("recipient"), mail.get("subject"));
       return true;
     } catch (Exception e) {
+      System.err.println("[MAIL] delivery failed: mailId=" + id + ", attempt=" + attempts
+          + ", errorType=" + e.getClass().getSimpleName());
       boolean failed = attempts >= config.maxAttempts();
       int delayMinutes = attempts == 1 ? 1 : attempts == 2 ? 5 : 15;
       Sql.update("UPDATE mail_outbox SET status=?,last_error=?,next_attempt_at=? WHERE id=?",

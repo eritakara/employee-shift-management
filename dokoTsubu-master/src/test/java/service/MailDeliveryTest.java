@@ -16,20 +16,20 @@ public class MailDeliveryTest {
     System.setProperty("shiftapp.dataDir", Files.createTempDirectory("shiftflow-mail-test-").toString());
     Database.initialize();
     try (FakeSmtpServer smtp = new FakeSmtpServer()) {
-      System.setProperty("SHIFTFLOW_SMTP_HOST", "127.0.0.1");
-      System.setProperty("SHIFTFLOW_SMTP_PORT", String.valueOf(smtp.port()));
+      System.setProperty("SMTP_HOST", "127.0.0.1");
+      System.setProperty("SMTP_PORT", String.valueOf(smtp.port()));
       System.setProperty("SHIFTFLOW_SMTP_SECURITY", "plain");
-      System.setProperty("SHIFTFLOW_MAIL_FROM", "noreply@example.test");
+      System.setProperty("SMTP_FROM", "noreply@example.test");
       System.setProperty("SHIFTFLOW_MAIL_MAX_ATTEMPTS", "3");
       long id = Sql.insert("INSERT INTO mail_outbox(recipient,subject,body) VALUES(?,?,?)",
           "employee@example.test", "勤務通知", "シフトが確定しました。");
-      int delivered = new MailDeliveryService().deliverPending();
-      check(delivered == 1, "one message delivered");
+      boolean delivered = new MailDeliveryService().deliverNow(id);
+      check(delivered, "selected message delivered immediately");
       check("SENT".equals(Sql.one("SELECT status FROM mail_outbox WHERE id=?", id).get("status")), "outbox marked sent");
       check(smtp.message().contains("Content-Type: text/plain; charset=UTF-8"), "UTF-8 MIME message");
     }
 
-    System.setProperty("SHIFTFLOW_SMTP_PORT", "1");
+    System.setProperty("SMTP_PORT", "1");
     System.setProperty("SHIFTFLOW_MAIL_MAX_ATTEMPTS", "1");
     long failedId = Sql.insert("INSERT INTO mail_outbox(recipient,subject,body) VALUES(?,?,?)",
         "employee@example.test", "failure", "failure test");

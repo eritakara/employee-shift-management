@@ -25,6 +25,12 @@ public class MailDeliveryService {
     Sql.update("UPDATE mail_outbox SET status='QUEUED',next_attempt_at=CURRENT_TIMESTAMP,last_error=NULL WHERE id=? AND status='FAILED'", id);
   }
 
+  public boolean deliverNow(long id) {
+    if (!config.enabled()) return false;
+    Map<String, Object> mail = Sql.one("SELECT * FROM mail_outbox WHERE id=? AND status IN('QUEUED','RETRY')", id);
+    return !mail.isEmpty() && deliver(mail);
+  }
+
   private boolean deliver(Map<String, Object> mail) {
     long id = ((Number) mail.get("id")).longValue();
     int attempts = ((Number) mail.get("attempts")).intValue() + 1;

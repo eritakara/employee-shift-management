@@ -277,8 +277,8 @@ public class PortalService {
     employeeService.addEmployee(actor, number, name, email, hireDate, branch, department, employment, role, baseUrl);
   }
 
-  public void reissueInvite(User actor, long userId, String baseUrl) {
-    employeeService.reissueInvite(actor, userId, baseUrl);
+  public boolean resendInviteEmail(User actor, long userId, String baseUrl) {
+    return employeeService.resendInviteEmail(actor, userId, baseUrl);
   }
 
   public void updateEmployee(User actor, long id, String number, String name, String email, LocalDate hireDate, long branch, long department, long employment, String role, boolean active) {

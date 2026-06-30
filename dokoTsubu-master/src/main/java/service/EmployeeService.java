@@ -91,15 +91,19 @@ public class EmployeeService {
     AuditService.record(actor.getId(), "CREATE_USER", "USER", String.valueOf(id), null, number + ":" + role);
   }
 
-  public String reissueInvite(User actor, long userId, String baseUrl) {
+  public boolean resendInviteEmail(User actor, long userId, String baseUrl) {
     if (!actor.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
     Map<String, Object> target = Sql.one("SELECT email,active FROM users WHERE id=?", userId);
     if (target.isEmpty() || !Boolean.TRUE.equals(target.get("active"))) {
       throw new IllegalArgumentException("有効な従業員が見つかりません。");
     }
-    String token = new AccountTokenService().issue(String.valueOf(target.get("email")), "INVITE", baseUrl);
+    String email = target.get("email") == null ? "" : String.valueOf(target.get("email")).trim();
+    if (email.isBlank()) return false;
+    AccountTokenService.IssueResult invitation = new AccountTokenService().issueWithMail(
+        email, "INVITE", baseUrl);
+    if (invitation == null) return false;
     AuditService.record(actor.getId(), "REISSUE_INVITE", "USER", String.valueOf(userId), null, "expires in 24h");
-    return token;
+    return new MailDeliveryService().deliverNow(invitation.mailId());
   }
 
   public void updateEmployee(User actor, long id, String number, String name, String email, LocalDate hireDate,

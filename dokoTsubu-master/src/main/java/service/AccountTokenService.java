@@ -7,7 +7,14 @@ import java.util.UUID;
 import util.PasswordUtil;
 
 public class AccountTokenService {
+  public record IssueResult(String token, long mailId) { }
+
   public String issue(String email, String type, String baseUrl) {
+    IssueResult result = issueWithMail(email, type, baseUrl);
+    return result == null ? null : result.token();
+  }
+
+  public IssueResult issueWithMail(String email, String type, String baseUrl) {
     Map<String, Object> user = Sql.one("SELECT id,email,name FROM users WHERE LOWER(email)=LOWER(?) AND active=TRUE", email == null ? "" : email.trim());
     if (user.isEmpty()) return null;
     String token = UUID.randomUUID().toString().replace("-", "");
@@ -17,9 +24,9 @@ public class AccountTokenService {
     String path = "INVITE".equals(type) ? "/invite?token=" : "/reset?token=";
     String subject = "INVITE".equals(type) ? "ShiftFlowへのご招待" : "ShiftFlow パスワード再設定";
     String body = user.get("name") + " 様\n\n次のリンクから手続きを行ってください。\n" + baseUrl + path + token + "\n\nこのリンクは24時間有効です。";
-    Sql.insert("INSERT INTO mail_outbox(recipient,subject,body) VALUES(?,?,?)", user.get("email"), subject, body);
+    long mailId = Sql.insert("INSERT INTO mail_outbox(recipient,subject,body) VALUES(?,?,?)", user.get("email"), subject, body);
     AuditService.record(null, "ISSUE_" + type + "_TOKEN", "USER", String.valueOf(user.get("id")), null, "expires in 24h");
-    return token;
+    return new IssueResult(token, mailId);
   }
 
   public boolean isValid(String token, String type) {

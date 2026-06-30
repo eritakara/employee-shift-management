@@ -16,6 +16,7 @@ public class UiStateCoverageTest {
     String leaveService = Files.readString(main.resolve("service/LeaveService.java"));
     String notificationService = Files.readString(main.resolve("service/NotificationService.java"));
     String servlet = Files.readString(main.resolve("servlet/PortalServlet.java"));
+    String servletUtil = Files.readString(main.resolve("util/ServletUtil.java"));
 
     check(script.contains("form.dataset.submitting === 'true'"), "forms prevent duplicate submission");
     check(script.contains("aria-busy"), "forms expose loading state");
@@ -168,7 +169,13 @@ public class UiStateCoverageTest {
     check(!error.contains("exception") && !error.contains("stackTrace") && !error.contains("sql"),
         "server error page does not expose internal details");
     check(script.contains("Work, overtime, and leave trend"), "updated dashboard heading has an English translation");
-    check(script.contains("Reissue invitation"), "invitation action has an English translation");
+    check(script.contains("Resend invitation email"), "invitation email action has an English translation");
+    check(servlet.contains("招待メールを送信しました")
+        && servlet.contains("招待メールの送信に失敗しました。管理者に確認してください"),
+        "invitation email result messages are user friendly");
+    check(servletUtil.contains("APP_BASE_URL is not configured")
+        && servlet.contains("Invitation email configuration or delivery failed"),
+        "missing production base URL fails with a safe diagnostic");
     System.out.println("UiStateCoverageTest: all checks passed");
   }
 

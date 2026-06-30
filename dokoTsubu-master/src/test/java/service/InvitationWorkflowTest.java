@@ -22,18 +22,26 @@ public class InvitationWorkflowTest {
     Map<String, Object> first = Sql.one("SELECT id,token FROM account_tokens WHERE token_type='INVITE' AND used_at IS NULL AND user_id=(SELECT id FROM users WHERE email=?)", email);
     check(!first.isEmpty(), "registration creates an invitation token");
     long userId = ((Number) Sql.one("SELECT id FROM users WHERE email=?", email).get("id")).longValue();
-    portal.reissueInvite(hr, userId, "https://shiftflow.example");
+    check(!portal.resendInviteEmail(hr, userId, "https://shiftflow.example"),
+        "resend reports failure when SMTP is not configured");
     check(Sql.query("SELECT id FROM account_tokens WHERE id=? AND used_at IS NOT NULL", first.get("id")).size() == 1,
         "reissue invalidates the previous link");
     check(count("SELECT COUNT(*) count_value FROM account_tokens WHERE user_id=? AND token_type='INVITE' AND used_at IS NULL", userId) == 1,
         "only one invitation link remains valid");
     check(count("SELECT COUNT(*) count_value FROM mail_outbox WHERE recipient=? AND subject='ShiftFlowへのご招待'", email) == 2,
         "registration and reissue each queue one invitation mail");
+    check(String.valueOf(Sql.one("SELECT body FROM mail_outbox WHERE recipient=? AND subject='ShiftFlowへのご招待' ORDER BY id DESC LIMIT 1", email).get("body"))
+        .contains("https://shiftflow.example/invite?token="), "invitation email contains invitation URL");
     check(count("SELECT COUNT(*) count_value FROM leave_grants WHERE user_id=? AND expires_on>=CURRENT_DATE AND days_remaining>0", userId) == 1,
         "new employee receives an active migration leave grant");
-    expectDenied(() -> portal.reissueInvite(employee, userId, "https://shiftflow.example"), "non-HR reissue");
+    expectDenied(() -> portal.resendInviteEmail(employee, userId, "https://shiftflow.example"), "non-HR resend");
     check(count("SELECT COUNT(*) count_value FROM audit_logs WHERE action='REISSUE_INVITE' AND target_user_id=?", userId) == 1,
         "reissue is audited");
+    int tokenCount = count("SELECT COUNT(*) count_value FROM account_tokens WHERE user_id=? AND token_type='INVITE'", userId);
+    Sql.update("UPDATE users SET email='' WHERE id=?", userId);
+    check(!portal.resendInviteEmail(hr, userId, "https://shiftflow.example"), "blank email fails safely");
+    check(count("SELECT COUNT(*) count_value FROM account_tokens WHERE user_id=? AND token_type='INVITE'", userId) == tokenCount,
+        "blank email does not issue another token");
     System.out.println("InvitationWorkflowTest: all checks passed");
   }
 

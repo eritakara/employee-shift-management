@@ -69,7 +69,6 @@ public class PortalServlet extends HttpServlet {
     req.setAttribute("workTypes", shiftService.workTypes());
     req.setAttribute("flash", takeFlash(req, "flash"));
     req.setAttribute("error", takeFlash(req, "error"));
-    req.setAttribute("reissuedInviteUrl", takeFlash(req, "reissuedInviteUrl"));
 
     if ("dashboard".equals(page)) {
       long dashboardBranchId = longValue(req, "branchId", user.getBranchId());
@@ -233,13 +232,18 @@ public class PortalServlet extends HttpServlet {
         case "addEmployee" -> employeeService.addEmployee(user, req.getParameter("employeeNumber"), req.getParameter("name"), req.getParameter("email"),
             LocalDate.parse(req.getParameter("hireDate")), Long.parseLong(req.getParameter("branchId")), Long.parseLong(req.getParameter("departmentId")),
             Long.parseLong(req.getParameter("employmentId")), req.getParameter("role"), util.ServletUtil.baseUrl(req));
-        case "reissueInvite" -> {
-          String token = employeeService.reissueInvite(user, Long.parseLong(req.getParameter("id")), util.ServletUtil.baseUrl(req));
-          if (token != null) {
-            String inviteUrl = util.ServletUtil.baseUrl(req) + "/invite?token=" + token;
-            req.getSession().setAttribute("flash", "招待リンクを再発行しました。コピーして対象者へ共有してください。");
-            req.getSession().setAttribute("reissuedInviteUrl", inviteUrl);
+        case "resendInviteEmail" -> {
+          if (!user.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
+          boolean sent = false;
+          try {
+            sent = employeeService.resendInviteEmail(user, Long.parseLong(req.getParameter("id")), util.ServletUtil.baseUrl(req));
+          } catch (IllegalArgumentException e) {
+            throw e;
+          } catch (RuntimeException e) {
+            getServletContext().log("Invitation email configuration or delivery failed");
           }
+          if (sent) req.getSession().setAttribute("flash", "招待メールを送信しました");
+          else req.getSession().setAttribute("error", "招待メールの送信に失敗しました。管理者に確認してください");
         }
         case "updateEmployee" -> employeeService.updateEmployee(user, Long.parseLong(req.getParameter("id")), req.getParameter("employeeNumber"), req.getParameter("name"), req.getParameter("email"),
             LocalDate.parse(req.getParameter("hireDate")), Long.parseLong(req.getParameter("branchId")), Long.parseLong(req.getParameter("departmentId")),

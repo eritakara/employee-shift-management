@@ -44,9 +44,13 @@ public class MailDeliveryService {
       Sql.update("UPDATE notifications SET email_status='SENT' WHERE id=(SELECT MAX(id) FROM notifications WHERE user_id=(SELECT id FROM users WHERE email=?) AND title=?)", mail.get("recipient"), mail.get("subject"));
       return true;
     } catch (Exception e) {
-      String timeoutStage = e instanceof SmtpClient.SmtpStageException smtpError ? ", stage=" + smtpError.stage() : "";
+      String smtpDetails = "";
+      if (e instanceof SmtpClient.SmtpStageException smtpError) {
+        smtpDetails = ", stage=" + smtpError.stage();
+        if (smtpError.responseCode() != null) smtpDetails += ", smtpCode=" + smtpError.responseCode();
+      }
       System.err.println("[MAIL] delivery failed: mailId=" + id + ", attempt=" + attempts
-          + ", errorType=" + e.getClass().getSimpleName() + timeoutStage);
+          + ", errorType=" + e.getClass().getSimpleName() + smtpDetails);
       boolean failed = attempts >= config.maxAttempts();
       int delayMinutes = attempts == 1 ? 1 : attempts == 2 ? 5 : 15;
       Sql.update("UPDATE mail_outbox SET status=?,last_error=?,next_attempt_at=? WHERE id=?",

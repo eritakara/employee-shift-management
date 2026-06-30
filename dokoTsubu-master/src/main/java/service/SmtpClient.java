@@ -68,15 +68,18 @@ public class SmtpClient {
   public static class SmtpStageException extends IOException {
     private final String stage;
     private final Integer responseCode;
+    private final String responseMessage;
 
     SmtpStageException(String message, String stage, IOException cause) {
       super(message, cause);
       this.stage = stage;
       this.responseCode = cause instanceof SmtpResponseException response ? response.code() : null;
+      this.responseMessage = cause instanceof SmtpResponseException response ? response.safeMessage() : null;
     }
 
     public String stage() { return stage; }
     public Integer responseCode() { return responseCode; }
+    public String responseMessage() { return responseMessage; }
   }
 
   public static final class SmtpTimeoutException extends SmtpStageException {
@@ -156,7 +159,7 @@ public class SmtpClient {
         }
       } while (line.length() > 3 && line.charAt(3) == '-');
       for (int value : expected) if (code == value) return;
-      throw new SmtpResponseException(code);
+      throw new SmtpResponseException(code, line);
     }
   }
 
@@ -175,12 +178,26 @@ public class SmtpClient {
 
   private static final class SmtpResponseException extends IOException {
     private final int code;
+    private final String safeMessage;
 
-    SmtpResponseException(int code) {
+    SmtpResponseException(int code, String responseLine) {
       super("SMTP server rejected the request with response code " + code);
       this.code = code;
+      this.safeMessage = sanitizeResponse(responseLine);
     }
 
     int code() { return code; }
+    String safeMessage() { return safeMessage; }
+  }
+
+  private static String sanitizeResponse(String value) {
+    if (value == null) return "unknown";
+    String sanitized = value.replaceAll("[\\r\\n\\p{Cntrl}]", " ")
+        .replaceAll("(?i)[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}", "[email]")
+        .replaceAll("(?i)https?://\\S+", "[url]")
+        .replaceAll("(?i)\\b(?:re_[A-Z0-9_=-]+|bearer\\s+\\S+)\\b", "[redacted]")
+        .replaceAll("(?i)\\b(?:token|password|api[_ -]?key)\\s*[=:]\\s*\\S+", "[redacted]")
+        .replaceAll("(?i)\\b[A-F0-9]{24,}\\b", "[redacted]");
+    return sanitized.substring(0, Math.min(sanitized.length(), 500));
   }
 }

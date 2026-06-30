@@ -48,6 +48,7 @@ public class MailDeliveryService {
       if (e instanceof SmtpClient.SmtpStageException smtpError) {
         smtpDetails = ", stage=" + smtpError.stage();
         if (smtpError.responseCode() != null) smtpDetails += ", smtpCode=" + smtpError.responseCode();
+        if (smtpError.responseMessage() != null) smtpDetails += ", smtpMessage=" + smtpError.responseMessage();
       }
       System.err.println("[MAIL] delivery failed: mailId=" + id + ", attempt=" + attempts
           + ", errorType=" + e.getClass().getSimpleName() + smtpDetails);

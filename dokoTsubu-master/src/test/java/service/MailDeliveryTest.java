@@ -26,7 +26,7 @@ public class MailDeliveryTest {
       System.setProperty("SMTP_HOST", "127.0.0.1");
       System.setProperty("SMTP_PORT", String.valueOf(smtp.port()));
       System.setProperty("SHIFTFLOW_SMTP_SECURITY", "plain");
-      System.setProperty("SMTP_FROM", "noreply@example.test");
+      System.setProperty("SMTP_FROM", "onboarding@resend.dev");
       System.setProperty("SHIFTFLOW_MAIL_MAX_ATTEMPTS", "3");
       long id = Sql.insert("INSERT INTO mail_outbox(recipient,subject,body) VALUES(?,?,?)",
           "employee@example.test", "勤務通知", "シフトが確定しました。");
@@ -34,21 +34,24 @@ public class MailDeliveryTest {
       check(delivered, "selected message delivered immediately");
       check("SENT".equals(Sql.one("SELECT status FROM mail_outbox WHERE id=?", id).get("status")), "outbox marked sent");
       check(smtp.message().contains("Content-Type: text/plain; charset=UTF-8"), "UTF-8 MIME message");
+      check("MAIL FROM:<onboarding@resend.dev>".equals(smtp.mailFrom()), "SMTP_FROM is used as envelope sender");
     }
 
     MailConfig formatConfig = new MailConfig("smtp.example.test", 587, "plain", "", "",
-        "noreply@example.test", "\u30b7\u30d5\u30c8\u7ba1\u7406", 3);
+        "onboarding@resend.dev", "\u30b7\u30d5\u30c8\u7ba1\u7406", 3);
     String mime = new SmtpClient().message(formatConfig, "employee@example.test",
         "\u62db\u5f85\u30e1\u30fc\u30eb", "\u672c\u6587");
     check(mime.contains("From: =?UTF-8?B?"), "From display name is MIME encoded");
-    check(mime.contains(" <noreply@example.test>\r\n"), "From address uses angle brackets");
+    check(mime.contains(" <onboarding@resend.dev>\r\n"), "SMTP_FROM is used in the From header");
     check(mime.contains("To: <employee@example.test>\r\n"), "To header uses angle brackets");
     check(mime.contains("Subject: =?UTF-8?B?"), "Japanese subject is MIME encoded");
     check(!mime.replace("\r\n", "").contains("\n"), "MIME message uses CRLF line endings");
     check("..first\r\nsecond\r\n.\r\n".equals(SmtpClient.formatData(".first\nsecond\r\n")),
         "SMTP DATA uses dot escaping, CRLF, and a single terminator");
 
-    try (FakeSmtpServer smtp = new FakeSmtpServer(550)) {
+    String secretToken = "0123456789abcdef0123456789abcdef";
+    try (FakeSmtpServer smtp = new FakeSmtpServer(
+        "550 You can only send testing emails to owner@example.com; token=" + secretToken)) {
       MailConfig rejectedConfig = new MailConfig("127.0.0.1", smtp.port(), "plain", "", "",
           "noreply@example.test", "ShiftFlow", 3);
       try {
@@ -57,6 +60,9 @@ public class MailDeliveryTest {
       } catch (SmtpClient.SmtpProtocolException e) {
         check("message-acceptance".equals(e.stage()), "SMTP rejection stage is retained");
         check(Integer.valueOf(550).equals(e.responseCode()), "SMTP response code is retained safely");
+        check(e.responseMessage().contains("You can only send testing emails"), "safe SMTP response text is retained");
+        check(!e.responseMessage().contains("owner@example.com"), "email in SMTP response is masked");
+        check(!e.responseMessage().contains(secretToken), "token in SMTP response is masked");
       }
     }
 
@@ -76,15 +82,16 @@ public class MailDeliveryTest {
   private static final class FakeSmtpServer implements AutoCloseable {
     private final ServerSocket server;
     private final Thread worker;
-    private final int dataResponseCode;
+    private final String dataResponse;
     private volatile String message = "";
+    private volatile String mailFrom = "";
 
     FakeSmtpServer() throws Exception {
-      this(250);
+      this("250 queued");
     }
 
-    FakeSmtpServer(int dataResponseCode) throws Exception {
-      this.dataResponseCode = dataResponseCode;
+    FakeSmtpServer(String dataResponse) throws Exception {
+      this.dataResponse = dataResponse;
       server = new ServerSocket(0);
       worker = new Thread(this::serve, "fake-smtp");
       worker.start();
@@ -92,6 +99,7 @@ public class MailDeliveryTest {
 
     int port() { return server.getLocalPort(); }
     String message() throws InterruptedException { worker.join(5_000); return message; }
+    String mailFrom() { return mailFrom; }
 
     private void serve() {
       try (Socket socket = server.accept();
@@ -106,11 +114,11 @@ public class MailDeliveryTest {
             if (".".equals(line)) {
               data = false;
               message = captured.toString();
-              send(writer, dataResponseCode + (dataResponseCode == 250 ? " queued" : " rejected"));
+              send(writer, dataResponse);
             }
             else captured.append(line).append('\n');
           } else if (line.startsWith("EHLO")) send(writer, "250 fake-smtp");
-          else if (line.startsWith("MAIL FROM")) send(writer, "250 ok");
+          else if (line.startsWith("MAIL FROM")) { mailFrom = line; send(writer, "250 ok"); }
           else if (line.startsWith("RCPT TO")) send(writer, "250 ok");
           else if ("DATA".equals(line)) { data = true; send(writer, "354 send data"); }
           else if ("QUIT".equals(line)) { send(writer, "221 bye"); break; }

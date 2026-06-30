@@ -48,9 +48,11 @@ public class SmtpClient {
       session.command("MAIL FROM:<" + cleanAddress(config.fromAddress()) + ">", 250);
       stage = "recipient";
       session.command("RCPT TO:<" + cleanAddress(recipient) + ">", 250, 251);
-      stage = "message-data";
+      stage = "data-command";
       session.command("DATA", 354);
+      stage = "message-body";
       session.writeData(message(config, recipient, subject, body));
+      stage = "message-acceptance";
       session.expect(250);
       stage = "quit";
       session.command("QUIT", 221);
@@ -65,13 +67,16 @@ public class SmtpClient {
 
   public static class SmtpStageException extends IOException {
     private final String stage;
+    private final Integer responseCode;
 
     SmtpStageException(String message, String stage, IOException cause) {
       super(message, cause);
       this.stage = stage;
+      this.responseCode = cause instanceof SmtpResponseException response ? response.code() : null;
     }
 
     public String stage() { return stage; }
+    public Integer responseCode() { return responseCode; }
   }
 
   public static final class SmtpTimeoutException extends SmtpStageException {
@@ -101,7 +106,7 @@ public class SmtpClient {
     session.command(Base64.getEncoder().encodeToString(config.password().getBytes(StandardCharsets.UTF_8)), 235);
   }
 
-  private String message(MailConfig config, String recipient, String subject, String body) {
+  String message(MailConfig config, String recipient, String subject, String body) {
     return "Date: " + DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now()) + "\r\n"
         + "From: " + encoded(config.fromName()) + " <" + cleanAddress(config.fromAddress()) + ">\r\n"
         + "To: <" + cleanAddress(recipient) + ">\r\n"
@@ -137,11 +142,7 @@ public class SmtpClient {
     }
 
     void writeData(String data) throws IOException {
-      for (String line : data.replace("\r\n", "\n").split("\n", -1)) {
-        if (line.startsWith(".")) writer.write('.');
-        writer.write(line); writer.write("\r\n");
-      }
-      writer.write(".\r\n"); writer.flush();
+      writer.write(formatData(data)); writer.flush();
     }
 
     void expect(int... expected) throws IOException {
@@ -155,13 +156,31 @@ public class SmtpClient {
         }
       } while (line.length() > 3 && line.charAt(3) == '-');
       for (int value : expected) if (code == value) return;
-      throw new IOException("SMTP error " + code + ": " + sanitize(line));
+      throw new SmtpResponseException(code);
+    }
+  }
+
+  static String formatData(String data) {
+    String normalized = data.replace("\r\n", "\n").replace('\r', '\n');
+    String[] lines = normalized.split("\n", -1);
+    int count = lines.length;
+    if (count > 1 && lines[count - 1].isEmpty()) count--;
+    StringBuilder formatted = new StringBuilder(normalized.length() + 16);
+    for (int i = 0; i < count; i++) {
+      if (lines[i].startsWith(".")) formatted.append('.');
+      formatted.append(lines[i]).append("\r\n");
+    }
+    return formatted.append(".\r\n").toString();
+  }
+
+  private static final class SmtpResponseException extends IOException {
+    private final int code;
+
+    SmtpResponseException(int code) {
+      super("SMTP server rejected the request with response code " + code);
+      this.code = code;
     }
 
-    private String sanitize(String value) {
-      if (value == null) return "unknown";
-      String sanitized = value.replaceAll("[\\r\\n]", " ");
-      return sanitized.substring(0, Math.min(sanitized.length(), 500));
-    }
+    int code() { return code; }
   }
 }

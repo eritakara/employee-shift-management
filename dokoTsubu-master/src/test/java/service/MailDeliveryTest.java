@@ -1,6 +1,7 @@
 package service;
 
 import config.Database;
+import config.MailConfig;
 import dao.Sql;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -35,6 +36,30 @@ public class MailDeliveryTest {
       check(smtp.message().contains("Content-Type: text/plain; charset=UTF-8"), "UTF-8 MIME message");
     }
 
+    MailConfig formatConfig = new MailConfig("smtp.example.test", 587, "plain", "", "",
+        "noreply@example.test", "\u30b7\u30d5\u30c8\u7ba1\u7406", 3);
+    String mime = new SmtpClient().message(formatConfig, "employee@example.test",
+        "\u62db\u5f85\u30e1\u30fc\u30eb", "\u672c\u6587");
+    check(mime.contains("From: =?UTF-8?B?"), "From display name is MIME encoded");
+    check(mime.contains(" <noreply@example.test>\r\n"), "From address uses angle brackets");
+    check(mime.contains("To: <employee@example.test>\r\n"), "To header uses angle brackets");
+    check(mime.contains("Subject: =?UTF-8?B?"), "Japanese subject is MIME encoded");
+    check(!mime.replace("\r\n", "").contains("\n"), "MIME message uses CRLF line endings");
+    check("..first\r\nsecond\r\n.\r\n".equals(SmtpClient.formatData(".first\nsecond\r\n")),
+        "SMTP DATA uses dot escaping, CRLF, and a single terminator");
+
+    try (FakeSmtpServer smtp = new FakeSmtpServer(550)) {
+      MailConfig rejectedConfig = new MailConfig("127.0.0.1", smtp.port(), "plain", "", "",
+          "noreply@example.test", "ShiftFlow", 3);
+      try {
+        new SmtpClient().send(rejectedConfig, "employee@example.test", "invitation", "body");
+        throw new AssertionError("Failed: SMTP rejection must throw");
+      } catch (SmtpClient.SmtpProtocolException e) {
+        check("message-acceptance".equals(e.stage()), "SMTP rejection stage is retained");
+        check(Integer.valueOf(550).equals(e.responseCode()), "SMTP response code is retained safely");
+      }
+    }
+
     System.setProperty("SMTP_PORT", "1");
     System.setProperty("SHIFTFLOW_MAIL_MAX_ATTEMPTS", "1");
     long failedId = Sql.insert("INSERT INTO mail_outbox(recipient,subject,body) VALUES(?,?,?)",
@@ -51,9 +76,15 @@ public class MailDeliveryTest {
   private static final class FakeSmtpServer implements AutoCloseable {
     private final ServerSocket server;
     private final Thread worker;
+    private final int dataResponseCode;
     private volatile String message = "";
 
     FakeSmtpServer() throws Exception {
+      this(250);
+    }
+
+    FakeSmtpServer(int dataResponseCode) throws Exception {
+      this.dataResponseCode = dataResponseCode;
       server = new ServerSocket(0);
       worker = new Thread(this::serve, "fake-smtp");
       worker.start();
@@ -72,7 +103,11 @@ public class MailDeliveryTest {
         String line;
         while ((line = reader.readLine()) != null) {
           if (data) {
-            if (".".equals(line)) { data = false; message = captured.toString(); send(writer, "250 queued"); }
+            if (".".equals(line)) {
+              data = false;
+              message = captured.toString();
+              send(writer, dataResponseCode + (dataResponseCode == 250 ? " queued" : " rejected"));
+            }
             else captured.append(line).append('\n');
           } else if (line.startsWith("EHLO")) send(writer, "250 fake-smtp");
           else if (line.startsWith("MAIL FROM")) send(writer, "250 ok");

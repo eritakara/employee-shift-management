@@ -272,7 +272,7 @@ public class PortalServlet extends HttpServlet {
             Boolean.parseBoolean(req.getParameter("active")));
         default -> throw new IllegalArgumentException("操作が指定されていません。");
       }
-      if (req.getSession().getAttribute("flash") == null) {
+      if (req.getSession().getAttribute("flash") == null && req.getSession().getAttribute("error") == null) {
         req.getSession().setAttribute("flash", "保存しました。");
       }
     } catch (IllegalArgumentException | SecurityException e) {

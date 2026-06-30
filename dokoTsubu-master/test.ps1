@@ -81,3 +81,6 @@ if ($LASTEXITCODE -ne 0) { throw "Accessibility tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "UI state coverage tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.ShiftAutoFillTest
 if ($LASTEXITCODE -ne 0) { throw "Shift auto fill tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" util.PrivacyUtilTest
+if ($LASTEXITCODE -ne 0) { throw "PrivacyUtil tests failed" }
+

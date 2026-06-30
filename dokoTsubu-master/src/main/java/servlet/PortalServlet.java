@@ -34,6 +34,7 @@ public class PortalServlet extends HttpServlet {
   static {
     TITLES.put("dashboard", "ダッシュボード");
     TITLES.put("notifications", "通知"); TITLES.put("account", "アカウント設定");
+    TITLES.put("mail-status", "メール送信状況");
     TITLES.put("shifts/mine", "シフト"); TITLES.put("shifts/request", "希望シフト提出");
     TITLES.put("shifts/team", "月間シフト表"); TITLES.put("shifts/change", "シフト変更申請");
     TITLES.put("shifts/history", "シフト申請履歴"); TITLES.put("shifts/manage", "シフト調整");
@@ -127,6 +128,7 @@ public class PortalServlet extends HttpServlet {
       if ("attendance/manage".equals(page)) req.setAttribute("people", employeeService.findEmployees(user));
     } else if ("notifications".equals(page)) {
       req.setAttribute("rows", notificationService.notifications(user));
+    } else if ("mail-status".equals(page)) {
       if (user.isHr()) req.setAttribute("mailRows", notificationService.mailOutbox(user));
     } else if ("employees".equals(page) || "employees/edit".equals(page)) {
       java.util.List<Map<String,Object>> employeeRows = employeeService.findEmployees(user);
@@ -228,7 +230,10 @@ public class PortalServlet extends HttpServlet {
           attendanceService.decideAttendanceAdjustment(user, Long.parseLong(req.getParameter("id")), approve, rejectionReason);
         }
         case "markNotificationsRead" -> notificationService.markNotificationsRead(user);
-        case "retryMail" -> notificationService.retryMail(user, Long.parseLong(req.getParameter("id")));
+        case "retryMail" -> {
+          if (!user.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
+          notificationService.retryMail(user, Long.parseLong(req.getParameter("id")));
+        }
         case "addEmployee" -> employeeService.addEmployee(user, req.getParameter("employeeNumber"), req.getParameter("name"), req.getParameter("email"),
             LocalDate.parse(req.getParameter("hireDate")), Long.parseLong(req.getParameter("branchId")), Long.parseLong(req.getParameter("departmentId")),
             Long.parseLong(req.getParameter("employmentId")), req.getParameter("role"), util.ServletUtil.baseUrl(req));
@@ -288,7 +293,7 @@ public class PortalServlet extends HttpServlet {
 
   private boolean allowed(User user, String page) {
     if (page.startsWith("employees") || page.startsWith("masters/") || "audit".equals(page)
-        || "attendance/company".equals(page) || "exports".equals(page)) return user.isHr();
+        || "attendance/company".equals(page) || "exports".equals(page) || "mail-status".equals(page)) return user.isHr();
     if (page.equals("shifts/manage") || page.equals("shifts/confirm") || page.equals("leave/approvals")
         || page.equals("attendance/manage") || page.equals("delegations")) return user.isHr() || user.isManager();
     return true;

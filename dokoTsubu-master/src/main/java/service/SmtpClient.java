@@ -8,6 +8,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -16,34 +17,59 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
 public class SmtpClient {
-  private static final int TIMEOUT_MS = 15_000;
+  private static final int TIMEOUT_MS = 5_000;
 
   public void send(MailConfig config, String recipient, String subject, String body) throws IOException {
-    Socket socket = connect(config);
+    Socket socket = null;
+    String stage = "connect";
     try {
+      socket = connect(config);
+      stage = "server-greeting";
       Session session = new Session(socket);
       session.expect(220);
+      stage = "ehlo";
       session.command("EHLO shiftflow", 250);
       if ("starttls".equals(config.security())) {
+        stage = "starttls";
         session.command("STARTTLS", 220);
         SSLSocketFactory factory = (SSLSocketFactory) SSLSocketFactory.getDefault();
         SSLSocket ssl = (SSLSocket) factory.createSocket(socket, config.host(), config.port(), true);
         ssl.setSoTimeout(TIMEOUT_MS);
+        stage = "tls-handshake";
         ssl.startHandshake();
         socket = ssl;
         session = new Session(socket);
+        stage = "ehlo-after-tls";
         session.command("EHLO shiftflow", 250);
       }
+      stage = "authenticate";
       if (!config.username().isBlank()) authenticate(session, config);
+      stage = "mail-from";
       session.command("MAIL FROM:<" + cleanAddress(config.fromAddress()) + ">", 250);
+      stage = "recipient";
       session.command("RCPT TO:<" + cleanAddress(recipient) + ">", 250, 251);
+      stage = "message-data";
       session.command("DATA", 354);
       session.writeData(message(config, recipient, subject, body));
       session.expect(250);
+      stage = "quit";
       session.command("QUIT", 221);
+    } catch (SocketTimeoutException e) {
+      throw new SmtpTimeoutException(stage, e);
     } finally {
-      try { socket.close(); } catch (IOException ignored) { }
+      if (socket != null) try { socket.close(); } catch (IOException ignored) { }
     }
+  }
+
+  public static final class SmtpTimeoutException extends IOException {
+    private final String stage;
+
+    SmtpTimeoutException(String stage, SocketTimeoutException cause) {
+      super("SMTP timeout during " + stage, cause);
+      this.stage = stage;
+    }
+
+    public String stage() { return stage; }
   }
 
   private Socket connect(MailConfig config) throws IOException {

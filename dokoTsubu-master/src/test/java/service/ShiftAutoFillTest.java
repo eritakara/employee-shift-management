@@ -22,11 +22,12 @@ public class ShiftAutoFillTest {
     User otherManager = users.authenticate("hr@example.com", "Password1!"); // 他の権限
 
     PortalService portal = new PortalService();
-    YearMonth targetMonth = YearMonth.now().plusMonths(1);
+    YearMonth targetMonth = YearMonth.of(2026, 8);
 
     // 1. テスト前データの準備
     long empId = employee.getId();
     long cowId = coworker.getId();
+    Sql.update("UPDATE users SET employee_number='DEMO_EM_4_1',name='那覇支店 従業員1' WHERE id=?", empId);
     for (int index = 3; index <= 4; index++) {
       Sql.insert("INSERT INTO users(employee_number,name,email,password_hash,hire_date,branch_id,department_id,employment_type_id,role,locale,active,weekly_work_days) "
           + "SELECT ?,?,?,password_hash,hire_date,branch_id,department_id,employment_type_id,'EMPLOYEE',locale,TRUE,weekly_work_days FROM users WHERE id=?",
@@ -42,9 +43,12 @@ public class ShiftAutoFillTest {
     Sql.insert("INSERT INTO leave_requests(user_id,leave_date,leave_unit,status,reason) VALUES(?,?,'FULL','APPROVED','有休')", empId, leaveDay);
 
     // 休み希望（OFF）を登録
-    LocalDate preferredOffDay = targetMonth.atDay(15);
+    LocalDate preferredOffDay = targetMonth.atDay(4);
     long submissionId = Sql.insert("INSERT INTO shift_preference_submissions(user_id,target_month,status) VALUES(?,?,?)", empId, targetMonth.atDay(1), "SUBMITTED");
     Sql.insert("INSERT INTO shift_preferences(submission_id,preference_date,request_type) VALUES(?,?,?)", submissionId, preferredOffDay, "OFF");
+    Sql.insert("INSERT INTO shift_preferences(submission_id,preference_date,request_type) VALUES(?,?,?)", submissionId, leaveDay, "OFF");
+    portal.saveShift(manager, empId, preferredOffDay.minusDays(1), "NIGHT", "DRAFT", "existing night before requested off");
+    portal.saveShift(manager, empId, preferredOffDay, "DAY", "DRAFT", "incorrect assignment before auto fill");
 
     // Existing assignments must also be normalized: OFF/DAY/NIGHT after NIGHT become NIGHT_OFF.
     LocalDate existingNightBeforeOff = targetMonth.atDay(19);
@@ -80,7 +84,7 @@ public class ShiftAutoFillTest {
 
     // Rule C: 休み希望の日には勤務が割り当てられていないこと
     Map<String, Object> prefOffShift = Sql.one("SELECT work_type_code FROM shifts WHERE user_id=? AND work_date=?", empId, preferredOffDay);
-    check("OFF".equals(prefOffShift.get("work_type_code")), "preferred off day is explicitly assigned");
+    check("OFF".equals(prefOffShift.get("work_type_code")), "DEMO_EM_4_1 remains OFF on 2026-08-04");
     check("NIGHT_OFF".equals(type(empId, existingNightBeforeOff.plusDays(1))),
         "existing OFF after NIGHT is normalized to NIGHT_OFF");
     check("NIGHT_OFF".equals(type(cowId, existingNightBeforeDay.plusDays(1))),
@@ -132,9 +136,12 @@ public class ShiftAutoFillTest {
       if (nextDate.getMonthValue() == targetMonth.getMonthValue()) {
         Map<String, Object> nextShift = Sql.one("SELECT work_type_code FROM shifts WHERE user_id=? AND work_date=?", empId, nextDate);
         boolean approvedLeave = !Sql.one("SELECT id FROM leave_requests WHERE user_id=? AND leave_date=? AND status='APPROVED'", empId, nextDate).isEmpty();
+        boolean preferredOff = !Sql.query("SELECT p.id FROM shift_preferences p JOIN shift_preference_submissions ps ON ps.id=p.submission_id "
+            + "WHERE ps.user_id=? AND p.preference_date=? AND p.request_type='OFF'", empId, nextDate).isEmpty();
         check("NIGHT_OFF".equals(nextShift.get("work_type_code"))
-                || (approvedLeave && "LEAVE".equals(nextShift.get("work_type_code"))),
-            "day after NIGHT must be NIGHT_OFF unless approved leave takes priority");
+                || (approvedLeave && "LEAVE".equals(nextShift.get("work_type_code")))
+                || (preferredOff && "OFF".equals(nextShift.get("work_type_code"))),
+            "day after NIGHT must preserve approved leave or submitted off preference");
       }
     }
 

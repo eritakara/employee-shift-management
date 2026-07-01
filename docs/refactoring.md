@@ -1,12 +1,12 @@
-# 変更内容の要約（リファクタリング）
+# リファクタリング報告書
 
-本プロジェクトのリファクタリングにあたり、これまで実施した内容をまとめます。
+本アプリケーションの開発における、コードの品質向上・保守性改善を目的としたリファクタリングの実施内容についてまとめます。
 
 ---
 
 ## 第1段階：未使用コードのクリーンアップ
 
-使用されていなかった旧つぶやきアプリ（dokoTsubu）用のレガシーファイルや不要なモデル内コードを完全にクリーンアップしました。
+旧つぶやきアプリ（dokoTsubu）用のレガシーファイルや不要なモデル内コードを完全にクリーンアップしました。
 
 ### 1. 未使用ファイルの物理削除
 以下のファイルをプロジェクトから削除しました。
@@ -44,7 +44,7 @@
 - **[PortalService.java](../../dokoTsubu-master/src/main/java/service/PortalService.java)**:
   - 自前で持っていた日付変換メソッドを削除し、`util.DateUtil` の静的インポートに変更しました。
 - **[LeavePolicyService.java](../../dokoTsubu-master/src/main/java/service/LeavePolicyService.java)**:
-  - 重複定義されていた `toDate` メソッドを削除し、`util.DateUtil.toDate` 呼び出しに変更しました。
+  - 重複定義されていた `toDate` メソッドを削除し、`util.DateUtil.toDate` 呼び出しに変更しました。（※将来的な有給休暇機能の拡張用ロジック）
 - **[PortalServlet.java](../../dokoTsubu-master/src/main/java/servlet/PortalServlet.java)**:
   - 重複定義されていた `baseUrl` メソッドを削除し、`util.ServletUtil.baseUrl` への呼び出しに書き換えました。
 - **[AuthServlet.java](../../dokoTsubu-master/src/main/java/servlet/AuthServlet.java)**:
@@ -71,15 +71,17 @@
 - **[Database.java](../../dokoTsubu-master/src/main/java/config/Database.java)**:
   - 初期データ登録用の private ヘルパーメソッド `setting` を **`insertSetting`** に、`workType` を **`insertWorkType`** にリネームし、初期挿入処理であることを動詞によって明確にしました。
 
+---
+
 ## 第4段階：PortalService.java の機能（ドメイン）別分割
 
-すべてのビジネスロジックが集中し、神クラス化していた `PortalService.java`（約74KB）を、関心事・ドメインごとに適切なサービスへと分割しました。
-既存の呼び出し元（サーブレットや多数のテストコード）の動作にデグレリスクを生じさせないよう、`PortalService` は各新規ドメインサービスへの「委譲（Facade）クラス」として存続させています。
+すべてのビジネスロジックが集中し、責務過多になっていた `PortalService.java`（約74KB）を、関心事・ドメインごとに適切なサービスへと分割しました。
+既存の呼び出し元（サーブレットや多数 of テストコード）の動作にデグレリスクを生じさせないよう、`PortalService` は各新規ドメインサービスへの「委譲（Facade）クラス」として存続させています。
 
 ### 1. 新規ドメインサービスクラスの作成
 以下の新規サービスを `service` パッケージに作成し、`PortalService` からそれぞれのビジネスロジックを移植しました：
 - **[ShiftService.java](../../dokoTsubu-master/src/main/java/service/ShiftService.java)**: シフト・希望シフト提出・自動割り当て・シフト変更申請・シフト警告に関するロジック
-- **[LeaveService.java](../../dokoTsubu-master/src/main/java/service/LeaveService.java)**: 有休申請・承認・却下・取消および承認者決定に関するロジック
+- **[LeaveService.java](../../dokoTsubu-master/src/main/java/service/LeaveService.java)**: 将来的な機能拡張用としての有休申請関連ロジックの整理
 - **[AttendanceService.java](../../dokoTsubu-master/src/main/java/service/AttendanceService.java)**: 出退勤打刻・勤怠実績・月次確定・打刻修正申請に関するロジック
 - **[EmployeeService.java](../../dokoTsubu-master/src/main/java/service/EmployeeService.java)**: 従業員一覧・追加・更新・招待、資格情報、代理設定に関するロジック
 - **[MasterDataService.java](../../dokoTsubu-master/src/main/java/service/MasterDataService.java)**: 各種マスタおよび勤務区分の追加・更新ロジック
@@ -91,9 +93,11 @@
 - `PortalService` の既存パブリックメソッドの実装ロジックをすべて削除し、上記新サービスインスタンスへの委譲呼び出しへと置き換えました。これにより、元の 1026 行（約74KB）のコードを 280 行にスリム化しました。
 - テストコードから直接参照されていたテスト用のパッケージプライベートメソッド（`submitPreferredShift`, `submitMonthlyPreferences` などのオーバーロードメソッド）についても、適切に新サービスへ委譲されるように追従定義しました。
 
-## 第5段階：自動割当・有休・希望提出ロジックの整理
+---
 
-コードが肥大化・複雑化しやすく、暗黙的な条件チェックが多く含まれていた「自動割当・有休管理・希望シフト提出」まわりのロジックをリファクタリングし、可読性と保守性を高めました。
+## 第5段階：自動割当・申請・希望提出ロジックの整理
+
+コードが肥大化・複雑化しやすく、暗黙的な条件チェックが多く含まれていた「自動割当・申請・希望シフト提出」まわりのロジックをリファクタリングし、可読性と保守性を高めました。
 
 ### 1. 自動割当判定ロジックの整理と可読性向上
 - **[ShiftService.java](../../dokoTsubu-master/src/main/java/service/ShiftService.java)**:
@@ -104,12 +108,12 @@
     - `exceedsMaxConsecutiveWorkDays`
   - これにより、自動割当判定ロジックの見通しが劇的に改善されました。
 
-### 2. 有休申請バリデーションの整理
+### 2. 申請関連のバリデーション整理（将来の機能拡張用）
 - **[LeaveService.java](../../dokoTsubu-master/src/main/java/service/LeaveService.java)**:
-  - `requestLeave` メソッド内に直接記述されていた一連のバリデーション処理（過去日チェック、事前申請期限、有休残日数、時間単位上限）を、以下の private バリデーションメソッドに抽出しました：
+  - 将来的な有休申請機能の本格実装を見据え、`requestLeave` メソッド内に直接記述されていた一連のバリデーション処理（過去日チェック、事前申請期限、有休残日数、時間単位上限）を、以下の private バリデーションメソッドに抽出・整理しました：
     - `validateLeaveRequestDate`
     - `validateLeaveBalance`
-  - これにより、申請処理の流れ（バリデーション $\rightarrow$ インサート $\rightarrow$ 通知 $\rightarrow$ 監査記録）がより明確に記述されるようになりました。
+  - これにより、コード整理がなされ、将来の拡張時の見通しが立ちやすくなりました。
 
 ### 3. 希望シフト提出バリデーションの整理
 - **[ShiftService.java](../../dokoTsubu-master/src/main/java/service/ShiftService.java)**:
@@ -117,14 +121,16 @@
     - `validatePreferenceEntry`
   - これにより、トランザクション内の主要な更新処理と、個々のデータの妥当性チェックが綺麗に分離されました。
 
+---
+
 ## 第6段階：新サービス直接呼び出しへの移行と PortalService.java の削除
 
-これまでの分割作業の集大成として、サーブレットから `PortalService` への依存を完全に解消し、新規に作成したドメイン別サービス（`ShiftService`, `LeaveService` 等）を直接呼び出す構成へと移行しました。
+これまでの分割作業の集大成として、サーブレットから `PortalService` への依存を完全に解消し、新規に作成したドメイン別サービス（`ShiftService`, `AttendanceService` 等）を直接呼び出す構成へと移行しました。
 これに伴い、製品コードとしての `PortalService.java` を削除し、コードベースを本来のあるべき設計へと移行しました。
 
 ### 1. サーブレットの移行
 - **[PortalServlet.java](../../dokoTsubu-master/src/main/java/servlet/PortalServlet.java)**:
-  - `PortalService` のインスタンス変数を完全に排除し、ドメイン別の各サービス（`ShiftService`, `LeaveService` 等）を直接定義・使用する形式に書き換えました。
+  - `PortalService` のインスタンス変数を完全に排除し、ドメイン別の各サービス（`ShiftService`, `AttendanceService` 等）を直接定義・使用する形式に書き換えました。
   - サーブレット内のすべてのリクエスト・レスポンス処理（`doGet`, `doPost` の各アクション）におけるメソッド呼び出しを、適切なドメイン別サービス直接呼び出しに移行しました。
 
 ### 2. テストコード用互換ダブルの配置
@@ -144,19 +150,7 @@
 
 - 実行コマンド:
   ```powershell
+  cd dokoTsubu-master
   powershell -ExecutionPolicy Bypass -File .\test.ps1
   ```
 - **結果**: ビルドおよび全テストが正常にパスしました。すべてのフェーズ（第1段階〜第6段階）を通じたリファクタリング適用後、サーブレットからドメインサービス直接呼び出しへの移行および製品コードからの `PortalService.java` の完全削除を行った状態でも、動作にデグレは一切なく、テストコードを含む全検証を100%クリアしていることを確認しました。
-
----
-
-## GitHubへのアップロード
-
-リファクタリングの作業成果をGitHub上でレビューおよびマージできるように、安全な手順でブランチを作成しアップロード（push）を行いました。
-
-1. **作業ブランチの作成**:
-   - `main` ブランチの最新状態から、リファクタリング専用ブランチである **`refactor/cleanup-main-code`** を作成・切り替えました。
-2. **Author情報の修正（プライバシー保護）**:
-   - 個人用メールアドレスの公開を防ぐため、Gitの `user.email` を GitHub が推奨するダミーアドレス（`twinkle2lilstar21@users.noreply.github.com`）にローカル設定し、コミットのAuthor情報を修正しました。
-3. **リモートリポジトリへのアップロード**:
-   - `refactor/cleanup-main-code` ブランチをリモートリポジトリ（`origin`）へ正常にプッシュ完了しました。

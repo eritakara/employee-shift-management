@@ -107,6 +107,7 @@
     String warning = String.valueOf(value);
     if ("STAFF_SHORTAGE".equals(warning)) return en ? "Staff shortage" : "人員不足";
     if ("NIGHT_REST".equals(warning)) return en ? "Post-night rest warning" : "夜勤明け未休";
+    if ("SHIFT_TYPE_IMBALANCE".equals(warning)) return en ? "Shift type imbalance" : "勤務種別の偏り";
     return e(value);
   }
   private String submissionStatusLabel(Object value, boolean en) {

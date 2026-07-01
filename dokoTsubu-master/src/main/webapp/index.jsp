@@ -5,7 +5,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ログイン | シフト・有休管理</title>
+<title>ログイン | シフト・勤怠管理</title>
 <link rel="stylesheet" href="assets/app.css?v=20260626-3">
 </head>
 <body class="auth-page">
@@ -18,7 +18,7 @@
         <path d="M8 3v4M16 3v4M4 10h16M8 15l2.4 2.4L16 12"></path>
       </svg>
     </span>
-    <div><strong>シフト・有休管理</strong></div>
+    <div><strong>シフト・勤怠管理</strong></div>
   </section>
   <section class="auth-panel">
     <p class="eyebrow">WORKFORCE PORTAL</p>

@@ -371,6 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.querySelectorAll('[data-preference-form]').forEach(form => {
+    const submissionOpen = form.dataset.submissionOpen !== 'false';
     const selects = [...form.querySelectorAll('[data-preference-select]')];
     const summary = form.querySelector('[data-preference-summary]');
     const empty = form.querySelector('[data-preference-empty]');
@@ -414,7 +415,12 @@ document.addEventListener('DOMContentLoaded', () => {
       totals.forEach(total => total.textContent = String(selects.filter(select => select.value === total.dataset.preferenceTotal).length));
       empty.hidden = summary.children.length > 0;
     };
+    if (!submissionOpen) {
+      selects.forEach(select => { select.disabled = true; });
+      form.addEventListener('submit', event => event.preventDefault());
+    }
     selects.forEach(select => select.addEventListener('change', () => {
+      if (!submissionOpen) return;
       if (select.value !== 'LEAVE') reasonInput(select).value = '';
       refresh();
       if (select.value === 'LEAVE') openLeaveReason(select);

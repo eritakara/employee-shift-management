@@ -486,7 +486,10 @@ public class ShiftService {
   }
 
   public Map<String, Object> shiftSubmissionWindow(YearMonth targetMonth) {
-    LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Tokyo"));
+    return shiftSubmissionWindow(targetMonth, LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")));
+  }
+
+  Map<String, Object> shiftSubmissionWindow(YearMonth targetMonth, LocalDate today) {
     int submissionDay = settings.integer("SHIFT_SUBMISSION_DAY", 15);
     LocalDate deadline = preferenceDeadline(targetMonth, submissionDay);
     Map<String, Object> result = new java.util.LinkedHashMap<>();

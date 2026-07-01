@@ -17,10 +17,33 @@ public class ShiftPreferenceWorkflowTest {
     Database.initialize();
     UserDAO users = new UserDAO();
     User employee = users.authenticate("employee@example.com", "Password1!");
+    User unsubmittedEmployee = users.authenticate("sato@example.com", "Password1!");
     User manager = users.authenticate("manager@example.com", "Password1!");
     PortalService portal = new PortalService();
+    ShiftService shiftService = new ShiftService();
     LocalDate policyToday = LocalDate.of(2026, 6, 10);
     YearMonth month = YearMonth.of(2026, 7);
+
+    check(Boolean.TRUE.equals(shiftService.shiftSubmissionWindow(month, LocalDate.of(2026, 6, 14)).get("open")),
+        "submission window is open before deadline");
+    check(Boolean.TRUE.equals(shiftService.shiftSubmissionWindow(month, LocalDate.of(2026, 6, 15)).get("open")),
+        "submission window is open on deadline");
+    check(Boolean.FALSE.equals(shiftService.shiftSubmissionWindow(month, LocalDate.of(2026, 6, 16)).get("open")),
+        "submission window is closed after deadline");
+
+    Map<LocalDate, String> deadlinePreference = Map.of(month.atDay(4), "OFF");
+    portal.submitMonthlyPreferences(unsubmittedEmployee, month, deadlinePreference, Map.of(), LocalDate.of(2026, 6, 15));
+    check("SUBMITTED".equals(portal.preferenceSubmission(unsubmittedEmployee, month).get("status")),
+        "submission succeeds on deadline");
+    long deadlineSubmissionId = ((Number) portal.preferenceSubmission(unsubmittedEmployee, month).get("id")).longValue();
+    Sql.update("DELETE FROM shift_preferences WHERE submission_id=?", deadlineSubmissionId);
+    Sql.update("DELETE FROM shift_preference_submissions WHERE id=?", deadlineSubmissionId);
+    expectFailure(() -> portal.submitMonthlyPreferences(unsubmittedEmployee, month, deadlinePreference, Map.of(), LocalDate.of(2026, 6, 16)),
+        "new submission after deadline is blocked");
+    check(portal.preferenceSubmission(unsubmittedEmployee, month).isEmpty(),
+        "late rejected submission does not create a submission row");
+    check(portal.preferences(unsubmittedEmployee, month).isEmpty(),
+        "late rejected submission does not create preference rows");
 
     Map<LocalDate, String> preferences = new LinkedHashMap<>();
     preferences.put(month.atDay(2), "DAY");

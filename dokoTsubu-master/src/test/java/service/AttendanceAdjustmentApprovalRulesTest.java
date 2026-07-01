@@ -104,6 +104,40 @@ public class AttendanceAdjustmentApprovalRulesTest {
     // - 店長 (MANAGER2) は承認できないこと
     expectFailure(() -> service.decideAttendanceAdjustment(manager2, req3_2, true), "Manager cannot approve HR request");
 
+    // ==========================================
+    // 4. 新規要件: 打刻修正申請の対象勤怠取得・申請制限の検証
+    // ==========================================
+
+    // - 店長アカウントで myAttendance を実行したとき、店長本人の勤怠のみ取得され、同一店舗の一般従業員の勤怠が含まれないこと。
+    java.util.List<java.util.Map<String, Object>> managerMine = service.myAttendance(manager, java.time.YearMonth.from(day));
+    boolean hasManager = false;
+    boolean hasEmployee = false;
+    for (java.util.Map<String, Object> r : managerMine) {
+      long uid = ((Number) r.get("user_id")).longValue();
+      if (uid == manager.getId()) hasManager = true;
+      if (uid == employee.getId()) hasEmployee = true;
+    }
+    check(hasManager, "myAttendance for manager includes manager's own attendance");
+    check(!hasEmployee, "myAttendance for manager does not include employee's attendance");
+
+    // - 店長アカウントが他従業員の attendanceId を指定して打刻修正申請を実行したとき、SecurityException が発生して申請が作成されないこと。
+    long employeeAtt = createAttendance(employee.getId(), day.minusDays(1));
+    expectFailure(() -> service.requestAttendanceAdjustment(manager, employeeAtt, day.minusDays(1).atTime(9, 0), day.minusDays(1).atTime(18, 0), "manager trying to request for employee"),
+        "Manager cannot request adjustment for employee");
+
+    // - 一般従業員が本人の勤怠に対して申請を実行したときは成功し、他人の attendanceId を指定したときは SecurityException が発生して申請が作成されないこと。
+    long employeeAttSelf = createAttendance(employee.getId(), day.minusDays(2));
+    long managerAtt = createAttendance(manager.getId(), day.minusDays(2));
+    // 本人の申請は成功すること
+    try {
+      service.requestAttendanceAdjustment(employee, employeeAttSelf, day.minusDays(2).atTime(9, 0), day.minusDays(2).atTime(18, 0), "employee requesting for self");
+    } catch (Exception e) {
+      throw new AssertionError("Employee should be able to request adjustment for self, but failed: " + e.getMessage());
+    }
+    // 他人の申請は失敗すること
+    expectFailure(() -> service.requestAttendanceAdjustment(employee, managerAtt, day.minusDays(2).atTime(9, 0), day.minusDays(2).atTime(18, 0), "employee trying to request for manager"),
+        "Employee cannot request adjustment for manager");
+
     System.out.println("AttendanceAdjustmentApprovalRulesTest: all checks passed");
   }
 

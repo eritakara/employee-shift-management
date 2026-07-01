@@ -102,6 +102,14 @@ public class UiStateCoverageTest {
         && script.contains("'変更を保存':'Save change'"), "shift adjustment wording supports English display");
     check(application.contains("shift-workflow-metrics") && application.contains("希望一覧を開く")
         && application.contains("提出希望日を確認"), "shift adjustment summarizes and collapses preferences");
+    check(application.contains("提出期限を過ぎているため、希望シフトは提出できません。")
+        && application.contains("data-submission-open=\"<%=submissionOpen%>\"")
+        && application.contains("<%=submissionOpen?\"\":\"disabled\"%>"),
+        "closed preference window disables inputs and submit button with guidance");
+    check(script.contains("form.dataset.submissionOpen !== 'false'")
+        && script.contains("form.addEventListener('submit', event => event.preventDefault())")
+        && script.contains("if (!submissionOpen) return;"),
+        "closed preference window blocks client-side selection and submission");
     check(application.contains("shift-coverage-summary") && application.contains("選択中のシフトを変更")
         && application.contains("data-shift-editor hidden"), "shift adjustment prioritizes coverage and reveals editing on selection");
     check(shiftRoster.contains("rosterEditable=pageKey.equals(\"shifts/manage\")")

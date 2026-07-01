@@ -56,11 +56,31 @@ public class ShiftAutoFillTest {
     // Rule B: 承認済み有休が上書きされていないこと
     // 有休の日には shifts テーブルに DAY/NIGHT は割り当てられていないはず（または LEAVE が優先設定）
     Map<String, Object> leaveShift = Sql.one("SELECT work_type_code FROM shifts WHERE user_id=? AND work_date=?", empId, leaveDay);
-    check(leaveShift.isEmpty() || "LEAVE".equals(leaveShift.get("work_type_code")), "approved leave not overwritten by DAY/NIGHT");
+    check("LEAVE".equals(leaveShift.get("work_type_code")), "approved leave is explicitly assigned");
 
     // Rule C: 休み希望の日には勤務が割り当てられていないこと
     Map<String, Object> prefOffShift = Sql.one("SELECT work_type_code FROM shifts WHERE user_id=? AND work_date=?", empId, preferredOffDay);
-    check(prefOffShift.isEmpty() || "OFF".equals(prefOffShift.get("work_type_code")), "preferred off day not overwritten by DAY/NIGHT");
+    check("OFF".equals(prefOffShift.get("work_type_code")), "preferred off day is explicitly assigned");
+
+    int scopedPeople = ((Number) Sql.one("SELECT COUNT(*) metric_value FROM users WHERE active=TRUE AND role<>'HR' AND branch_id=? AND department_id=?",
+        manager.getBranchId(), manager.getDepartmentId()).get("metric_value")).intValue();
+    int rosterCells = ((Number) Sql.one("SELECT COUNT(*) metric_value FROM shifts s JOIN users u ON u.id=s.user_id "
+        + "WHERE s.work_date BETWEEN ? AND ? AND u.active=TRUE AND u.role<>'HR' AND u.branch_id=? AND u.department_id=?",
+        targetMonth.atDay(1), targetMonth.atEndOfMonth(), manager.getBranchId(), manager.getDepartmentId()).get("metric_value")).intValue();
+    check(rosterCells == scopedPeople * targetMonth.lengthOfMonth(),
+        "all assignable roster cells are filled in a small branch");
+
+    List<Map<String, Object>> workloads = Sql.query("SELECT u.id,COUNT(*) metric_value FROM shifts s JOIN users u ON u.id=s.user_id "
+        + "WHERE s.work_date BETWEEN ? AND ? AND s.work_type_code IN('DAY','NIGHT','NIGHT_OFF') "
+        + "AND u.role='EMPLOYEE' AND u.branch_id=? AND u.department_id=? GROUP BY u.id",
+        targetMonth.atDay(1), targetMonth.atEndOfMonth(), manager.getBranchId(), manager.getDepartmentId());
+    int minimumWorkload = workloads.stream().mapToInt(row -> ((Number) row.get("metric_value")).intValue()).min().orElse(0);
+    int maximumWorkload = workloads.stream().mapToInt(row -> ((Number) row.get("metric_value")).intValue()).max().orElse(0);
+    check(workloads.size() == 2 && maximumWorkload - minimumWorkload <= 2,
+        "employee workloads are balanced: min=" + minimumWorkload + ", max=" + maximumWorkload);
+    check(Sql.query("SELECT s.id FROM shifts s JOIN users u ON u.id=s.user_id WHERE s.work_date BETWEEN ? AND ? "
+        + "AND u.role='MANAGER' AND s.work_type_code='NIGHT'", targetMonth.atDay(1), targetMonth.atEndOfMonth()).isEmpty(),
+        "manager is not assigned night shifts");
 
     // Rule D: 夜勤を補完した場合、翌日は夜勤明け（NIGHT_OFF）が同時に設定されていること
     List<Map<String, Object>> NIGHTShifts = Sql.query("SELECT work_date FROM shifts WHERE user_id=? AND work_type_code='NIGHT'", empId);
@@ -77,6 +97,10 @@ public class ShiftAutoFillTest {
     int secondCount = portal.autoFillShifts(manager, targetMonth);
     System.out.println("Second auto fill count: " + secondCount);
     check(secondCount == 0, "second run fills nothing because staffing is satisfied and existing assignments are kept");
+
+    Sql.update("UPDATE work_types SET required_staff=? WHERE code='NIGHT'", scopedPeople + 1);
+    check(portal.shiftWarnings(manager, targetMonth).stream().anyMatch(row -> "STAFF_SHORTAGE".equals(row.get("warning"))),
+        "an impossible staffing requirement produces a visible warning");
 
     // 5. 確定済みロックの検証
     portal.confirmMonth(manager, targetMonth, "確定テスト");

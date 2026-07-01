@@ -41,6 +41,21 @@ public class ShiftAutoFillTest {
     long submissionId = Sql.insert("INSERT INTO shift_preference_submissions(user_id,target_month,status) VALUES(?,?,?)", empId, targetMonth.atDay(1), "SUBMITTED");
     Sql.insert("INSERT INTO shift_preferences(submission_id,preference_date,request_type) VALUES(?,?,?)", submissionId, preferredOffDay, "OFF");
 
+    // Existing assignments must also be normalized: OFF/DAY/NIGHT after NIGHT become NIGHT_OFF.
+    LocalDate existingNightBeforeOff = targetMonth.atDay(19);
+    portal.saveShift(manager, empId, existingNightBeforeOff, "NIGHT", "DRAFT", "existing night before off");
+    portal.saveShift(manager, empId, existingNightBeforeOff.plusDays(1), "OFF", "DRAFT", "existing off");
+    LocalDate existingNightBeforeDay = targetMonth.atDay(21);
+    portal.saveShift(manager, cowId, existingNightBeforeDay, "NIGHT", "DRAFT", "existing night before day");
+    portal.saveShift(manager, cowId, existingNightBeforeDay.plusDays(1), "DAY", "DRAFT", "existing day");
+    LocalDate existingNightBeforeNight = targetMonth.atDay(23);
+    portal.saveShift(manager, cowId, existingNightBeforeNight, "NIGHT", "DRAFT", "existing night before night");
+    portal.saveShift(manager, cowId, existingNightBeforeNight.plusDays(1), "NIGHT", "DRAFT", "existing second night");
+    LocalDate nightBeforeApprovedLeave = leaveDay.minusDays(1);
+    portal.saveShift(manager, empId, nightBeforeApprovedLeave, "NIGHT", "DRAFT", "night before approved leave");
+    LocalDate monthEndNight = targetMonth.atEndOfMonth();
+    portal.saveShift(manager, cowId, monthEndNight, "NIGHT", "DRAFT", "month-end night");
+
     // 2. 自動補完実行 (正常系)
     System.out.println("Running autoFillShifts for manager...");
     int count = portal.autoFillShifts(manager, targetMonth);
@@ -61,6 +76,16 @@ public class ShiftAutoFillTest {
     // Rule C: 休み希望の日には勤務が割り当てられていないこと
     Map<String, Object> prefOffShift = Sql.one("SELECT work_type_code FROM shifts WHERE user_id=? AND work_date=?", empId, preferredOffDay);
     check("OFF".equals(prefOffShift.get("work_type_code")), "preferred off day is explicitly assigned");
+    check("NIGHT_OFF".equals(type(empId, existingNightBeforeOff.plusDays(1))),
+        "existing OFF after NIGHT is normalized to NIGHT_OFF");
+    check("NIGHT_OFF".equals(type(cowId, existingNightBeforeDay.plusDays(1))),
+        "existing DAY after NIGHT is normalized to NIGHT_OFF");
+    check("NIGHT_OFF".equals(type(cowId, existingNightBeforeNight.plusDays(1))),
+        "existing NIGHT after NIGHT is normalized to NIGHT_OFF");
+    check("LEAVE".equals(type(empId, leaveDay)),
+        "approved leave takes priority over NIGHT_OFF normalization");
+    check("NIGHT_OFF".equals(type(cowId, monthEndNight.plusDays(1))),
+        "month-end NIGHT creates NIGHT_OFF on the first day of the next month");
 
     int scopedPeople = ((Number) Sql.one("SELECT COUNT(*) metric_value FROM users WHERE active=TRUE AND role<>'HR' AND branch_id=? AND department_id=?",
         manager.getBranchId(), manager.getDepartmentId()).get("metric_value")).intValue();
@@ -89,7 +114,10 @@ public class ShiftAutoFillTest {
       LocalDate nextDate = nightDate.plusDays(1);
       if (nextDate.getMonthValue() == targetMonth.getMonthValue()) {
         Map<String, Object> nextShift = Sql.one("SELECT work_type_code FROM shifts WHERE user_id=? AND work_date=?", empId, nextDate);
-        check("NIGHT_OFF".equals(nextShift.get("work_type_code")), "day after NIGHT must be NIGHT_OFF");
+        boolean approvedLeave = !Sql.one("SELECT id FROM leave_requests WHERE user_id=? AND leave_date=? AND status='APPROVED'", empId, nextDate).isEmpty();
+        check("NIGHT_OFF".equals(nextShift.get("work_type_code"))
+                || (approvedLeave && "LEAVE".equals(nextShift.get("work_type_code"))),
+            "day after NIGHT must be NIGHT_OFF unless approved leave takes priority");
       }
     }
 
@@ -121,6 +149,11 @@ public class ShiftAutoFillTest {
       return;
     }
     throw new AssertionError("Failed: " + label);
+  }
+
+  private static String type(long userId, LocalDate date) {
+    return String.valueOf(Sql.one("SELECT work_type_code FROM shifts WHERE user_id=? AND work_date=?", userId, date)
+        .get("work_type_code"));
   }
 
   private static void expectSecurityFailure(Runnable action, String label) {

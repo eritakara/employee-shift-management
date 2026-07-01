@@ -104,6 +104,20 @@ public class ShiftAutoFillTest {
     check(rosterCells == scopedPeople * targetMonth.lengthOfMonth(),
         "all assignable roster cells are filled in a small branch");
 
+    List<Map<String, Object>> offCounts = Sql.query("SELECT u.employee_number,COUNT(s.id) metric_value FROM users u "
+        + "LEFT JOIN shifts s ON s.user_id=u.id AND s.work_date BETWEEN ? AND ? AND s.work_type_code='OFF' "
+        + "WHERE u.active=TRUE AND u.role<>'HR' AND u.branch_id=? AND u.department_id=? "
+        + "GROUP BY u.id,u.employee_number ORDER BY u.employee_number",
+        targetMonth.atDay(1), targetMonth.atEndOfMonth(), manager.getBranchId(), manager.getDepartmentId());
+    int minimumOffs = offCounts.stream().mapToInt(row -> ((Number) row.get("metric_value")).intValue()).min().orElse(0);
+    check(offCounts.size() == scopedPeople && minimumOffs >= 4,
+        "every roster member has at least four regular OFF days: minimum=" + minimumOffs);
+    int demoOffs = offCounts.stream().filter(row -> "DEMO_EM_4_1".equals(row.get("employee_number")))
+        .mapToInt(row -> ((Number) row.get("metric_value")).intValue()).findFirst().orElse(0);
+    check(demoOffs >= 4, "DEMO_EM_4_1 has at least four regular OFF days in August 2026: " + demoOffs);
+    check("LEAVE".equals(type(empId, leaveDay)), "LEAVE is not converted to or counted as regular OFF");
+    check(!"OFF".equals(type(cowId, existingNightBeforeDay.plusDays(1))), "NIGHT_OFF is not counted as regular OFF");
+
     List<Map<String, Object>> workloads = Sql.query("SELECT u.id,COUNT(*) metric_value FROM shifts s JOIN users u ON u.id=s.user_id "
         + "WHERE s.work_date BETWEEN ? AND ? AND s.work_type_code IN('DAY','NIGHT','NIGHT_OFF') "
         + "AND u.role='EMPLOYEE' AND u.branch_id=? AND u.department_id=? GROUP BY u.id",
@@ -155,6 +169,11 @@ public class ShiftAutoFillTest {
         imbalanceUserId, targetMonth.atDay(1), targetMonth.atEndOfMonth());
     check(portal.shiftWarnings(manager, targetMonth).stream().anyMatch(row -> "SHIFT_TYPE_IMBALANCE".equals(row.get("warning"))),
         "an unresolvable shift type imbalance produces a visible warning");
+
+    Sql.update("UPDATE shifts SET work_type_code='DAY' WHERE user_id=? AND work_date BETWEEN ? AND ? AND work_type_code='OFF'",
+        imbalanceUserId, targetMonth.atDay(1), targetMonth.atEndOfMonth());
+    check(portal.shiftWarnings(manager, targetMonth).stream().anyMatch(row -> "MINIMUM_OFF_SHORTAGE".equals(row.get("warning"))),
+        "an impossible minimum regular-off requirement produces a visible warning");
 
     Sql.update("UPDATE work_types SET required_staff=? WHERE code='NIGHT'", scopedPeople + 1);
     check(portal.shiftWarnings(manager, targetMonth).stream().anyMatch(row -> "STAFF_SHORTAGE".equals(row.get("warning"))),

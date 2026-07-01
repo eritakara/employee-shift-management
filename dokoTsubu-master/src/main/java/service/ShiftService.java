@@ -306,6 +306,7 @@ public class ShiftService {
     List<Map<String, Object>> people = Sql.query("SELECT id,employee_number,role,weekly_work_days FROM users WHERE active=TRUE AND role<>'HR'" + userScope
         + " ORDER BY CASE WHEN role='MANAGER' THEN 0 ELSE 1 END,employee_number", userArgs);
     AutoAssignmentState state = loadAutoAssignmentState(actor, month, people);
+    seedProtectedAssignments(state, people, month);
 
     int dayRequired = requiredStaff("DAY");
     int nightRequired = requiredStaff("NIGHT");
@@ -316,6 +317,7 @@ public class ShiftService {
       fillWorkTypeForFill(state, people, date, "DAY", dayRequired);
       fillWorkTypeForFill(state, people, date, "NIGHT", nightRequired);
     }
+    fillRemainingCells(state, people, month);
 
     saveAutoAssignments(actor, state.pending);
     int assigned = state.pending.size();
@@ -323,27 +325,56 @@ public class ShiftService {
     return assigned;
   }
 
+  private void seedProtectedAssignments(AutoAssignmentState state, List<Map<String, Object>> people, YearMonth month) {
+    for (Map<String, Object> person : people) {
+      long userId = ((Number) person.get("id")).longValue();
+      for (int day = 1; day <= month.lengthOfMonth(); day++) {
+        LocalDate date = month.atDay(day);
+        if (state.hasShift(userId, date)) continue;
+        String leaveUnit = state.approvedLeaves.get(new UserDate(userId, date));
+        if (leaveUnit != null) {
+          String leaveType = switch (leaveUnit) {
+            case "FULL" -> "LEAVE";
+            case "AM" -> "AM_LEAVE";
+            case "PM" -> "PM_LEAVE";
+            default -> null;
+          };
+          if (leaveType != null) state.add(userId, date, leaveType, "承認済み有休を優先して自動補完");
+        } else if ("NIGHT".equals(state.shift(userId, date.minusDays(1)))) {
+          state.add(userId, date, "NIGHT_OFF", "既存夜勤の夜勤明け自動設定");
+        }
+      }
+    }
+  }
+
+  private void fillRemainingCells(AutoAssignmentState state, List<Map<String, Object>> people, YearMonth month) {
+    for (int day = 1; day <= month.lengthOfMonth(); day++) {
+      LocalDate date = month.atDay(day);
+      for (Map<String, Object> person : sortedPeopleByWorkload(state, people, "DAY")) {
+        long userId = ((Number) person.get("id")).longValue();
+        if (state.hasShift(userId, date)) continue;
+        if (state.prefersOff(userId, date)) {
+          state.add(userId, date, "OFF", "休み希望を自動反映");
+          continue;
+        }
+        int weeklyWorkDays = Math.max(1, ((Number) person.get("weekly_work_days")).intValue());
+        int targetWorkDays = (int) Math.ceil(month.lengthOfMonth() * weeklyWorkDays / 7.0);
+        if (state.totalAssignedWorkDays(userId) < targetWorkDays
+            && state.canAssign(userId, date, weeklyWorkDays)) {
+          state.add(userId, date, "DAY", "未割り当てセルの平準化補完");
+        } else {
+          state.add(userId, date, "OFF", "勤務日数と連続勤務を考慮した自動休み");
+        }
+      }
+    }
+  }
+
   private void fillWorkTypeForFill(AutoAssignmentState state, List<Map<String, Object>> people, LocalDate date, String type, int required) {
     int actual = state.count(date, type);
     if (actual >= required) return;
 
     // 「同じ従業員に偏りすぎないようにする」ため、現在の総勤務日数（DAY + NIGHT）が少ない順にソートして割り当てる
-    List<Map<String, Object>> sortedPeople = new ArrayList<>(people);
-    sortedPeople.sort((p1, p2) -> {
-      long u1 = ((Number) p1.get("id")).longValue();
-      long u2 = ((Number) p2.get("id")).longValue();
-      int count1 = state.totalAssignedWorkDays(u1);
-      int count2 = state.totalAssignedWorkDays(u2);
-      if (count1 != count2) {
-        return Integer.compare(count1, count2);
-      }
-      String role1 = String.valueOf(p1.get("role"));
-      String role2 = String.valueOf(p2.get("role"));
-      if (!role1.equals(role2)) {
-        return "MANAGER".equals(role1) ? -1 : 1;
-      }
-      return String.valueOf(p1.get("employee_number")).compareTo(String.valueOf(p2.get("employee_number")));
-    });
+    List<Map<String, Object>> sortedPeople = sortedPeopleByWorkload(state, people, type);
 
     for (Map<String, Object> person : sortedPeople) {
       if (actual >= required) break;
@@ -360,7 +391,7 @@ public class ShiftService {
 
   private void fillWorkType(AutoAssignmentState state, List<Map<String, Object>> people, LocalDate date, String type, int required) {
     int actual = state.count(date, type);
-    for (Map<String, Object> person : people) {
+    for (Map<String, Object> person : sortedPeopleByWorkload(state, people, type)) {
       if (actual >= required) break;
       long userId = ((Number) person.get("id")).longValue();
       int maxConsecutive = Math.max(1, ((Number) person.get("weekly_work_days")).intValue());
@@ -370,6 +401,23 @@ public class ShiftService {
         state.add(userId, date.plusDays(1), "NIGHT_OFF", "夜勤明け自動設定");
       }
     }
+  }
+
+  private List<Map<String, Object>> sortedPeopleByWorkload(AutoAssignmentState state,
+      List<Map<String, Object>> people, String type) {
+    List<Map<String, Object>> sorted = new ArrayList<>();
+    for (Map<String, Object> person : people) {
+      if ("NIGHT".equals(type) && "MANAGER".equals(String.valueOf(person.get("role")))) continue;
+      sorted.add(person);
+    }
+    sorted.sort((p1, p2) -> {
+      long u1 = ((Number) p1.get("id")).longValue();
+      long u2 = ((Number) p2.get("id")).longValue();
+      int byWorkload = Integer.compare(state.totalAssignedWorkDays(u1), state.totalAssignedWorkDays(u2));
+      if (byWorkload != 0) return byWorkload;
+      return String.valueOf(p1.get("employee_number")).compareTo(String.valueOf(p2.get("employee_number")));
+    });
+    return sorted;
   }
 
   private AutoAssignmentState loadAutoAssignmentState(User actor, YearMonth month, List<Map<String, Object>> people) {
@@ -393,7 +441,7 @@ public class ShiftService {
         join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs(actor)))) {
       preferredOffOrLeave.add(new UserDate(((Number) row.get("user_id")).longValue(), toDate(row.get("preference_date"))));
     }
-    return new AutoAssignmentState(shifts, approvedLeaves, preferredOffOrLeave);
+    return new AutoAssignmentState(month, shifts, approvedLeaves, preferredOffOrLeave);
   }
 
   private void saveAutoAssignments(User actor, List<PendingShift> assignments) {
@@ -427,16 +475,19 @@ public class ShiftService {
   private record PendingShift(long userId, LocalDate date, String type, String note) { }
 
   private static final class AutoAssignmentState {
+    private final YearMonth month;
     private final Map<UserDate, String> shifts;
     private final Map<UserDate, String> approvedLeaves;
     private final Set<UserDate> preferredOffOrLeave;
     private final List<PendingShift> pending = new ArrayList<>();
 
-    private AutoAssignmentState(Map<UserDate, String> shifts, Map<UserDate, String> approvedLeaves, Set<UserDate> preferredOffOrLeave) {
-      this.shifts = shifts; this.approvedLeaves = approvedLeaves; this.preferredOffOrLeave = preferredOffOrLeave;
+    private AutoAssignmentState(YearMonth month, Map<UserDate, String> shifts, Map<UserDate, String> approvedLeaves, Set<UserDate> preferredOffOrLeave) {
+      this.month = month; this.shifts = shifts; this.approvedLeaves = approvedLeaves; this.preferredOffOrLeave = preferredOffOrLeave;
     }
 
     private boolean hasShift(long userId, LocalDate date) { return shifts.containsKey(new UserDate(userId, date)); }
+    private String shift(long userId, LocalDate date) { return shifts.get(new UserDate(userId, date)); }
+    private boolean prefersOff(long userId, LocalDate date) { return preferredOffOrLeave.contains(new UserDate(userId, date)); }
     private int count(LocalDate date, String type) {
       return (int) shifts.entrySet().stream().filter(e -> e.getKey().date().equals(date) && type.equals(e.getValue())).count();
     }
@@ -457,7 +508,8 @@ public class ShiftService {
 
     private int totalAssignedWorkDays(long userId) {
       return (int) shifts.entrySet().stream()
-          .filter(e -> e.getKey().userId() == userId && ("DAY".equals(e.getValue()) || "NIGHT".equals(e.getValue())))
+          .filter(e -> e.getKey().userId() == userId && YearMonth.from(e.getKey().date()).equals(month)
+              && ("DAY".equals(e.getValue()) || "NIGHT".equals(e.getValue()) || "NIGHT_OFF".equals(e.getValue())))
           .count();
     }
 
@@ -610,7 +662,7 @@ public class ShiftService {
     String dateadd = config.Database.isPostgres() ? "(s1.work_date + INTERVAL '1 day')::date" : "DATEADD('DAY',1,s1.work_date)";
     result.addAll(Sql.query("SELECT 'NIGHT_REST' warning,s2.work_date,u.name detail,0 required,0 actual "
         + "FROM shifts s1 JOIN shifts s2 ON s2.user_id=s1.user_id AND s2.work_date=" + dateadd + " "
-        + "JOIN users u ON u.id=s1.user_id WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('OFF','LEAVE') "
+        + "JOIN users u ON u.id=s1.user_id WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('NIGHT_OFF','OFF','LEAVE') "
         + "AND (s1.work_date=? OR s2.work_date=?)" + userScope,
         join(new Object[]{date, date}, scopeArgs)));
     return result;
@@ -631,7 +683,7 @@ public class ShiftService {
           join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs)));
       result.addAll(Sql.query("SELECT 'NIGHT_REST' warning,s2.work_date,u.name detail,0 required,0 actual FROM shifts s1 "
           + "JOIN shifts s2 ON s2.user_id=s1.user_id AND s2.work_date=(s1.work_date + INTERVAL '1 day')::date JOIN users u ON u.id=s1.user_id "
-          + "WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('OFF','LEAVE') AND s1.work_date BETWEEN ? AND ?" + userScope,
+          + "WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('NIGHT_OFF','OFF','LEAVE') AND s1.work_date BETWEEN ? AND ?" + userScope,
           join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs)));
     } else {
       result.addAll(Sql.query("WITH RECURSIVE dates(work_date) AS (SELECT CAST(? AS DATE) UNION ALL SELECT DATEADD('DAY',1,work_date) FROM dates WHERE work_date<?) "
@@ -642,7 +694,7 @@ public class ShiftService {
           join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs)));
       result.addAll(Sql.query("SELECT 'NIGHT_REST' warning,s2.work_date,u.name detail,0 required,0 actual FROM shifts s1 "
           + "JOIN shifts s2 ON s2.user_id=s1.user_id AND s2.work_date=DATEADD('DAY',1,s1.work_date) JOIN users u ON u.id=s1.user_id "
-          + "WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('OFF','LEAVE') AND s1.work_date BETWEEN ? AND ?" + userScope,
+          + "WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('NIGHT_OFF','OFF','LEAVE') AND s1.work_date BETWEEN ? AND ?" + userScope,
           join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs)));
     }
     return result;

@@ -17,6 +17,10 @@ if ($LASTEXITCODE -ne 0) { throw "Test compilation failed" }
 if ($LASTEXITCODE -ne 0) { throw "Tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" config.DemoShiftCsvTest
 if ($LASTEXITCODE -ne 0) { throw "Demo shift CSV tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" config.DemoAttendanceSeederTest
+if ($LASTEXITCODE -ne 0) { throw "Attendance demo seeder tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" config.DatabaseConnectionConfigTest
+if ($LASTEXITCODE -ne 0) { throw "Database connection config tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.MailDeliveryTest
 if ($LASTEXITCODE -ne 0) { throw "Mail tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.LeavePolicyTest

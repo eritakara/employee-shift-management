@@ -235,6 +235,7 @@ public class AttendanceService {
     if (actorId == requesterId) return false;
 
     if ("EMPLOYEE".equals(requesterRole)) {
+      if (actor.isHr()) return true;
       if (!"MANAGER".equals(actor.getRole())) return false;
       long requesterBranchId = getLong(request.get("requester_branch_id"));
       long requesterDeptId = getLong(request.get("requester_department_id"));

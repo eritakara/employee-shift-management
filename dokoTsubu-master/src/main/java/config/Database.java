@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -68,17 +69,21 @@ public final class Database {
       String url = configuredJdbcUrl();
       if (url != null) {
         jdbcUrl = url;
-        jdbcUser = setting("shiftapp.dbUser", "DB_USER", setting("shiftapp.jdbcUser", "JDBC_USER", null));
-        jdbcPassword = setting("shiftapp.dbPassword", "DB_PASSWORD", setting("shiftapp.jdbcPassword", "JDBC_PASSWORD", null));
+        jdbcUser = environmentFirstSetting("DB_USER", "shiftapp.dbUser",
+            environmentFirstSetting("JDBC_USER", "shiftapp.jdbcUser", null));
+        jdbcPassword = environmentFirstSetting("DB_PASSWORD", "shiftapp.dbPassword",
+            environmentFirstSetting("JDBC_PASSWORD", "shiftapp.jdbcPassword", null));
       } else {
         jdbcUrl = defaultH2Url();
         jdbcUser = setting("shiftapp.dbUser", "DB_USER", setting("shiftapp.jdbcUser", "JDBC_USER", "sa"));
         jdbcPassword = setting("shiftapp.dbPassword", "DB_PASSWORD", setting("shiftapp.jdbcPassword", "JDBC_PASSWORD", ""));
       }
+
+      validateAndLogConnectionConfig(jdbcUrl, jdbcUser);
       
       loadJdbcDriver();
       
-      System.out.println("Connecting to database: " + jdbcUrl + " (User: " + (jdbcUser != null ? jdbcUser : "none") + ")...");
+      System.out.println("Connecting to configured database (connection details redacted)...");
       try (Connection connection = getConnection()) {
         System.out.println("Database connection established successfully.");
         
@@ -91,6 +96,8 @@ public final class Database {
           seed(connection);
           System.out.println("Master data and initial admin (HR) creation completed successfully.");
         }
+
+        DemoAttendanceSeeder.runIfEnabled(connection);
 
         // 一時的なHRパスワード再設定処理（環境変数での指示がある場合）
         resetHrPasswordIfNeeded(connection);
@@ -160,10 +167,7 @@ public final class Database {
   }
 
   private static String configuredJdbcUrl() throws IOException {
-    String configured = System.getProperty("shiftapp.jdbcUrl");
-    if (configured == null || configured.isBlank()) {
-      configured = System.getenv("JDBC_URL");
-    }
+    String configured = System.getenv("JDBC_URL");
     if (configured == null || configured.isBlank()) {
       configured = System.getenv("DB_URL");
     }
@@ -172,6 +176,9 @@ public final class Database {
     }
     if (configured == null || configured.isBlank()) {
       configured = System.getenv("DATABASE_URL");
+    }
+    if (configured == null || configured.isBlank()) {
+      configured = System.getProperty("shiftapp.jdbcUrl");
     }
 
     if (configured != null && !configured.isBlank()) {
@@ -224,6 +231,54 @@ public final class Database {
     String env = System.getenv(envName);
     if (env != null && !env.isBlank()) return env;
     return defaultValue;
+  }
+
+  private static String environmentFirstSetting(String envName, String propertyName, String defaultValue) {
+    String environment = System.getenv(envName);
+    if (environment != null && !environment.isBlank()) return environment.trim();
+    String property = System.getProperty(propertyName);
+    return property == null || property.isBlank() ? defaultValue : property.trim();
+  }
+
+  static void validateAndLogConnectionConfig(String url, String user) {
+    boolean postgres = url != null && url.startsWith("jdbc:postgresql:");
+    boolean sessionPooler = false;
+    boolean urlContainsUser = false;
+    if (postgres) {
+      try {
+        URI uri = URI.create(url.substring("jdbc:".length()));
+        String host = uri.getHost();
+        sessionPooler = host != null && host.toLowerCase(java.util.Locale.ROOT).endsWith(".pooler.supabase.com");
+        String query = uri.getRawQuery();
+        urlContainsUser = query != null && ("&" + query.toLowerCase(java.util.Locale.ROOT)).matches(".*[&]user=.*");
+      } catch (IllegalArgumentException e) {
+        throw new IllegalStateException("JDBC_URL is not a valid PostgreSQL JDBC URL.", e);
+      }
+    }
+    boolean userConfigured = user != null && !user.isBlank();
+    boolean supabasePoolerUserShape = userConfigured && user.matches("postgres\\.[A-Za-z0-9_-]+");
+    String userSource = nonBlank(System.getenv("DB_USER")) ? "DB_USER"
+        : nonBlank(System.getProperty("shiftapp.dbUser")) ? "shiftapp.dbUser"
+        : nonBlank(System.getenv("JDBC_USER")) ? "JDBC_USER"
+        : nonBlank(System.getProperty("shiftapp.jdbcUser")) ? "shiftapp.jdbcUser" : "none";
+    System.out.println("=== Safe Database Connection Diagnostics ===");
+    System.out.println("PostgreSQL configured: " + postgres);
+    System.out.println("Supabase Session Pooler host: " + sessionPooler);
+    System.out.println("DB user configured: " + userConfigured);
+    System.out.println("DB user source: " + userSource);
+    System.out.println("DB user has postgres.<projectRef> shape: " + supabasePoolerUserShape);
+    System.out.println("JDBC URL contains user parameter: " + urlContainsUser);
+    System.out.println("============================================");
+    if (sessionPooler && urlContainsUser) {
+      throw new IllegalStateException("Supabase Session Pooler JDBC_URL must not contain a user parameter; set DB_USER separately.");
+    }
+    if (sessionPooler && !supabasePoolerUserShape) {
+      throw new IllegalStateException("Supabase Session Pooler requires DB_USER in postgres.<projectRef> format; refusing to connect before any database operation.");
+    }
+  }
+
+  private static boolean nonBlank(String value) {
+    return value != null && !value.isBlank();
   }
 
   private static String first(String propertyName, String envName, String fallback) {

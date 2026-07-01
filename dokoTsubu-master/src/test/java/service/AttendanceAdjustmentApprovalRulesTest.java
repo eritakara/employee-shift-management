@@ -47,8 +47,9 @@ public class AttendanceAdjustmentApprovalRulesTest {
     check(auditActorId == manager.getId(), "Audit actor_id matches manager");
 
     long req1_2 = createAdjustment(att1, employee.getId());
-    // - 人事担当者 (HR) は承認できないこと
-    expectFailure(() -> service.decideAttendanceAdjustment(hr, req1_2, true), "HR cannot approve employee request");
+    // - 人事担当者 (HR) も全社権限で承認できること
+    service.decideAttendanceAdjustment(hr, req1_2, true);
+    checkStatus(req1_2, "APPROVED");
 
     // - 申請者本人は承認できないこと
     expectFailure(() -> service.decideAttendanceAdjustment(employee, req1_2, true), "Employee cannot approve own request");

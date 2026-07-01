@@ -2,8 +2,6 @@
 
 このドキュメントでは、シフト・勤怠管理アプリの開発中に行ったリファクタリング内容をまとめています。
 
-リファクタリングとは、アプリの動きは変えずに、コードを読みやすくしたり、修正しやすくしたりするための整理作業です。
-
 今回の対応では、不要なファイルの削除、重複した処理の整理、役割ごとのクラス分割などを行い、今後の機能追加や保守がしやすい状態を目指しました。
 
 ---
@@ -66,7 +64,7 @@
   - 独自に持っていた日付変換メソッドを削除し、`util.DateUtil` を使う形に変更しました。
 - **[LeavePolicyService.java](../../dokoTsubu-master/src/main/java/service/LeavePolicyService.java)**:
   - 重複していた `toDate` メソッドを削除し、`util.DateUtil.toDate` を使う形に変更しました。
-  - この処理は、将来的な有給休暇機能の拡張に備えたものです。
+  - この処理は、将来的な有休休暇機能の拡張に備えたものです。
 - **[PortalServlet.java](../../dokoTsubu-master/src/main/java/servlet/PortalServlet.java)**:
   - 重複していた `baseUrl` メソッドを削除し、`util.ServletUtil.baseUrl` を使う形に変更しました。
 - **[AuthServlet.java](../../dokoTsubu-master/src/main/java/servlet/AuthServlet.java)**:
@@ -117,7 +115,7 @@
 - **[ShiftService.java](../../dokoTsubu-master/src/main/java/service/ShiftService.java)**:
   - シフト作成、希望シフト提出、自動割り当て、シフト変更申請、シフト警告に関する処理
 - **[LeaveService.java](../../dokoTsubu-master/src/main/java/service/LeaveService.java)**:
-  - 将来的な有給休暇機能の拡張に備えた処理
+  - 将来的な有休休暇機能の拡張に備えた処理
 - **[AttendanceService.java](../../dokoTsubu-master/src/main/java/service/AttendanceService.java)**:
   - 出退勤打刻、勤怠実績、月次確定、打刻修正申請に関する処理
 - **[EmployeeService.java](../../dokoTsubu-master/src/main/java/service/EmployeeService.java)**:

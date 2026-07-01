@@ -20,6 +20,7 @@ import model.User;
 import static util.DateUtil.*;
 
 public class ShiftService {
+  private static final int MIN_MONTHLY_OFF_DAYS = 4;
   private final LeaveLedgerService leaveLedger = new LeaveLedgerService();
   private final SettingsService settings = new SettingsService();
   private final ShiftSubmissionPolicy shiftSubmissionPolicy = new ShiftSubmissionPolicy();
@@ -283,6 +284,7 @@ public class ShiftService {
       fillWorkType(state, people, date, "DAY", dayRequired);
       fillWorkType(state, people, date, "NIGHT", nightRequired);
     }
+    ensureMinimumOffDays(state, people, month, dayRequired);
     saveAutoAssignments(actor, state.pending);
     int assigned = state.pending.size();
     AuditService.record(actor.getId(), "AUTO_ASSIGN_SHIFTS", "SHIFT_MONTH", month.toString(), null, assigned + " shifts");
@@ -323,6 +325,7 @@ public class ShiftService {
     normalizeNightOffAssignments(state, people, month);
     rebalanceNightAssignments(state, people, month);
     normalizeNightOffAssignments(state, people, month);
+    ensureMinimumOffDays(state, people, month, dayRequired);
 
     saveAutoAssignments(actor, state.pending);
     int assigned = state.pending.size();
@@ -363,6 +366,9 @@ public class ShiftService {
         String recipientRecoveryDateType = state.shift(recipientId, recoveryDate);
         if (!("DAY".equals(recipientNightDateType) || "OFF".equals(recipientNightDateType))) continue;
         if (!("DAY".equals(recipientRecoveryDateType) || "OFF".equals(recipientRecoveryDateType))) continue;
+        int outgoingOffs = ("OFF".equals(recipientNightDateType) ? 1 : 0)
+            + ("OFF".equals(recipientRecoveryDateType) ? 1 : 0);
+        if (state.typeCount(recipientId, "OFF") - outgoingOffs < MIN_MONTHLY_OFF_DAYS) continue;
         if (state.isProtected(donorId, nightDate) || state.isProtected(donorId, recoveryDate)) continue;
         if (state.isProtected(recipientId, nightDate) || state.isProtected(recipientId, recoveryDate)) continue;
 
@@ -443,6 +449,59 @@ public class ShiftService {
         }
       }
     }
+  }
+
+  private void ensureMinimumOffDays(AutoAssignmentState state, List<Map<String, Object>> people,
+      YearMonth month, int dayRequired) {
+    for (Map<String, Object> person : people) {
+      long userId = ((Number) person.get("id")).longValue();
+      while (state.typeCount(userId, "OFF") < MIN_MONTHLY_OFF_DAYS) {
+        LocalDate emptyDate = findEmptyOffDate(state, userId, month);
+        if (emptyDate != null) {
+          state.add(userId, emptyDate, "OFF", "月4回以上の通常休みを確保");
+          continue;
+        }
+
+        boolean secured = false;
+        for (int day = 1; day <= month.lengthOfMonth() && !secured; day++) {
+          LocalDate date = month.atDay(day);
+          if (!"DAY".equals(state.shift(userId, date)) || state.isProtected(userId, date)) continue;
+
+          Map<String, Object> replacement = findDayReplacement(state, people, userId, date);
+          if (replacement != null) {
+            long replacementId = ((Number) replacement.get("id")).longValue();
+            state.add(replacementId, date, "DAY", "通常休み確保による日勤再配置");
+            state.add(userId, date, "OFF", "月4回以上の通常休みを確保");
+            secured = true;
+          } else if (state.count(date, "DAY") > dayRequired) {
+            state.add(userId, date, "OFF", "余剰日勤を通常休みに変更");
+            secured = true;
+          }
+        }
+        if (!secured) break;
+      }
+    }
+  }
+
+  private LocalDate findEmptyOffDate(AutoAssignmentState state, long userId, YearMonth month) {
+    for (int day = 1; day <= month.lengthOfMonth(); day++) {
+      LocalDate date = month.atDay(day);
+      if (!state.hasShift(userId, date)
+          && !state.isProtected(userId, date)
+          && !"NIGHT".equals(state.shift(userId, date.minusDays(1)))) return date;
+    }
+    return null;
+  }
+
+  private Map<String, Object> findDayReplacement(AutoAssignmentState state, List<Map<String, Object>> people,
+      long excludedUserId, LocalDate date) {
+    for (Map<String, Object> candidate : sortedPeopleByWorkload(state, people, "DAY")) {
+      long candidateId = ((Number) candidate.get("id")).longValue();
+      if (candidateId == excludedUserId || state.typeCount(candidateId, "OFF") <= MIN_MONTHLY_OFF_DAYS) continue;
+      int maxConsecutive = Math.max(1, ((Number) candidate.get("weekly_work_days")).intValue());
+      if (state.canReplaceOffWithDay(candidateId, date, maxConsecutive)) return candidate;
+    }
+    return null;
   }
 
   private void fillWorkTypeForFill(AutoAssignmentState state, List<Map<String, Object>> people, LocalDate date, String type, int required) {
@@ -618,6 +677,19 @@ public class ShiftService {
       }
       return true;
     }
+
+    private boolean canReplaceOffWithDay(long userId, LocalDate date, int maxConsecutive) {
+      if (!"OFF".equals(shift(userId, date)) || isProtected(userId, date)) return false;
+      if ("NIGHT".equals(shift(userId, date.minusDays(1)))) return false;
+      int consecutive = 0;
+      for (LocalDate previous = date.minusDays(maxConsecutive); previous.isBefore(date); previous = previous.plusDays(1)) {
+        String type = shift(userId, previous);
+        if ("DAY".equals(type) || "NIGHT".equals(type) || "AM_LEAVE".equals(type) || "PM_LEAVE".equals(type)) {
+          consecutive++;
+        }
+      }
+      return consecutive < maxConsecutive;
+    }
   }
 
   private int requiredStaff(String type) {
@@ -788,8 +860,27 @@ public class ShiftService {
           + "WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('NIGHT_OFF','OFF','LEAVE') AND s1.work_date BETWEEN ? AND ?" + userScope,
           join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs)));
     }
+    addMinimumOffWarnings(result, viewer, month);
     addShiftTypeBalanceWarnings(result, viewer, month);
     return result;
+  }
+
+  private void addMinimumOffWarnings(List<Map<String, Object>> warnings, User viewer, YearMonth month) {
+    List<Map<String, Object>> shortages = Sql.query("SELECT u.name,COUNT(s.id) off_count FROM users u "
+        + "LEFT JOIN shifts s ON s.user_id=u.id AND s.work_date BETWEEN ? AND ? AND s.work_type_code='OFF' "
+        + "WHERE u.active=TRUE AND u.role<>'HR'" + scope(viewer, "u")
+        + " GROUP BY u.id,u.name HAVING COUNT(s.id)<? ORDER BY u.name",
+        join(join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs(viewer)),
+            new Object[]{MIN_MONTHLY_OFF_DAYS}));
+    for (Map<String, Object> shortage : shortages) {
+      Map<String, Object> warning = new LinkedHashMap<>();
+      warning.put("warning", "MINIMUM_OFF_SHORTAGE");
+      warning.put("work_date", month.atEndOfMonth());
+      warning.put("detail", shortage.get("name") + "：必要人数・夜勤明け制約により通常休みを4回確保できません");
+      warning.put("required", MIN_MONTHLY_OFF_DAYS);
+      warning.put("actual", ((Number) shortage.get("off_count")).intValue());
+      warnings.add(warning);
+    }
   }
 
   private void addShiftTypeBalanceWarnings(List<Map<String, Object>> warnings, User viewer, YearMonth month) {

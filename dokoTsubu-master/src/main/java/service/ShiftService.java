@@ -320,11 +320,59 @@ public class ShiftService {
     }
     fillRemainingCells(state, people, month);
     normalizeNightOffAssignments(state, people, month);
+    rebalanceNightAssignments(state, people, month);
+    normalizeNightOffAssignments(state, people, month);
 
     saveAutoAssignments(actor, state.pending);
     int assigned = state.pending.size();
     AuditService.record(actor.getId(), "AUTO_FILL_SHIFTS", "SHIFT_MONTH", month.toString(), null, assigned + " shifts filled");
     return assigned;
+  }
+
+  private void rebalanceNightAssignments(AutoAssignmentState state, List<Map<String, Object>> people, YearMonth month) {
+    List<Map<String, Object>> employees = people.stream()
+        .filter(person -> !"MANAGER".equals(String.valueOf(person.get("role"))))
+        .toList();
+    if (employees.size() < 2) return;
+
+    while (true) {
+      List<Map<String, Object>> byNightCount = new ArrayList<>(employees);
+      byNightCount.sort((left, right) -> {
+        long leftId = ((Number) left.get("id")).longValue();
+        long rightId = ((Number) right.get("id")).longValue();
+        int byNights = Integer.compare(state.typeCount(leftId, "NIGHT"), state.typeCount(rightId, "NIGHT"));
+        if (byNights != 0) return byNights;
+        return Integer.compare(state.totalAssignedWorkDays(leftId), state.totalAssignedWorkDays(rightId));
+      });
+
+      Map<String, Object> recipient = byNightCount.get(0);
+      Map<String, Object> donor = byNightCount.get(byNightCount.size() - 1);
+      long recipientId = ((Number) recipient.get("id")).longValue();
+      long donorId = ((Number) donor.get("id")).longValue();
+      if (state.typeCount(donorId, "NIGHT") - state.typeCount(recipientId, "NIGHT") <= 1) return;
+
+      boolean swapped = false;
+      for (int day = 1; day < month.lengthOfMonth(); day++) {
+        LocalDate nightDate = month.atDay(day);
+        LocalDate recoveryDate = nightDate.plusDays(1);
+        if (!"NIGHT".equals(state.shift(donorId, nightDate))
+            || !"NIGHT_OFF".equals(state.shift(donorId, recoveryDate))) continue;
+
+        String recipientNightDateType = state.shift(recipientId, nightDate);
+        String recipientRecoveryDateType = state.shift(recipientId, recoveryDate);
+        if (!("DAY".equals(recipientNightDateType) || "OFF".equals(recipientNightDateType))) continue;
+        if (!("DAY".equals(recipientRecoveryDateType) || "OFF".equals(recipientRecoveryDateType))) continue;
+        if (state.isProtected(recipientId, nightDate) || state.isProtected(recipientId, recoveryDate)) continue;
+
+        state.add(donorId, nightDate, recipientNightDateType, "勤務種別平準化による夜勤交換");
+        state.add(donorId, recoveryDate, recipientRecoveryDateType, "勤務種別平準化による夜勤明け交換");
+        state.add(recipientId, nightDate, "NIGHT", "勤務種別平準化による夜勤交換");
+        state.add(recipientId, recoveryDate, "NIGHT_OFF", "勤務種別平準化による夜勤明け交換");
+        swapped = true;
+        break;
+      }
+      if (!swapped) return;
+    }
   }
 
   private void normalizeNightOffAssignments(AutoAssignmentState state, List<Map<String, Object>> people, YearMonth month) {
@@ -432,6 +480,8 @@ public class ShiftService {
     sorted.sort((p1, p2) -> {
       long u1 = ((Number) p1.get("id")).longValue();
       long u2 = ((Number) p2.get("id")).longValue();
+      int byType = Integer.compare(state.typeCount(u1, type), state.typeCount(u2, type));
+      if (byType != 0) return byType;
       int byWorkload = Integer.compare(state.totalAssignedWorkDays(u1), state.totalAssignedWorkDays(u2));
       if (byWorkload != 0) return byWorkload;
       return String.valueOf(p1.get("employee_number")).compareTo(String.valueOf(p2.get("employee_number")));
@@ -507,6 +557,10 @@ public class ShiftService {
     private boolean hasShift(long userId, LocalDate date) { return shifts.containsKey(new UserDate(userId, date)); }
     private String shift(long userId, LocalDate date) { return shifts.get(new UserDate(userId, date)); }
     private boolean prefersOff(long userId, LocalDate date) { return preferredOffOrLeave.contains(new UserDate(userId, date)); }
+    private boolean isProtected(long userId, LocalDate date) {
+      UserDate key = new UserDate(userId, date);
+      return approvedLeaves.containsKey(key) || preferredOffOrLeave.contains(key);
+    }
     private int count(LocalDate date, String type) {
       return (int) shifts.entrySet().stream().filter(e -> e.getKey().date().equals(date) && type.equals(e.getValue())).count();
     }
@@ -529,6 +583,14 @@ public class ShiftService {
       return (int) shifts.entrySet().stream()
           .filter(e -> e.getKey().userId() == userId && YearMonth.from(e.getKey().date()).equals(month)
               && ("DAY".equals(e.getValue()) || "NIGHT".equals(e.getValue()) || "NIGHT_OFF".equals(e.getValue())))
+          .count();
+    }
+
+    private int typeCount(long userId, String type) {
+      return (int) shifts.entrySet().stream()
+          .filter(entry -> entry.getKey().userId() == userId
+              && YearMonth.from(entry.getKey().date()).equals(month)
+              && type.equals(entry.getValue()))
           .count();
     }
 
@@ -716,7 +778,34 @@ public class ShiftService {
           + "WHERE s1.work_type_code='NIGHT' AND s2.work_type_code NOT IN('NIGHT_OFF','OFF','LEAVE') AND s1.work_date BETWEEN ? AND ?" + userScope,
           join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs)));
     }
+    addShiftTypeBalanceWarnings(result, viewer, month);
     return result;
+  }
+
+  private void addShiftTypeBalanceWarnings(List<Map<String, Object>> warnings, User viewer, YearMonth month) {
+    List<Map<String, Object>> counts = Sql.query("SELECT u.branch_id,u.department_id,u.name,COUNT(s.id) night_count FROM users u "
+        + "LEFT JOIN shifts s ON s.user_id=u.id AND s.work_date BETWEEN ? AND ? AND s.work_type_code='NIGHT' "
+        + "WHERE u.active=TRUE AND u.role='EMPLOYEE'" + scope(viewer, "u")
+        + " GROUP BY u.branch_id,u.department_id,u.name ORDER BY u.branch_id,u.department_id,u.name",
+        join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs(viewer)));
+    Map<String, List<Map<String, Object>>> byScope = new LinkedHashMap<>();
+    for (Map<String, Object> row : counts) {
+      String key = row.get("branch_id") + ":" + row.get("department_id");
+      byScope.computeIfAbsent(key, ignored -> new ArrayList<>()).add(row);
+    }
+    for (List<Map<String, Object>> group : byScope.values()) {
+      if (group.size() < 2) continue;
+      int minimum = group.stream().mapToInt(row -> ((Number) row.get("night_count")).intValue()).min().orElse(0);
+      int maximum = group.stream().mapToInt(row -> ((Number) row.get("night_count")).intValue()).max().orElse(0);
+      if (maximum - minimum <= 1) continue;
+      Map<String, Object> warning = new LinkedHashMap<>();
+      warning.put("warning", "SHIFT_TYPE_IMBALANCE");
+      warning.put("work_date", month.atEndOfMonth());
+      warning.put("detail", "希望休・有休・夜勤明け制約により勤務種別を十分に平準化できません（夜勤 " + minimum + "～" + maximum + "回）");
+      warning.put("required", maximum);
+      warning.put("actual", minimum);
+      warnings.add(warning);
+    }
   }
 
   // 共通権限・スコープヘルパー

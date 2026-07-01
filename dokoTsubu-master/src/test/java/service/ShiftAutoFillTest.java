@@ -27,6 +27,11 @@ public class ShiftAutoFillTest {
     // 1. テスト前データの準備
     long empId = employee.getId();
     long cowId = coworker.getId();
+    for (int index = 3; index <= 4; index++) {
+      Sql.insert("INSERT INTO users(employee_number,name,email,password_hash,hire_date,branch_id,department_id,employment_type_id,role,locale,active,weekly_work_days) "
+          + "SELECT ?,?,?,password_hash,hire_date,branch_id,department_id,employment_type_id,'EMPLOYEE',locale,TRUE,weekly_work_days FROM users WHERE id=?",
+          "AUTO_BAL_" + index, "自動補完 従業員" + index, "auto-balance-" + index + "@example.com", empId);
+    }
 
     // 既存の手動割り当て（DAY）を登録
     LocalDate manualDay = targetMonth.atDay(5);
@@ -101,8 +106,20 @@ public class ShiftAutoFillTest {
         targetMonth.atDay(1), targetMonth.atEndOfMonth(), manager.getBranchId(), manager.getDepartmentId());
     int minimumWorkload = workloads.stream().mapToInt(row -> ((Number) row.get("metric_value")).intValue()).min().orElse(0);
     int maximumWorkload = workloads.stream().mapToInt(row -> ((Number) row.get("metric_value")).intValue()).max().orElse(0);
-    check(workloads.size() == 2 && maximumWorkload - minimumWorkload <= 2,
+    check(workloads.size() == scopedPeople - 1 && maximumWorkload - minimumWorkload <= 2,
         "employee workloads are balanced: min=" + minimumWorkload + ", max=" + maximumWorkload);
+
+    List<Map<String, Object>> nightCounts = typeCounts(targetMonth, manager, "NIGHT");
+    int minimumNights = nightCounts.stream().mapToInt(row -> ((Number) row.get("metric_value")).intValue()).min().orElse(0);
+    int maximumNights = nightCounts.stream().mapToInt(row -> ((Number) row.get("metric_value")).intValue()).max().orElse(0);
+    check(nightCounts.size() == scopedPeople - 1 && minimumNights > 0 && maximumNights - minimumNights <= 1,
+        "night assignments are balanced and no eligible employee remains at zero: min=" + minimumNights + ", max=" + maximumNights);
+
+    List<Map<String, Object>> dayCounts = typeCounts(targetMonth, manager, "DAY");
+    int minimumDays = dayCounts.stream().mapToInt(row -> ((Number) row.get("metric_value")).intValue()).min().orElse(0);
+    int maximumDays = dayCounts.stream().mapToInt(row -> ((Number) row.get("metric_value")).intValue()).max().orElse(0);
+    check(dayCounts.size() == scopedPeople - 1 && maximumDays - minimumDays <= 2,
+        "day assignments are balanced: min=" + minimumDays + ", max=" + maximumDays);
     check(Sql.query("SELECT s.id FROM shifts s JOIN users u ON u.id=s.user_id WHERE s.work_date BETWEEN ? AND ? "
         + "AND u.role='MANAGER' AND s.work_type_code='NIGHT'", targetMonth.atDay(1), targetMonth.atEndOfMonth()).isEmpty(),
         "manager is not assigned night shifts");
@@ -125,6 +142,12 @@ public class ShiftAutoFillTest {
     int secondCount = portal.autoFillShifts(manager, targetMonth);
     System.out.println("Second auto fill count: " + secondCount);
     check(secondCount == 0, "second run fills nothing because staffing is satisfied and existing assignments are kept");
+
+    long imbalanceUserId = ((Number) Sql.one("SELECT id FROM users WHERE employee_number='AUTO_BAL_4'").get("id")).longValue();
+    Sql.update("UPDATE shifts SET work_type_code='DAY' WHERE user_id=? AND work_date BETWEEN ? AND ? AND work_type_code='NIGHT'",
+        imbalanceUserId, targetMonth.atDay(1), targetMonth.atEndOfMonth());
+    check(portal.shiftWarnings(manager, targetMonth).stream().anyMatch(row -> "SHIFT_TYPE_IMBALANCE".equals(row.get("warning"))),
+        "an unresolvable shift type imbalance produces a visible warning");
 
     Sql.update("UPDATE work_types SET required_staff=? WHERE code='NIGHT'", scopedPeople + 1);
     check(portal.shiftWarnings(manager, targetMonth).stream().anyMatch(row -> "STAFF_SHORTAGE".equals(row.get("warning"))),
@@ -154,6 +177,13 @@ public class ShiftAutoFillTest {
   private static String type(long userId, LocalDate date) {
     return String.valueOf(Sql.one("SELECT work_type_code FROM shifts WHERE user_id=? AND work_date=?", userId, date)
         .get("work_type_code"));
+  }
+
+  private static List<Map<String, Object>> typeCounts(YearMonth month, User manager, String type) {
+    return Sql.query("SELECT u.id,COUNT(s.id) metric_value FROM users u LEFT JOIN shifts s ON s.user_id=u.id "
+        + "AND s.work_date BETWEEN ? AND ? AND s.work_type_code=? WHERE u.active=TRUE AND u.role='EMPLOYEE' "
+        + "AND u.branch_id=? AND u.department_id=? GROUP BY u.id ORDER BY u.id",
+        month.atDay(1), month.atEndOfMonth(), type, manager.getBranchId(), manager.getDepartmentId());
   }
 
   private static void expectSecurityFailure(Runnable action, String label) {

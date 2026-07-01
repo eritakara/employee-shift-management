@@ -91,6 +91,7 @@ public class ShiftPreferenceWorkflowTest {
 
     Sql.update("UPDATE work_types SET required_staff=1 WHERE code IN('DAY','NIGHT')");
     portal.saveShift(manager, employee.getId(), month.atDay(1), "OFF", "CONFIRMED", "existing confirmed shift");
+    portal.saveShift(manager, employee.getId(), month.atDay(14), "DAY", "DRAFT", "incorrect assignment before auto assign");
     int assigned = portal.autoAssignShifts(manager, month);
     check(assigned > 0, "automatic assignment created shifts");
     check("CONFIRMED".equals(Sql.one("SELECT status FROM shifts WHERE user_id=? AND work_date=?", employee.getId(), month.atDay(1)).get("status")),

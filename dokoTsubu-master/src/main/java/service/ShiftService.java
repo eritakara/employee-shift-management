@@ -258,6 +258,7 @@ public class ShiftService {
     }
 
     // 2. 希望シフトの反映（すでに有休等が割り当てられている場合はスキップ）
+    seedProtectedAssignments(state, people, month);
     List<Map<String, Object>> preferred = preferenceDetails(actor, month);
     Map<String, Long> employeeIds = new LinkedHashMap<>();
     for (Map<String, Object> person : people) employeeIds.put(String.valueOf(person.get("employee_number")), ((Number) person.get("id")).longValue());
@@ -362,6 +363,7 @@ public class ShiftService {
         String recipientRecoveryDateType = state.shift(recipientId, recoveryDate);
         if (!("DAY".equals(recipientNightDateType) || "OFF".equals(recipientNightDateType))) continue;
         if (!("DAY".equals(recipientRecoveryDateType) || "OFF".equals(recipientRecoveryDateType))) continue;
+        if (state.isProtected(donorId, nightDate) || state.isProtected(donorId, recoveryDate)) continue;
         if (state.isProtected(recipientId, nightDate) || state.isProtected(recipientId, recoveryDate)) continue;
 
         state.add(donorId, nightDate, recipientNightDateType, "勤務種別平準化による夜勤交換");
@@ -384,7 +386,7 @@ public class ShiftService {
 
         LocalDate nextDate = nightDate.plusDays(1);
         UserDate nextKey = new UserDate(userId, nextDate);
-        if (state.approvedLeaves.containsKey(nextKey)) continue;
+        if (state.approvedLeaves.containsKey(nextKey) || state.prefersOff(userId, nextDate)) continue;
         if ("NIGHT_OFF".equals(state.shift(userId, nextDate))) continue;
 
         state.add(userId, nextDate, "NIGHT_OFF", "夜勤翌日の安全制約による夜勤明け補正");
@@ -397,7 +399,6 @@ public class ShiftService {
       long userId = ((Number) person.get("id")).longValue();
       for (int day = 1; day <= month.lengthOfMonth(); day++) {
         LocalDate date = month.atDay(day);
-        if (state.hasShift(userId, date)) continue;
         String leaveUnit = state.approvedLeaves.get(new UserDate(userId, date));
         if (leaveUnit != null) {
           String leaveType = switch (leaveUnit) {
@@ -406,7 +407,15 @@ public class ShiftService {
             case "PM" -> "PM_LEAVE";
             default -> null;
           };
-          if (leaveType != null) state.add(userId, date, leaveType, "承認済み有休を優先して自動補完");
+          if (leaveType != null && !leaveType.equals(state.shift(userId, date))) {
+            state.add(userId, date, leaveType, "承認済み有休を優先して自動反映");
+          }
+        } else if (state.prefersOff(userId, date)) {
+          if (!"OFF".equals(state.shift(userId, date))) {
+            state.add(userId, date, "OFF", "提出済み休日希望を優先して自動反映");
+          }
+        } else if (state.hasShift(userId, date)) {
+          continue;
         } else if ("NIGHT".equals(state.shift(userId, date.minusDays(1)))) {
           state.add(userId, date, "NIGHT_OFF", "既存夜勤の夜勤明け自動設定");
         }
@@ -462,7 +471,7 @@ public class ShiftService {
       if (actual >= required) break;
       long userId = ((Number) person.get("id")).longValue();
       int maxConsecutive = Math.max(1, ((Number) person.get("weekly_work_days")).intValue());
-      if (!state.canAssign(userId, date, maxConsecutive)) continue;
+      if (!state.canAssignForFill(userId, date, type, maxConsecutive)) continue;
       state.add(userId, date, type, "希望なしの自動割当"); actual++;
       if ("NIGHT".equals(type) && date.plusDays(1).getMonthValue() == date.getMonthValue() && !state.hasShift(userId, date.plusDays(1))) {
         state.add(userId, date.plusDays(1), "NIGHT_OFF", "夜勤明け自動設定");
@@ -506,8 +515,9 @@ public class ShiftService {
     Set<UserDate> preferredOffOrLeave = new HashSet<>();
     for (Map<String, Object> row : Sql.query("SELECT s.user_id,p.preference_date FROM shift_preferences p "
         + "JOIN shift_preference_submissions s ON s.id=p.submission_id JOIN users u ON u.id=s.user_id "
-        + "WHERE p.preference_date BETWEEN ? AND ? AND p.request_type IN('OFF','LEAVE')" + scope(actor, "u"),
-        join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs(actor)))) {
+        + "WHERE s.target_month=? AND s.status IN('SUBMITTED','APPROVED') AND p.preference_date BETWEEN ? AND ? "
+        + "AND p.request_type='OFF'" + scope(actor, "u"),
+        join(new Object[]{month.atDay(1), month.atDay(1), month.atEndOfMonth()}, scopeArgs(actor)))) {
       preferredOffOrLeave.add(new UserDate(((Number) row.get("user_id")).longValue(), toDate(row.get("preference_date"))));
     }
     return new AutoAssignmentState(month, shifts, approvedLeaves, preferredOffOrLeave);

@@ -71,6 +71,63 @@ public class ShiftWorkflowTest {
     portal.saveShift(manager, employee.getId(), boundaryDate.plusDays(1), "OFF", "DRAFT", "rest");
     check(count(portal.shiftWarningsForDate(manager, boundaryDate.plusDays(1)), "NIGHT_REST") == 0, "off day clears night-rest warning");
     check(portal.shiftWarnings(manager, targetMonth).stream().noneMatch(row -> row.get("work_date") == null), "monthly warnings have dates");
+
+    // ==========================================
+    // 勤務区分「早番」「遅番」のクリーンアップ＆移行テスト
+    // ==========================================
+    // 1. テスト用の「早番（EARLY）」「遅番（LATE）」を work_types にインサート
+    Sql.update("INSERT INTO work_types(code,name_ja,name_en,crosses_midnight,break_minutes,required_staff) VALUES('EARLY','早番','Early',FALSE,60,0)");
+    Sql.update("INSERT INTO work_types(code,name_ja,name_en,crosses_midnight,break_minutes,required_staff) VALUES('LATE','遅番','Late',FALSE,60,0)");
+
+    LocalDate migrationTestDate1 = targetMonth.atDay(20);
+    LocalDate migrationTestDate2 = targetMonth.atDay(21);
+    LocalDate migrationTestDate3 = targetMonth.atDay(22);
+
+    // 2. shifts に早期・遅番シフトをインサート
+    Sql.update("INSERT INTO shifts(user_id,work_date,work_type_code,status,note,updated_by) VALUES(?,?,'EARLY','DRAFT','early shift test',?)",
+        employee.getId(), migrationTestDate1, manager.getId());
+    Sql.update("INSERT INTO shifts(user_id,work_date,work_type_code,status,note,updated_by) VALUES(?,?,'LATE','DRAFT','late shift test',?)",
+        employee.getId(), migrationTestDate2, manager.getId());
+
+    // 3. shift_change_requests に早期申請をインサート
+    Sql.update("INSERT INTO shift_change_requests(user_id,work_date,requested_work_type,reason) VALUES(?,?,'EARLY','change request test')",
+        employee.getId(), migrationTestDate1);
+
+    // 4. shift_preference_submissions & shift_preferences に希望シフトを登録
+    long submissionId = ((Number) Sql.one("SELECT id FROM shift_preference_submissions WHERE user_id=? AND target_month=?",
+        employee.getId(), targetMonth.atDay(1)).getOrDefault("id", 0L)).longValue();
+    if (submissionId == 0L) {
+      Sql.update("INSERT INTO shift_preference_submissions(user_id,target_month,status) VALUES(?,?,'DRAFT')",
+          employee.getId(), targetMonth.atDay(1));
+      submissionId = ((Number) Sql.one("SELECT id FROM shift_preference_submissions WHERE user_id=? AND target_month=?",
+          employee.getId(), targetMonth.atDay(1)).get("id")).longValue();
+    }
+    Sql.update("INSERT INTO shift_preferences(submission_id,preference_date,request_type,note) VALUES(?,?,'LATE','preference test')",
+        submissionId, migrationTestDate3);
+
+    // 5. 移行処理を実行
+    try (java.sql.Connection conn = Database.getConnection()) {
+      Database.cleanupEarlyLateWorkTypes(conn);
+    }
+
+    // 6. アサーション検証
+    // - work_types から EARLY / LATE が削除されていること
+    check(Sql.query("SELECT * FROM work_types WHERE code IN ('EARLY', 'LATE')").isEmpty(), "work_types EARLY/LATE deleted");
+    // - shifts の work_type_code が DAY に移行されていること
+    check("DAY".equals(Sql.one("SELECT work_type_code FROM shifts WHERE user_id=? AND work_date=?", employee.getId(), migrationTestDate1).get("work_type_code")), "shifts EARLY migrated to DAY");
+    check("DAY".equals(Sql.one("SELECT work_type_code FROM shifts WHERE user_id=? AND work_date=?", employee.getId(), migrationTestDate2).get("work_type_code")), "shifts LATE migrated to DAY");
+    // - shift_change_requests.requested_work_type が DAY へ移行されていること
+    check("DAY".equals(Sql.one("SELECT requested_work_type FROM shift_change_requests WHERE user_id=? AND work_date=?", employee.getId(), migrationTestDate1).get("requested_work_type")), "change request EARLY migrated to DAY");
+    // - shift_preferences.request_type が DAY へ移行されていること
+    check("DAY".equals(Sql.one("SELECT request_type FROM shift_preferences WHERE submission_id=? AND preference_date=?", submissionId, migrationTestDate3).get("request_type")), "preference LATE migrated to DAY");
+
+    // 7. 冪等性の検証（EARLY / LATE が存在しない状態で再実行しても例外が起きないこと）
+    try (java.sql.Connection conn = Database.getConnection()) {
+      Database.cleanupEarlyLateWorkTypes(conn);
+    } catch (Exception e) {
+      throw new AssertionError("cleanupEarlyLateWorkTypes failed on second run: " + e.getMessage());
+    }
+
     System.out.println("ShiftWorkflowTest: all checks passed");
   }
 

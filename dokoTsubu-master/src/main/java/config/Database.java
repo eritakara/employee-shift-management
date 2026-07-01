@@ -101,6 +101,9 @@ public final class Database {
 
         // 一時的なHRパスワード再設定処理（環境変数での指示がある場合）
         resetHrPasswordIfNeeded(connection);
+
+        // 「早番」「遅番」勤務区分のクリーンアップおよび移行処理
+        cleanupEarlyLateWorkTypes(connection);
       }
       System.out.println("Database initialization completed successfully.");
     } catch (Throwable e) {
@@ -903,5 +906,76 @@ public final class Database {
     }
 
     System.out.println("HR password reset completed for: " + resetEmail);
+  }
+
+  public static void cleanupEarlyLateWorkTypes(Connection c) throws SQLException {
+    // 安全装置: 移行先である 'DAY' が work_types に存在するか確認
+    boolean dayExists = false;
+    try (PreparedStatement ps = c.prepareStatement("SELECT 1 FROM work_types WHERE code='DAY'")) {
+      try (ResultSet rs = ps.executeQuery()) {
+        if (rs.next()) {
+          dayExists = true;
+        }
+      }
+    }
+    if (!dayExists) {
+      System.out.println("Warning: 'DAY' work type does not exist in database. Skipping early/late work type migration.");
+      return;
+    }
+
+    // 1. 「早番」「遅番」の勤務区分コードを検索
+    java.util.List<String> codesToCleanup = new java.util.ArrayList<>();
+    try (PreparedStatement ps = c.prepareStatement("SELECT code FROM work_types WHERE name_ja IN ('早番', '遅番') OR code IN ('EARLY', 'LATE')")) {
+      try (ResultSet rs = ps.executeQuery()) {
+        while (rs.next()) {
+          codesToCleanup.add(rs.getString("code"));
+        }
+      }
+    }
+
+    if (!codesToCleanup.isEmpty()) {
+      System.out.println("Cleaning up work types '早番'/'遅番': " + codesToCleanup);
+
+      // 2. shifts の置き換え
+      String placeholders = String.join(",", java.util.Collections.nCopies(codesToCleanup.size(), "?"));
+      String updateShiftsSql = "UPDATE shifts SET work_type_code = 'DAY' WHERE work_type_code IN (" + placeholders + ")";
+      try (PreparedStatement ps = c.prepareStatement(updateShiftsSql)) {
+        for (int i = 0; i < codesToCleanup.size(); i++) {
+          ps.setString(i + 1, codesToCleanup.get(i));
+        }
+        int updated = ps.executeUpdate();
+        System.out.println("Updated " + updated + " shifts from '早番'/'遅番' to 'DAY'");
+      }
+
+      // 3. shift_change_requests の置き換え
+      String updateRequestsSql = "UPDATE shift_change_requests SET requested_work_type = 'DAY' WHERE requested_work_type IN (" + placeholders + ")";
+      try (PreparedStatement ps = c.prepareStatement(updateRequestsSql)) {
+        for (int i = 0; i < codesToCleanup.size(); i++) {
+          ps.setString(i + 1, codesToCleanup.get(i));
+        }
+        int updated = ps.executeUpdate();
+        System.out.println("Updated " + updated + " shift_change_requests from '早番'/'遅番' to 'DAY'");
+      }
+
+      // 4. shift_preferences の置き換え
+      String updatePreferencesSql = "UPDATE shift_preferences SET request_type = 'DAY' WHERE request_type IN (" + placeholders + ")";
+      try (PreparedStatement ps = c.prepareStatement(updatePreferencesSql)) {
+        for (int i = 0; i < codesToCleanup.size(); i++) {
+          ps.setString(i + 1, codesToCleanup.get(i));
+        }
+        int updated = ps.executeUpdate();
+        System.out.println("Updated " + updated + " shift_preferences from '早番'/'遅番' to 'DAY'");
+      }
+
+      // 5. work_types 自体の削除
+      String deleteWorkTypesSql = "DELETE FROM work_types WHERE code IN (" + placeholders + ")";
+      try (PreparedStatement ps = c.prepareStatement(deleteWorkTypesSql)) {
+        for (int i = 0; i < codesToCleanup.size(); i++) {
+          ps.setString(i + 1, codesToCleanup.get(i));
+        }
+        int deleted = ps.executeUpdate();
+        System.out.println("Deleted " + deleted + " work_types");
+      }
+    }
   }
 }

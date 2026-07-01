@@ -98,9 +98,12 @@
 * Apache Tomcat 10.1 がローカルにインストールされていること
 
 ### 2. ビルドおよび起動
-PowerShell環境でリポジトリのルートディレクトリにて、以下のスクリプトを実行します。
+PowerShell環境において、まずアプリケーション本体のフォルダへ移動した上でスクリプトを実行します。
 
 ```powershell
+# アプリケーション本体のフォルダへ移動
+cd dokoTsubu-master
+
 # アプリケーションのビルド (target/ROOT.war が生成されます)
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 

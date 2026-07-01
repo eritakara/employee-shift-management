@@ -175,8 +175,8 @@ public class AttendanceService {
     String afterAudit = approve
         ? attendanceAuditValue(row.get("requested_in"), row.get("requested_out"), updatedStatus)
         : "request_status=REJECTED";
-    if (approve) Sql.update("UPDATE attendance SET clock_in=?,clock_out=?,status=CASE WHEN ? IS NOT NULL AND ? IS NOT NULL THEN 'COMPLETE' ELSE 'OPEN' END WHERE id=?",
-        row.get("requested_in"), row.get("requested_out"), row.get("requested_in"), row.get("requested_out"), row.get("attendance_id"));
+    if (approve) Sql.update("UPDATE attendance SET clock_in=?,clock_out=?,status=? WHERE id=?",
+        row.get("requested_in"), row.get("requested_out"), updatedStatus, row.get("attendance_id"));
     Sql.update("UPDATE attendance_adjustments SET status=?,decided_by=?,decided_at=CURRENT_TIMESTAMP WHERE id=?",
         approve ? "APPROVED" : "REJECTED", actor.getId(), requestId);
 

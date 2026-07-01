@@ -73,7 +73,7 @@
 | **[インフラ・デプロイ手順書 (deployment.md)](docs/deployment.md)** | Supabase Session Pooler を使った接続方法、推奨環境変数、ローカルでの起動手順。 |
 | **[テスト仕様・報告書 (test.md)](docs/test.md)** | テスト方針、基本動作確認の内容、現時点での制限事項。 |
 | **[リファクタリング報告書 (refactoring.md)](docs/refactoring.md)** | 不要コードの削除、共通処理の整理、肥大化したクラスの分割・削除の流れ。 |
-| **[開発プロセス課題解決メモ (development-notes.md)](docs/development-notes.md)** | SQLの実行環境差への対応、セキュリティ面の工夫、環境依存の不具合やTomcat起動時の問題への対応。 |
+| **[開発プロセスにおける課題解決と工夫点 (development-notes.md)](docs/development-notes.md)** | SQLの実行環境差への対応、セキュリティ面の工夫、環境依存の不具合やTomcat起動時の問題への対応。 |
 | **[共有前チェックリスト (pre-release-checklist.md)](docs/pre-release-checklist.md)** | 本番環境・機能・セキュリティ・個人情報に関する項目。 |
 
 ---

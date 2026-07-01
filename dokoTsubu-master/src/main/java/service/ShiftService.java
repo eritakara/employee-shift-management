@@ -307,6 +307,7 @@ public class ShiftService {
         + " ORDER BY CASE WHEN role='MANAGER' THEN 0 ELSE 1 END,employee_number", userArgs);
     AutoAssignmentState state = loadAutoAssignmentState(actor, month, people);
     seedProtectedAssignments(state, people, month);
+    normalizeNightOffAssignments(state, people, month);
 
     int dayRequired = requiredStaff("DAY");
     int nightRequired = requiredStaff("NIGHT");
@@ -318,11 +319,29 @@ public class ShiftService {
       fillWorkTypeForFill(state, people, date, "NIGHT", nightRequired);
     }
     fillRemainingCells(state, people, month);
+    normalizeNightOffAssignments(state, people, month);
 
     saveAutoAssignments(actor, state.pending);
     int assigned = state.pending.size();
     AuditService.record(actor.getId(), "AUTO_FILL_SHIFTS", "SHIFT_MONTH", month.toString(), null, assigned + " shifts filled");
     return assigned;
+  }
+
+  private void normalizeNightOffAssignments(AutoAssignmentState state, List<Map<String, Object>> people, YearMonth month) {
+    for (Map<String, Object> person : people) {
+      long userId = ((Number) person.get("id")).longValue();
+      for (int day = 1; day <= month.lengthOfMonth(); day++) {
+        LocalDate nightDate = month.atDay(day);
+        if (!"NIGHT".equals(state.shift(userId, nightDate))) continue;
+
+        LocalDate nextDate = nightDate.plusDays(1);
+        UserDate nextKey = new UserDate(userId, nextDate);
+        if (state.approvedLeaves.containsKey(nextKey)) continue;
+        if ("NIGHT_OFF".equals(state.shift(userId, nextDate))) continue;
+
+        state.add(userId, nextDate, "NIGHT_OFF", "夜勤翌日の安全制約による夜勤明け補正");
+      }
+    }
   }
 
   private void seedProtectedAssignments(AutoAssignmentState state, List<Map<String, Object>> people, YearMonth month) {
@@ -425,13 +444,13 @@ public class ShiftService {
     Map<UserDate, String> shifts = new HashMap<>();
     for (Map<String, Object> row : Sql.query("SELECT s.user_id,s.work_date,s.work_type_code FROM shifts s JOIN users u ON u.id=s.user_id "
         + "WHERE s.work_date BETWEEN ? AND ?" + scope(actor, "u"),
-        join(new Object[]{month.atDay(1).minusDays(lookback), month.atEndOfMonth()}, scopeArgs(actor)))) {
+        join(new Object[]{month.atDay(1).minusDays(lookback), month.atEndOfMonth().plusDays(1)}, scopeArgs(actor)))) {
       shifts.put(new UserDate(((Number) row.get("user_id")).longValue(), toDate(row.get("work_date"))), String.valueOf(row.get("work_type_code")));
     }
     Map<UserDate, String> approvedLeaves = new HashMap<>();
     for (Map<String, Object> row : Sql.query("SELECT lr.user_id,lr.leave_date,lr.leave_unit FROM leave_requests lr JOIN users u ON u.id=lr.user_id "
         + "WHERE lr.status='APPROVED' AND lr.leave_unit IN('FULL','AM','PM') AND lr.leave_date BETWEEN ? AND ?" + scope(actor, "u"),
-        join(new Object[]{month.atDay(1), month.atEndOfMonth()}, scopeArgs(actor)))) {
+        join(new Object[]{month.atDay(1), month.atEndOfMonth().plusDays(1)}, scopeArgs(actor)))) {
       approvedLeaves.put(new UserDate(((Number) row.get("user_id")).longValue(), toDate(row.get("leave_date"))), String.valueOf(row.get("leave_unit")));
     }
     Set<UserDate> preferredOffOrLeave = new HashSet<>();

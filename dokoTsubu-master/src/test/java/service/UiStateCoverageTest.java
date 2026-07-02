@@ -68,6 +68,15 @@ public class UiStateCoverageTest {
         "empty attendance months cannot be finalized");
     check(script.contains("dataset.confirmMessage") && script.contains("window.confirm(confirmMessage)"),
         "sensitive attendance close actions require confirmation");
+    int attendancePageStart = application.indexOf("else if(pageKey.startsWith(\"attendance/\"))");
+    int attendanceRejectDialog = application.indexOf("data-attendance-reject-dialog");
+    int notificationsPageStart = application.indexOf("else if(pageKey.equals(\"notifications\"))");
+    check(attendancePageStart >= 0 && attendanceRejectDialog > attendancePageStart
+        && notificationsPageStart > attendanceRejectDialog,
+        "attendance rejection dialog is rendered inside the attendance page branch");
+    check(script.contains("document.querySelector('[data-attendance-reject-dialog]')")
+        && script.contains("attendanceRejectDialog.showModal()"),
+        "attendance rejection button opens the reason dialog");
     check(application.contains("href=\"<%=ctx%>/app/leave\">"), "leave navigation is consolidated into one menu item");
     check(application.contains("class=\"page-tabs leave-tabs\""), "leave page exposes in-page tabs");
     check(application.contains("leave?tab=balance") && application.contains("leave?tab=request")

@@ -6,6 +6,7 @@ import dao.UserDAO;
 import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 import model.User;
 
 public class AttendanceAdjustmentApprovalRulesTest {
@@ -50,12 +51,32 @@ public class AttendanceAdjustmentApprovalRulesTest {
     // - 人事担当者 (HR) も全社権限で承認できること
     service.decideAttendanceAdjustment(hr, req1_2, true);
     checkStatus(req1_2, "APPROVED");
+    expectFailure(() -> service.decideAttendanceAdjustment(manager, req1_2, false, "承認済み"),
+        "Approved request cannot be rejected");
 
     // - 申請者本人は承認できないこと
     expectFailure(() -> service.decideAttendanceAdjustment(employee, req1_2, true), "Employee cannot approve own request");
 
     // - 管理対象外（別店舗・別部署）の店長 (MANAGER2) は承認できないこと
     expectFailure(() -> service.decideAttendanceAdjustment(manager2, req1_2, true), "Manager of different scope cannot approve employee request");
+
+    long rejectAttendance = createAttendance(employee.getId(), day.minusDays(3));
+    long rejectedRequest = createAdjustment(rejectAttendance, employee.getId());
+    service.decideAttendanceAdjustment(manager, rejectedRequest, false, "勤務実績を再確認してください");
+    checkStatus(rejectedRequest, "REJECTED");
+    checkAuditContains(rejectedRequest, "rejection_reason=勤務実績を再確認してください");
+    expectFailure(() -> service.decideAttendanceAdjustment(manager, rejectedRequest, false, "再却下"),
+        "Rejected request cannot be rejected again");
+
+    long selfRejectAttendance = createAttendance(manager.getId(), day.minusDays(4));
+    long selfRejectRequest = createAdjustment(selfRejectAttendance, manager.getId());
+    expectFailure(() -> service.decideAttendanceAdjustment(manager, selfRejectRequest, false, "自己却下"),
+        "Manager cannot reject own request");
+
+    long outOfScopeRejectAttendance = createAttendance(employee.getId(), day.minusDays(5));
+    long outOfScopeRejectRequest = createAdjustment(outOfScopeRejectAttendance, employee.getId());
+    expectFailure(() -> service.decideAttendanceAdjustment(manager2, outOfScopeRejectRequest, false, "担当外"),
+        "Manager of different scope cannot reject employee request");
 
 
     // ==========================================
@@ -169,6 +190,15 @@ public class AttendanceAdjustmentApprovalRulesTest {
     String status = String.valueOf(Sql.one("SELECT status FROM attendance_adjustments WHERE id=?", requestId).get("status"));
     if (!expectedStatus.equals(status)) {
       throw new AssertionError("Expected status: " + expectedStatus + ", but got: " + status);
+    }
+  }
+
+  private static void checkAuditContains(long requestId, String expectedText) {
+    Map<String, Object> audit = Sql.one(
+        "SELECT after_value FROM audit_logs WHERE action='REJECT_ATTENDANCE_ADJUSTMENT' AND target_id=?",
+        String.valueOf(requestId));
+    if (!String.valueOf(audit.get("after_value")).contains(expectedText)) {
+      throw new AssertionError("Rejection reason was not recorded in the audit log");
     }
   }
 

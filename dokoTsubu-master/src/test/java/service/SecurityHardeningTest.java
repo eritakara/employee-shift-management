@@ -3,6 +3,7 @@ package service;
 import config.Database;
 import dao.UserDAO;
 import filter.SameOriginPolicy;
+import filter.TransportSecurityPolicy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -28,6 +29,10 @@ public class SecurityHardeningTest {
     check(!origin.allows("https", "shift.example.jp", 443, "cross-site", "https://evil.example"), "cross-site rejected");
     check(!origin.allows("https", "shift.example.jp", 443, null, null), "missing origin rejected");
     check(!origin.allows("https", "shift.example.jp", 443, null, "https://shift.example.jp:444"), "wrong port rejected");
+    check(TransportSecurityPolicy.shouldUseHsts("production", true, null), "HSTS enabled for direct production HTTPS");
+    check(TransportSecurityPolicy.shouldUseHsts("production", false, "https"), "HSTS enabled behind production HTTPS proxy");
+    check(!TransportSecurityPolicy.shouldUseHsts("production", false, "http"), "HSTS disabled for production HTTP request");
+    check(!TransportSecurityPolicy.shouldUseHsts("development", true, "https"), "HSTS disabled outside production");
 
     RequestRateLimiter limiter = new RequestRateLimiter(2, 1_000, 2);
     limiter.record("first", 1_000);
@@ -54,6 +59,10 @@ public class SecurityHardeningTest {
     check(appJsp.contains("action=\"<%=ctx%>/logout\" method=\"post\"") && !appJsp.contains("href=\"<%=ctx%>/logout\""), "logout uses POST");
     String resetJsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/reset.jsp"));
     check(resetJsp.contains("HtmlEscaper.escape(request.getParameter(\"token\"))"), "reset token escaped");
+    String webXml = Files.readString(Path.of("src/main/webapp/WEB-INF/web.xml"));
+    check(webXml.contains("<http-only>true</http-only>"), "session cookie HttpOnly configured");
+    String contextXml = Files.readString(Path.of("src/main/webapp/META-INF/context.xml"));
+    check(contextXml.contains("sameSiteCookies=\"lax\""), "session cookie SameSite Lax configured");
     System.out.println("SecurityHardeningTest: all checks passed");
   }
 

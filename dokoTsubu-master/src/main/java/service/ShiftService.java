@@ -785,6 +785,12 @@ public class ShiftService {
     requireManager(actor);
     Map<String, Object> row = Sql.one("SELECT r.*,u.branch_id,u.department_id FROM shift_change_requests r JOIN users u ON u.id=r.user_id WHERE r.id=?", requestId);
     if (row.isEmpty() || !"PENDING".equals(row.get("status"))) throw new IllegalArgumentException("未処理の申請が見つかりません。");
+
+    long requesterId = ((Number) row.get("user_id")).longValue();
+    if (actor.getId() == requesterId) {
+      throw new SecurityException("自分の申請は承認・却下できません。");
+    }
+
     assertScope(actor, ((Number) row.get("branch_id")).longValue(), ((Number) row.get("department_id")).longValue());
     List<Map<String, Object>> recheckWarnings = List.of();
     String decisionMessage = row.get("work_date") + "の申請結果を確認してください。";

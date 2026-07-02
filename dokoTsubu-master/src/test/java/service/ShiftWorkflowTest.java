@@ -128,6 +128,32 @@ public class ShiftWorkflowTest {
       throw new AssertionError("cleanupEarlyLateWorkTypes failed on second run: " + e.getMessage());
     }
 
+    // ==========================================
+    // 新規要件: シフト変更申請の本人承認・却下禁止テスト
+    // ==========================================
+    LocalDate testDateSelf = targetMonth.atDay(11);
+    portal.requestShiftChange(manager, testDateSelf, "OFF", "店長の自己変更申請");
+    long selfRequestId = ((Number) Sql.one("SELECT MAX(id) id FROM shift_change_requests WHERE user_id=?", manager.getId()).get("id")).longValue();
+
+    // 1. 店長が自分自身の申請を承認できないこと（SecurityException）
+    expectSecurityFailure(() -> portal.decideShiftChange(manager, selfRequestId, true),
+        "Manager cannot approve own shift change request", "自分の申請は承認・却下できません。");
+
+    // 2. 店長が自分自身の申請を却下できないこと（SecurityException）
+    expectSecurityFailure(() -> portal.decideShiftChange(manager, selfRequestId, false, "却下理由テスト"),
+        "Manager cannot reject own shift change request", "自分の申請は承認・却下できません。");
+
+    // 3. 人事は店長本人の申請を承認できること
+    try {
+      portal.decideShiftChange(hr, selfRequestId, true);
+    } catch (Exception e) {
+      throw new AssertionError("HR should be able to approve manager's shift change request, but failed: " + e.getMessage());
+    }
+    check("APPROVED".equals(Sql.one("SELECT status FROM shift_change_requests WHERE id=?", selfRequestId).get("status")), "HR approved manager request");
+
+    // 4. PENDING以外の申請は承認・却下できないこと（既存仕様の維持）
+    expectFailure(() -> portal.decideShiftChange(hr, selfRequestId, true), "Cannot decide non-pending request");
+
     System.out.println("ShiftWorkflowTest: all checks passed");
   }
 
@@ -137,6 +163,16 @@ public class ShiftWorkflowTest {
 
   private static void expectFailure(Runnable action, String label) {
     try { action.run(); } catch (IllegalArgumentException expected) { return; }
+    throw new AssertionError("Failed: " + label);
+  }
+
+  private static void expectSecurityFailure(Runnable action, String label, String expectedMessage) {
+    try {
+      action.run();
+    } catch (SecurityException expected) {
+      if (expectedMessage.equals(expected.getMessage())) return;
+      throw new AssertionError("Failed: " + label + " message: " + expected.getMessage());
+    }
     throw new AssertionError("Failed: " + label);
   }
 

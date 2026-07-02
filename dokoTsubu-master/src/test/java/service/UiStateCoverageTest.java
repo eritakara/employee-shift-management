@@ -22,9 +22,16 @@ public class UiStateCoverageTest {
     check(script.contains("aria-busy"), "forms expose loading state");
     check(script.contains("role', 'status'"), "loading message is announced");
     check(application.contains("assets/app.css?v=20260629-1")
-        && application.contains("assets/app.js?v=20260703-1"), "updated app assets use the latest cache buster");
+        && application.contains("assets/app.js?v=20260703-2"), "updated app assets use the latest cache buster");
     check(css.contains(".loading-indicator"), "loading state has a common visual style");
     check(application.contains("class=\"empty\""), "application has a common empty state");
+    check(application.contains("href=\"<%=ctx%>/app/masters/work-types\">勤務区分・休憩・必要人数</a>")
+        && !application.contains("href=\"<%=ctx%>/app/masters/staffing\">必要人数</a>"),
+        "work type, break, and staffing settings use one consolidated master-data tab");
+    check(servlet.contains("TITLES.put(\"masters/work-types\", \"勤務区分・休憩・必要人数管理\")")
+        && servlet.contains("TITLES.put(\"masters/staffing\", \"勤務区分・休憩・必要人数管理\")")
+        && servlet.contains("page.endsWith(\"catalogs\") ? \"employment\" : \"work_types\""),
+        "legacy staffing URL remains an alias of the consolidated work-types screen");
     check(application.contains("class=\"alert danger\""), "application has a common input error state");
     check(application.contains("確認事項")
         && application.contains("本日のシフト不足")

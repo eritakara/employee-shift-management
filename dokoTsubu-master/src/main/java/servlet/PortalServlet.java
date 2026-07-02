@@ -49,7 +49,7 @@ public class PortalServlet extends HttpServlet {
     TITLES.put("employees", "従業員一覧"); TITLES.put("employees/edit", "従業員登録・編集");
     TITLES.put("qualifications", "資格情報管理"); TITLES.put("delegations", "代理店長設定");
     TITLES.put("masters/branches", "営業所管理"); TITLES.put("masters/departments", "部署管理");
-    TITLES.put("masters/work-types", "勤務区分・休憩時間管理"); TITLES.put("masters/staffing", "必要人数管理");
+    TITLES.put("masters/work-types", "勤務区分・休憩・必要人数管理"); TITLES.put("masters/staffing", "勤務区分・休憩・必要人数管理");
     TITLES.put("masters/catalogs", "雇用形態・資格名称管理"); TITLES.put("exports", "データ出力");
     TITLES.put("audit", "操作履歴");
   }

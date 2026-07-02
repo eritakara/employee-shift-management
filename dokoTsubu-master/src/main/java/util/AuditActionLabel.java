@@ -13,6 +13,7 @@ public final class AuditActionLabel {
       Map.entry("REQUEST_SHIFT_CHANGE", "シフト変更を申請"),
       Map.entry("AUTO_ASSIGN_SHIFTS", "シフトを自動割当"),
       Map.entry("SAVE_SHIFT", "シフトを保存"),
+      Map.entry("ADJUST_CONFIRMED_SHIFT", "確定済みシフトを個別変更"),
       Map.entry("CONFIRM_SHIFTS", "シフトを確定"),
       Map.entry("SUBMIT_SHIFT_PREFERENCES", "希望シフトを提出"),
       Map.entry("REVIEW_SHIFT_PREFERENCES", "希望シフトを確認"),

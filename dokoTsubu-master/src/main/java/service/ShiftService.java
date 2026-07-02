@@ -87,6 +87,29 @@ public class ShiftService {
     AuditService.record(actor.getId(), "SAVE_SHIFT", "SHIFT", userId + ":" + date, null, type + "/" + status);
   }
 
+  public void adjustConfirmedShift(User actor, long userId, LocalDate date, String type, String note) {
+    requireManager(actor);
+    assertCanManage(actor, userId);
+    if (!workTypes().stream().anyMatch(r -> type.equals(r.get("code")))) {
+      throw new IllegalArgumentException("勤務区分が不正です。");
+    }
+    Map<String, Object> current = Sql.one(
+        "SELECT work_type_code,status,note FROM shifts WHERE user_id=? AND work_date=?", userId, date);
+    if (current.isEmpty() || !"CONFIRMED".equals(current.get("status"))) {
+      throw new IllegalArgumentException("確定済みのシフトが見つかりません。");
+    }
+    assertShiftLeaveBalance(userId, date, type);
+    String before = current.get("work_type_code") + "/CONFIRMED note="
+        + (current.get("note") == null ? "" : current.get("note"));
+    String normalizedNote = note == null ? "" : note.trim();
+    int updated = Sql.update("UPDATE shifts SET work_type_code=?,note=?,updated_by=?,updated_at=CURRENT_TIMESTAMP "
+        + "WHERE user_id=? AND work_date=? AND status='CONFIRMED'",
+        type, normalizedNote, actor.getId(), userId, date);
+    if (updated != 1) throw new IllegalArgumentException("確定済みシフトの変更に失敗しました。再読み込みしてください。");
+    AuditService.record(actor.getId(), "ADJUST_CONFIRMED_SHIFT", "SHIFT", userId + ":" + date,
+        before, type + "/CONFIRMED note=" + normalizedNote);
+  }
+
   private void assertShiftLeaveBalance(long userId, LocalDate date, String type) {
     BigDecimal needed = switch (type) {
       case "LEAVE" -> BigDecimal.ONE;

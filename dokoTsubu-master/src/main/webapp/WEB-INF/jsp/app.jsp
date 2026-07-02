@@ -792,6 +792,24 @@ String ctx = request.getContextPath();
           <% { String rosterTitle="月間シフト"; String rosterLink=null; List<Map<String,Object>> rosterBranches=(pageKey.equals("shifts/mine")||pageKey.equals("shifts/print"))?(List<Map<String,Object>>)request.getAttribute("shiftBranches"):null; Long rosterBranchId=rosterBranches==null?null:(selectedShiftBranch==null?user.getBranchId():selectedShiftBranch.longValue()); %>
             <%@ include file="_shiftRoster.jspf" %>
           <% } %>
+          <%if(pageKey.equals("shifts/confirm") && manager){%>
+          <section class="section workflow-editor no-print" data-shift-editor hidden>
+            <div class="section-header"><div><h2>確定済みシフトを個別変更</h2><p class="muted">月全体の確定状態を維持したまま、選択した日付・従業員の勤務区分だけを変更します。</p></div></div>
+            <form method="post" class="form-grid">
+              <input type="hidden" name="action" value="adjustConfirmedShift">
+              <input type="hidden" name="returnPage" value="shifts/confirm">
+              <input type="hidden" name="returnMonth" value="<%=month%>">
+              <input type="hidden" name="userId" data-shift-editor-user-id>
+              <input type="hidden" data-shift-editor-status>
+              <label>従業員<input type="text" readonly data-shift-editor-employee></label>
+              <label>日付<input type="date" name="date" required readonly data-shift-editor-date></label>
+              <label>変更前の勤務区分<output data-shift-editor-before>未選択</output></label>
+              <label>変更後の勤務区分<select name="workType" required data-shift-editor-work-type><%for(Map<String,Object> wt:workTypes){%><option value="<%=wt.get("code")%>"><%=e(en?wt.get("name_en"):wt.get("name_ja"))%></option><%}%></select></label>
+              <label class="span-2">変更理由・備考<input type="text" name="note" required maxlength="1000" data-shift-editor-note></label>
+              <div class="span-all"><button class="primary" type="submit" data-confirm-message="選択した1件の確定済みシフトを変更します。月全体の確定状態は維持されます。よろしいですか？">このシフトだけ変更する</button></div>
+            </form>
+          </section>
+          <%}%>
         <% } else if (!pageKey.equals("shifts/manage") && !pageKey.equals("shifts/request") && !pageKey.equals("shifts/change")) { %>
         <section class="section"><div class="section-header"><h2><%=month%> 月間シフト</h2><span class="muted"><%=rows.size()%>件</span></div>
           <div class="table-wrap"><table><thead><tr><th>日付</th><th>社員番号</th><th>氏名</th><th>勤務区分</th><th>状態</th><th>備考</th></tr></thead><tbody>

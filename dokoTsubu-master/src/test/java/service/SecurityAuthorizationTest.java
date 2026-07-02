@@ -66,6 +66,35 @@ public class SecurityAuthorizationTest {
     expectDenied(() -> portal.saveShift(employee, hr.getId(), targetDate.plusDays(5), "DAY", "DRAFT", "cross-branch edit"),
         "employee cannot edit another branch shift");
 
+    ShiftService shifts = new ShiftService();
+    LocalDate confirmedEditDate = targetDate.plusDays(20);
+    LocalDate untouchedConfirmedDate = targetDate.plusDays(21);
+    Sql.update("INSERT INTO shifts(user_id,work_date,work_type_code,status,note,updated_by) VALUES(?,?,'DAY','CONFIRMED','before edit',?)",
+        coworker.getId(), confirmedEditDate, manager.getId());
+    Sql.update("INSERT INTO shifts(user_id,work_date,work_type_code,status,note,updated_by) VALUES(?,?,'OFF','CONFIRMED','untouched',?)",
+        coworker.getId(), untouchedConfirmedDate, manager.getId());
+    shifts.adjustConfirmedShift(manager, coworker.getId(), confirmedEditDate, "NIGHT", "night coverage");
+    Map<String, Object> adjusted = Sql.one("SELECT work_type_code,status FROM shifts WHERE user_id=? AND work_date=?",
+        coworker.getId(), confirmedEditDate);
+    check("NIGHT".equals(adjusted.get("work_type_code")) && "CONFIRMED".equals(adjusted.get("status")),
+        "manager changes one confirmed shift without reopening the month");
+    check("OFF".equals(Sql.one("SELECT work_type_code FROM shifts WHERE user_id=? AND work_date=?",
+        coworker.getId(), untouchedConfirmedDate).get("work_type_code")),
+        "confirmed single-shift edit leaves other dates unchanged");
+    Map<String, Object> confirmedEditAudit = Sql.one(
+        "SELECT before_value,after_value FROM audit_logs WHERE action='ADJUST_CONFIRMED_SHIFT' AND target_id=?",
+        coworker.getId() + ":" + confirmedEditDate);
+    check(String.valueOf(confirmedEditAudit.get("before_value")).contains("DAY/CONFIRMED")
+        && String.valueOf(confirmedEditAudit.get("after_value")).contains("NIGHT/CONFIRMED"),
+        "confirmed single-shift edit records before and after values");
+    expectDenied(() -> shifts.adjustConfirmedShift(employee, coworker.getId(), confirmedEditDate, "DAY", "unauthorized"),
+        "employee cannot adjust confirmed shifts");
+    expectDenied(() -> shifts.adjustConfirmedShift(manager, hr.getId(), publicShiftDate, "NIGHT", "outside scope"),
+        "manager cannot adjust a confirmed shift outside scope");
+    shifts.adjustConfirmedShift(hr, hr.getId(), publicShiftDate, "NIGHT", "HR company scope");
+    check("CONFIRMED".equals(Sql.one("SELECT status FROM shifts WHERE user_id=? AND work_date=?",
+        hr.getId(), publicShiftDate).get("status")), "HR confirmed-shift edit preserves confirmation");
+
     long otherDepartmentId = ((Number) Sql.one("SELECT id FROM departments WHERE id<>? ORDER BY id LIMIT 1", manager.getDepartmentId()).get("id")).longValue();
     long employmentId = ((Number) Sql.one("SELECT id FROM employment_types ORDER BY id LIMIT 1").get("id")).longValue();
     long otherDepartmentUserId = Sql.insert("INSERT INTO users(employee_number,name,email,password_hash,hire_date,branch_id,department_id,employment_type_id,role) VALUES(?,?,?,?,?,?,?,?,'EMPLOYEE')",

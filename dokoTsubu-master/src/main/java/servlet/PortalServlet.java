@@ -190,6 +190,9 @@ public class PortalServlet extends HttpServlet {
               req.getParameter("workType"), value(req, "status", "DRAFT"), req.getParameter("note"));
           else shiftService.submitPreferredShift(user, date, req.getParameter("workType"), req.getParameter("note"));
         }
+        case "adjustConfirmedShift" -> shiftService.adjustConfirmedShift(user,
+            Long.parseLong(req.getParameter("userId")), LocalDate.parse(req.getParameter("date")),
+            req.getParameter("workType"), req.getParameter("note"));
         case "submitMonthlyPreferences" -> {
           YearMonth preferenceMonth = parseMonth(req.getParameter("month"));
           Map<LocalDate, String> preferences = new LinkedHashMap<>();

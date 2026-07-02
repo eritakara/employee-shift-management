@@ -121,13 +121,19 @@ public class UiStateCoverageTest {
         "closed preference window blocks client-side selection and submission");
     check(application.contains("shift-coverage-summary") && application.contains("選択中のシフトを変更")
         && application.contains("data-shift-editor hidden"), "shift adjustment prioritizes coverage and reveals editing on selection");
-    check(shiftRoster.contains("rosterEditable=pageKey.equals(\"shifts/manage\")")
-        && shiftRoster.contains("data-shift-edit-cell"), "only shift adjustment roster exposes editable cells");
+    check(shiftRoster.contains("pageKey.equals(\"shifts/manage\")||pageKey.equals(\"shifts/confirm\")")
+        && shiftRoster.contains("rosterShift!=null&&\"CONFIRMED\".equals(rosterShiftStatus)")
+        && shiftRoster.contains("data-shift-edit-cell"),
+        "shift adjustment and confirmed-roster screens expose only their permitted editable cells");
     check(script.contains("const shiftEditor = document.querySelector('[data-shift-editor]')")
         && script.contains("cell.dataset.workTypeLabel"), "shift cell selection populates the editor");
     check(application.contains("<input type=\"hidden\" name=\"status\" data-shift-editor-status>")
         && !application.contains("<label>状態<select name=\"status\" data-shift-editor-status>"),
         "shift cell editor preserves status without exposing an editable field");
+    check(application.contains("name=\"action\" value=\"adjustConfirmedShift\"")
+        && application.contains("このシフトだけ変更する")
+        && application.contains("月全体の確定状態は維持されます"),
+        "confirmed roster offers a clearly scoped single-shift edit action");
     check(shiftRoster.contains("rosterAllConfirmed") && shiftRoster.contains("rosterMixedStatus")
         && shiftRoster.contains("rosterCellUnconfirmed"), "monthly roster summarizes confirmation status");
     check(application.contains("\"shifts/manage\",\"shifts/confirm\"")

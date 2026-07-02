@@ -153,10 +153,25 @@ public class AttendanceService {
 
   public void requestAttendanceAdjustment(User user, long attendanceId, LocalDateTime requestedIn,
       LocalDateTime requestedOut, String reason) {
-    Map<String, Object> attendance = Sql.one("SELECT user_id,finalized FROM attendance WHERE id=?", attendanceId);
+    Map<String, Object> attendance = Sql.one("SELECT user_id,work_date,finalized FROM attendance WHERE id=?", attendanceId);
     if (attendance.isEmpty() || ((Number) attendance.get("user_id")).longValue() != user.getId()) throw new SecurityException("自分の勤怠だけ修正申請できます。");
     if (Boolean.TRUE.equals(attendance.get("finalized"))) throw new IllegalArgumentException("確定済み勤怠は、店長が確定解除してから申請してください。");
     if (reason == null || reason.isBlank()) throw new IllegalArgumentException("修正理由を入力してください。");
+    if (reason.trim().length() > 1000) throw new IllegalArgumentException("修正理由は1000文字以内で入力してください。");
+    if (requestedIn == null || requestedOut == null) throw new IllegalArgumentException("修正後の出勤・退勤時刻を入力してください。");
+    LocalDate workDate = toDate(attendance.get("work_date"));
+    if (!requestedIn.toLocalDate().equals(workDate)
+        || !(requestedOut.toLocalDate().equals(workDate) || requestedOut.toLocalDate().equals(workDate.plusDays(1)))) {
+      throw new IllegalArgumentException("修正時刻は対象勤務日またはその翌日の範囲で入力してください。");
+    }
+    java.time.Duration requestedDuration = java.time.Duration.between(requestedIn, requestedOut);
+    if (requestedDuration.isZero() || requestedDuration.isNegative()
+        || requestedDuration.compareTo(java.time.Duration.ofHours(24)) > 0) {
+      throw new IllegalArgumentException("退勤時刻は出勤時刻より後、かつ24時間以内で入力してください。");
+    }
+    if (!Sql.query("SELECT id FROM attendance_adjustments WHERE attendance_id=? AND status='PENDING'", attendanceId).isEmpty()) {
+      throw new IllegalArgumentException("この勤怠には未処理の修正申請があります。");
+    }
     long id = Sql.insert("INSERT INTO attendance_adjustments(attendance_id,requested_by,requested_in,requested_out,reason) VALUES(?,?,?,?,?)",
         attendanceId, user.getId(), requestedIn, requestedOut, reason.trim());
     notificationService.notifyManagers(user, "ATTENDANCE_ADJUSTMENT", "打刻修正申請", user.getName() + "さんから打刻修正申請があります。", "/app/attendance/manage");

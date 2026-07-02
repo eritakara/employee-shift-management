@@ -128,12 +128,25 @@ public class AttendanceAdjustmentApprovalRulesTest {
     // - 一般従業員が本人の勤怠に対して申請を実行したときは成功し、他人の attendanceId を指定したときは SecurityException が発生して申請が作成されないこと。
     long employeeAttSelf = createAttendance(employee.getId(), day.minusDays(2));
     long managerAtt = createAttendance(manager.getId(), day.minusDays(2));
+    LocalDate employeeWorkDay = day.minusDays(2);
+    expectFailure(() -> service.requestAttendanceAdjustment(employee, employeeAttSelf, null, employeeWorkDay.atTime(18, 0), "missing clock in"),
+        "Adjustment requires requested clock-in");
+    expectFailure(() -> service.requestAttendanceAdjustment(employee, employeeAttSelf, employeeWorkDay.atTime(18, 0), employeeWorkDay.atTime(9, 0), "reversed times"),
+        "Adjustment rejects reversed times");
+    expectFailure(() -> service.requestAttendanceAdjustment(employee, employeeAttSelf, employeeWorkDay.minusDays(1).atTime(9, 0), employeeWorkDay.atTime(18, 0), "wrong work date"),
+        "Adjustment clock-in must match work date");
+    expectFailure(() -> service.requestAttendanceAdjustment(employee, employeeAttSelf, employeeWorkDay.atTime(1, 0), employeeWorkDay.plusDays(1).atTime(2, 0), "too long"),
+        "Adjustment duration cannot exceed 24 hours");
+    expectFailure(() -> service.requestAttendanceAdjustment(employee, employeeAttSelf, employeeWorkDay.atTime(9, 0), employeeWorkDay.atTime(18, 0), "x".repeat(1001)),
+        "Adjustment reason length is limited");
     // 本人の申請は成功すること
     try {
       service.requestAttendanceAdjustment(employee, employeeAttSelf, day.minusDays(2).atTime(9, 0), day.minusDays(2).atTime(18, 0), "employee requesting for self");
     } catch (Exception e) {
       throw new AssertionError("Employee should be able to request adjustment for self, but failed: " + e.getMessage());
     }
+    expectFailure(() -> service.requestAttendanceAdjustment(employee, employeeAttSelf, employeeWorkDay.atTime(9, 30), employeeWorkDay.atTime(18, 30), "duplicate pending request"),
+        "Adjustment rejects a second pending request for the same attendance");
     // 他人の申請は失敗すること
     expectFailure(() -> service.requestAttendanceAdjustment(employee, managerAtt, day.minusDays(2).atTime(9, 0), day.minusDays(2).atTime(18, 0), "employee trying to request for manager"),
         "Employee cannot request adjustment for manager");

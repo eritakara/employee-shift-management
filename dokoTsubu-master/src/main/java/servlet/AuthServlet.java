@@ -11,16 +11,21 @@ import java.io.IOException;
 import model.User;
 import service.AuditService;
 import service.AccountTokenService;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Locale;
+import service.RequestRateLimiter;
 
 @WebServlet(urlPatterns = {"/login", "/logout", "/account", "/forgot", "/reset", "/invite", "/privacy"})
 public class AuthServlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
   private final UserDAO users = new UserDAO();
   private final AccountTokenService tokens = new AccountTokenService();
-  private static final ConcurrentMap<String, Attempt> ATTEMPTS = new ConcurrentHashMap<>();
-  private record Attempt(int count, long firstAt) { }
+  private static final long LOGIN_WINDOW_MILLIS = 5 * 60_000L;
+  private static final long RESET_WINDOW_MILLIS = 15 * 60_000L;
+  private static final int MAX_RATE_LIMIT_KEYS = 10_000;
+  private static final RequestRateLimiter LOGIN_BY_IP = new RequestRateLimiter(20, LOGIN_WINDOW_MILLIS, MAX_RATE_LIMIT_KEYS);
+  private static final RequestRateLimiter LOGIN_BY_IP_AND_EMAIL = new RequestRateLimiter(5, LOGIN_WINDOW_MILLIS, MAX_RATE_LIMIT_KEYS);
+  private static final RequestRateLimiter RESET_BY_IP = new RequestRateLimiter(5, RESET_WINDOW_MILLIS, MAX_RATE_LIMIT_KEYS);
+  private static final RequestRateLimiter RESET_BY_EMAIL = new RequestRateLimiter(3, RESET_WINDOW_MILLIS, MAX_RATE_LIMIT_KEYS);
 
   @Override
   protected void doPost(HttpServletRequest req, HttpServletResponse res)
@@ -29,10 +34,11 @@ public class AuthServlet extends HttpServlet {
     String path = req.getServletPath();
     if ("/login".equals(path)) {
       try {
-        String attemptKey = req.getRemoteAddr() + ":" + String.valueOf(req.getParameter("email")).toLowerCase();
-        Attempt attempt = ATTEMPTS.get(attemptKey);
+        String emailKey = normalizedEmail(req.getParameter("email"));
+        String ipKey = String.valueOf(req.getRemoteAddr());
+        String attemptKey = ipKey + ":" + emailKey;
         long now = System.currentTimeMillis();
-        if (attempt != null && now - attempt.firstAt() < 300_000 && attempt.count() >= 5) {
+        if (LOGIN_BY_IP.isBlocked(ipKey, now) || LOGIN_BY_IP_AND_EMAIL.isBlocked(attemptKey, now)) {
           req.setAttribute("error", "ログイン試行回数が上限に達しました。5分後に再試行してください。");
           req.getRequestDispatcher("/index.jsp").forward(req, res);
           return;
@@ -48,12 +54,13 @@ public class AuthServlet extends HttpServlet {
           return;
         }
         if (user == null) {
-          ATTEMPTS.compute(attemptKey, (key, old) -> old == null || now - old.firstAt() >= 300_000 ? new Attempt(1, now) : new Attempt(old.count() + 1, old.firstAt()));
+          LOGIN_BY_IP.record(ipKey, now);
+          LOGIN_BY_IP_AND_EMAIL.record(attemptKey, now);
           req.setAttribute("error", "メールアドレスまたはパスワードが正しくありません。");
           req.getRequestDispatcher("/index.jsp").forward(req, res);
           return;
         }
-        ATTEMPTS.remove(attemptKey);
+        LOGIN_BY_IP_AND_EMAIL.clear(attemptKey);
         HttpSession old = req.getSession(false);
         if (old != null) old.invalidate();
         req.getSession(true).setAttribute("loginUser", user);
@@ -75,7 +82,15 @@ public class AuthServlet extends HttpServlet {
       }
     }
     if ("/forgot".equals(path)) {
-      String token = tokens.issue(req.getParameter("email"), "RESET", util.ServletUtil.baseUrl(req));
+      String emailKey = normalizedEmail(req.getParameter("email"));
+      String ipKey = String.valueOf(req.getRemoteAddr());
+      long now = System.currentTimeMillis();
+      String token = null;
+      if (!RESET_BY_IP.isBlocked(ipKey, now) && !RESET_BY_EMAIL.isBlocked(emailKey, now)) {
+        RESET_BY_IP.record(ipKey, now);
+        RESET_BY_EMAIL.record(emailKey, now);
+        token = tokens.issue(req.getParameter("email"), "RESET", util.ServletUtil.baseUrl(req));
+      }
       req.setAttribute("sent", true);
       if (util.ServletUtil.isLocal(req) && token != null) req.setAttribute("devLink", req.getContextPath() + "/reset?token=" + token);
       try { req.getRequestDispatcher("/WEB-INF/jsp/forgot.jsp").forward(req, res); } catch (ServletException e) { throw new IOException(e); }
@@ -113,6 +128,10 @@ public class AuthServlet extends HttpServlet {
       AuditService.record(user.getId(), "UPDATE_ACCOUNT", "USER", String.valueOf(user.getId()), null, null);
       res.sendRedirect(req.getContextPath() + "/app/account?success=1");
     }
+  }
+
+  private static String normalizedEmail(String email) {
+    return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
   }
 
   @Override

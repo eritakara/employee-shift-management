@@ -29,6 +29,19 @@ public class SecurityHardeningTest {
     check(!origin.allows("https", "shift.example.jp", 443, null, null), "missing origin rejected");
     check(!origin.allows("https", "shift.example.jp", 443, null, "https://shift.example.jp:444"), "wrong port rejected");
 
+    RequestRateLimiter limiter = new RequestRateLimiter(2, 1_000, 2);
+    limiter.record("first", 1_000);
+    check(!limiter.isBlocked("first", 1_000), "rate limiter allows attempts below limit");
+    limiter.record("first", 1_100);
+    check(limiter.isBlocked("first", 1_100), "rate limiter blocks at limit");
+    check(!limiter.isBlocked("first", 2_001), "rate limiter expires old window");
+    limiter.record("second", 2_100);
+    limiter.record("third", 2_200);
+    limiter.record("fourth", 2_300);
+    check(limiter.size() <= 2, "rate limiter bounds stored keys");
+    limiter.clear("fourth");
+    check(!limiter.isBlocked("fourth", 2_300), "rate limiter clears successful key");
+
     check(users.authenticate("' OR 1=1 --", "anything") == null, "login SQL injection rejected");
     ExportService exports = new ExportService();
     expectInvalid(() -> exports.rows(hr, "shifts' UNION SELECT * FROM users --", LocalDate.now(), LocalDate.now(), null, null, null),

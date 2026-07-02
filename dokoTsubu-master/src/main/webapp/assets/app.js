@@ -231,25 +231,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const rejectForm = attendanceRejectDialog.querySelector('[data-attendance-reject-form]');
     const reasonInput = attendanceRejectDialog.querySelector('[data-attendance-reject-reason-input]');
     const error = attendanceRejectDialog.querySelector('[data-attendance-reject-error]');
+    const setAttendanceText = (selector, value) => {
+      const target = attendanceRejectDialog.querySelector(selector);
+      if (target) target.textContent = value?.trim() || '-';
+    };
     document.querySelectorAll('[data-attendance-reject-open]').forEach(button => {
       button.addEventListener('click', () => {
         rejectForm.reset();
         rejectForm.querySelector('[data-attendance-reject-id]').value = button.dataset.requestId;
         rejectForm.querySelector('[data-attendance-reject-return-page]').value = button.dataset.returnPage;
-        setText('[data-attendance-reject-requester]', button.dataset.requester);
-        setText('[data-attendance-reject-date]', button.dataset.workDate);
-        setText('[data-attendance-reject-before-in]', button.dataset.beforeIn);
-        setText('[data-attendance-reject-after-in]', button.dataset.afterIn);
-        setText('[data-attendance-reject-before-out]', button.dataset.beforeOut);
-        setText('[data-attendance-reject-after-out]', button.dataset.afterOut);
-        setText('[data-attendance-reject-reason]', button.dataset.reason);
-        setText('[data-attendance-reject-status]', button.dataset.status);
+        setAttendanceText('[data-attendance-reject-requester]', button.dataset.requester);
+        setAttendanceText('[data-attendance-reject-date]', button.dataset.workDate);
+        setAttendanceText('[data-attendance-reject-before-in]', button.dataset.beforeIn);
+        setAttendanceText('[data-attendance-reject-after-in]', button.dataset.afterIn);
+        setAttendanceText('[data-attendance-reject-before-out]', button.dataset.beforeOut);
+        setAttendanceText('[data-attendance-reject-after-out]', button.dataset.afterOut);
+        setAttendanceText('[data-attendance-reject-reason]', button.dataset.reason);
+        setAttendanceText('[data-attendance-reject-status]', button.dataset.status);
         error.hidden = true;
         reasonInput.setCustomValidity('');
         attendanceRejectDialog.showModal();
+        reasonInput.focus();
       });
     });
     attendanceRejectDialog.querySelector('[data-attendance-reject-cancel]')?.addEventListener('click', () => attendanceRejectDialog.close());
+    attendanceRejectDialog.addEventListener('click', event => { if (event.target === attendanceRejectDialog) attendanceRejectDialog.close(); });
     reasonInput.addEventListener('input', () => {
       if (reasonInput.value.trim()) {
         error.hidden = true;

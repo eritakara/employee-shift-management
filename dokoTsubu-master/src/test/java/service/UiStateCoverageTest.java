@@ -22,7 +22,7 @@ public class UiStateCoverageTest {
     check(script.contains("aria-busy"), "forms expose loading state");
     check(script.contains("role', 'status'"), "loading message is announced");
     check(application.contains("assets/app.css?v=20260629-1")
-        && application.contains("assets/app.js?v=20260628-1"), "updated app assets use the latest cache buster");
+        && application.contains("assets/app.js?v=20260703-1"), "updated app assets use the latest cache buster");
     check(css.contains(".loading-indicator"), "loading state has a common visual style");
     check(application.contains("class=\"empty\""), "application has a common empty state");
     check(application.contains("class=\"alert danger\""), "application has a common input error state");
@@ -75,8 +75,11 @@ public class UiStateCoverageTest {
         && notificationsPageStart > attendanceRejectDialog,
         "attendance rejection dialog is rendered inside the attendance page branch");
     check(script.contains("document.querySelector('[data-attendance-reject-dialog]')")
-        && script.contains("attendanceRejectDialog.showModal()"),
-        "attendance rejection button opens the reason dialog");
+        && script.contains("const setAttendanceText = (selector, value) =>")
+        && script.contains("setAttendanceText('[data-attendance-reject-requester]', button.dataset.requester)")
+        && script.contains("attendanceRejectDialog.showModal()")
+        && script.contains("reasonInput.focus()"),
+        "attendance rejection button populates and opens the reason dialog without relying on another dialog scope");
     check(application.contains("href=\"<%=ctx%>/app/leave\">"), "leave navigation is consolidated into one menu item");
     check(application.contains("class=\"page-tabs leave-tabs\""), "leave page exposes in-page tabs");
     check(application.contains("leave?tab=balance") && application.contains("leave?tab=request")

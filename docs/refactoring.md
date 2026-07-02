@@ -31,7 +31,7 @@
   - `WEB-INF/jsp/loginResult.jsp`
   - `WEB-INF/jsp/logout.jsp`
 
-### 2. [User.java](../../dokoTsubu-master/src/main/java/model/User.java) の不要コード削除
+### 2. [User.java](../dokoTsubu-master/src/main/java/model/User.java) の不要コード削除
 
 削除した旧ログイン処理からしか使われていなかった、以下のコードを削除しました。
 
@@ -51,25 +51,25 @@
 
 ### 1. 共通ユーティリティクラスの追加
 
-- **[DateUtil.java](../../dokoTsubu-master/src/main/java/util/DateUtil.java)**:
+- **[DateUtil.java](../dokoTsubu-master/src/main/java/util/DateUtil.java)**:
   - 日付・日時・時刻の変換処理をまとめました。
   - 複数のサービスで同じように書かれていた日付処理を、1か所から使えるようにしました。
-- **[ServletUtil.java](../../dokoTsubu-master/src/main/java/util/ServletUtil.java)**:
+- **[ServletUtil.java](../dokoTsubu-master/src/main/java/util/ServletUtil.java)**:
   - 画面操作を受け取るサーブレットで共通して使う処理をまとめました。
   - `baseUrl` や `isLocal` など、複数のクラスで重複していた処理を整理しました。
 
 ### 2. 重複処理の削除と共通クラスの利用
 
-- **[PortalService.java](../../dokoTsubu-master/src/main/java/service/PortalService.java)**:
+- **`PortalService.java`（削除済みの製品コード）**:
   - 独自に持っていた日付変換メソッドを削除し、`util.DateUtil` を使う形に変更しました。
-- **[LeavePolicyService.java](../../dokoTsubu-master/src/main/java/service/LeavePolicyService.java)**:
+- **[LeavePolicyService.java](../dokoTsubu-master/src/main/java/service/LeavePolicyService.java)**:
   - 重複していた `toDate` メソッドを削除し、`util.DateUtil.toDate` を使う形に変更しました。
-  - この処理は、将来的な有休休暇機能の拡張に備えたものです。
-- **[PortalServlet.java](../../dokoTsubu-master/src/main/java/servlet/PortalServlet.java)**:
+  - この処理は、実装済みの有休機能を保守・拡張しやすくするためのものです。
+- **[PortalServlet.java](../dokoTsubu-master/src/main/java/servlet/PortalServlet.java)**:
   - 重複していた `baseUrl` メソッドを削除し、`util.ServletUtil.baseUrl` を使う形に変更しました。
-- **[AuthServlet.java](../../dokoTsubu-master/src/main/java/servlet/AuthServlet.java)**:
+- **[AuthServlet.java](../dokoTsubu-master/src/main/java/servlet/AuthServlet.java)**:
   - 重複していた `baseUrl` と `isLocal` メソッドを削除し、`util.ServletUtil` を使う形に変更しました。
-- **[ExportService.java](../../dokoTsubu-master/src/main/java/service/ExportService.java)**:
+- **[ExportService.java](../dokoTsubu-master/src/main/java/service/ExportService.java)**:
   - 独自に持っていたHTMLエスケープ処理を削除し、共通クラス `util.HtmlEscaper.escape` を使う形に統一しました。
 
 ---
@@ -82,17 +82,17 @@
 
 ### 1. あいまいなメソッド名の変更
 
-- **[PortalService.java](../../dokoTsubu-master/src/main/java/service/PortalService.java)**:
+- **`PortalService.java`（削除済みの製品コード）**:
   - `users(User)` メソッドを、従業員を取得する処理だと分かる **`findEmployees(User)`** に変更しました。
   - `master(String)` メソッドを、マスタデータを取得する処理だと分かる **`getMasterData(String)`** に変更しました。
-- **[PortalServlet.java](../../dokoTsubu-master/src/main/java/servlet/PortalServlet.java)**:
+- **[PortalServlet.java](../dokoTsubu-master/src/main/java/servlet/PortalServlet.java)**:
   - 上記の名前変更に合わせて、呼び出し側の処理も修正しました。
-- **テストコード ([SmokeTest.java](../../dokoTsubu-master/src/test/java/SmokeTest.java), [PerformanceTest.java](../../dokoTsubu-master/src/test/java/service/PerformanceTest.java))**:
+- **テストコード ([SmokeTest.java](../dokoTsubu-master/src/test/java/SmokeTest.java), [PerformanceTest.java](../dokoTsubu-master/src/test/java/service/PerformanceTest.java))**:
   - テスト内で使っていた古いメソッド名も、新しい名前に合わせて修正しました。
 
 ### 2. 初期データ登録用メソッド名の改善
 
-- **[Database.java](../../dokoTsubu-master/src/main/java/config/Database.java)**:
+- **[Database.java](../dokoTsubu-master/src/main/java/config/Database.java)**:
   - `setting` を **`insertSetting`** に変更しました。
   - `workType` を **`insertWorkType`** に変更しました。
 
@@ -112,21 +112,21 @@
 
 以下の新しいサービスクラスを `service` パッケージに作成し、`PortalService` に集まっていた処理を移しました。
 
-- **[ShiftService.java](../../dokoTsubu-master/src/main/java/service/ShiftService.java)**:
+- **[ShiftService.java](../dokoTsubu-master/src/main/java/service/ShiftService.java)**:
   - シフト作成、希望シフト提出、自動割り当て、シフト変更申請、シフト警告に関する処理
-- **[LeaveService.java](../../dokoTsubu-master/src/main/java/service/LeaveService.java)**:
-  - 将来的な有休休暇機能の拡張に備えた処理
-- **[AttendanceService.java](../../dokoTsubu-master/src/main/java/service/AttendanceService.java)**:
+- **[LeaveService.java](../dokoTsubu-master/src/main/java/service/LeaveService.java)**:
+  - 実装済みの有休申請・承認・残数管理などに関する処理
+- **[AttendanceService.java](../dokoTsubu-master/src/main/java/service/AttendanceService.java)**:
   - 出退勤打刻、勤怠実績、月次確定、打刻修正申請に関する処理
-- **[EmployeeService.java](../../dokoTsubu-master/src/main/java/service/EmployeeService.java)**:
+- **[EmployeeService.java](../dokoTsubu-master/src/main/java/service/EmployeeService.java)**:
   - 従業員一覧、追加、更新、招待、ログイン情報、代理設定に関する処理
-- **[MasterDataService.java](../../dokoTsubu-master/src/main/java/service/MasterDataService.java)**:
+- **[MasterDataService.java](../dokoTsubu-master/src/main/java/service/MasterDataService.java)**:
   - 店舗、部署、勤務区分などのマスタデータの追加・更新処理
-- **[NotificationService.java](../../dokoTsubu-master/src/main/java/service/NotificationService.java)**:
+- **[NotificationService.java](../dokoTsubu-master/src/main/java/service/NotificationService.java)**:
   - システム内通知、メール送信キュー登録、エラーメール再送に関する処理
-- **[DashboardService.java](../../dokoTsubu-master/src/main/java/service/DashboardService.java)**:
+- **[DashboardService.java](../dokoTsubu-master/src/main/java/service/DashboardService.java)**:
   - ダッシュボード表示用の集計や、残業時間グラフ用データの取得処理
-- **[AuditLogService.java](../../dokoTsubu-master/src/main/java/service/AuditLogService.java)**:
+- **[AuditLogService.java](../dokoTsubu-master/src/main/java/service/AuditLogService.java)**:
   - 操作履歴の検索や、操作種別一覧の取得処理
 
 ### 2. PortalService.java を中継役として整理
@@ -147,7 +147,7 @@
 
 ### 1. 自動割り当て判定ロジックの整理
 
-- **[ShiftService.java](../../dokoTsubu-master/src/main/java/service/ShiftService.java)**:
+- **[ShiftService.java](../dokoTsubu-master/src/main/java/service/ShiftService.java)**:
   - `canAutoAssign` メソッドに書かれていた複数の条件判定を、以下の分かりやすい名前のメソッドに分けました。
     - `isShiftAlreadyAssigned`
     - `wasOnNightShiftYesterday`
@@ -158,8 +158,8 @@
 
 ### 2. 申請関連のチェック処理の整理
 
-- **[LeaveService.java](../../dokoTsubu-master/src/main/java/service/LeaveService.java)**:
-  - 将来的な有休申請機能の本格実装に備え、`requestLeave` メソッド内に直接書かれていたチェック処理を整理しました。
+- **[LeaveService.java](../dokoTsubu-master/src/main/java/service/LeaveService.java)**:
+  - 実装済みの有休申請機能を保守しやすくするため、`requestLeave` メソッド内に直接書かれていたチェック処理を整理しました。
   - 過去日チェック、事前申請期限、有休残日数、時間単位の上限などの確認を、以下のメソッドに分けました。
     - `validateLeaveRequestDate`
     - `validateLeaveBalance`
@@ -168,7 +168,7 @@
 
 ### 3. 希望シフト提出時のチェック処理の整理
 
-- **[ShiftService.java](../../dokoTsubu-master/src/main/java/service/ShiftService.java)**:
+- **[ShiftService.java](../dokoTsubu-master/src/main/java/service/ShiftService.java)**:
   - `submitMonthlyPreferences` の中で、ループ処理と一緒に書かれていた対象月チェックや文字数制限などの確認処理を、独立したメソッドに分けました。
     - `validatePreferenceEntry`
 
@@ -184,13 +184,13 @@
 
 ### 1. サーブレット側の修正
 
-- **[PortalServlet.java](../../dokoTsubu-master/src/main/java/servlet/PortalServlet.java)**:
+- **[PortalServlet.java](../dokoTsubu-master/src/main/java/servlet/PortalServlet.java)**:
   - `PortalService` を使う形をやめ、`ShiftService` や `AttendanceService` など、機能ごとのサービスを直接使う形に変更しました。
   - `doGet` や `doPost` の各処理についても、内容に応じたサービスへ直接処理を渡すように修正しました。
 
 ### 2. テストコードへの影響を抑える対応
 
-- **[PortalService.java（テスト用）](../../dokoTsubu-master/src/test/java/service/PortalService.java)**:
+- **[PortalService.java（テスト用）](../dokoTsubu-master/src/test/java/service/PortalService.java)**:
   - 既存のテストコードには、`PortalService` を直接使っているものが多数ありました。
   - それらを一度に大きく書き換えると、テスト側の修正ミスが起きる可能性があります。
   - そのため、テスト用の `PortalService` を用意し、既存テストへの影響を最小限に抑えました。

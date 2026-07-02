@@ -13,6 +13,7 @@ import service.AuditService;
 import service.AccountTokenService;
 import java.util.Locale;
 import service.RequestRateLimiter;
+import util.SecurityLog;
 
 @WebServlet(urlPatterns = {"/login", "/logout", "/account", "/forgot", "/reset", "/invite", "/privacy"})
 public class AuthServlet extends HttpServlet {
@@ -47,8 +48,7 @@ public class AuthServlet extends HttpServlet {
         try {
           user = users.authenticate(req.getParameter("email"), req.getParameter("password"));
         } catch (Throwable e) {
-          System.err.println("CRITICAL: Authentication failed unexpectedly!");
-          e.printStackTrace(System.err);
+          SecurityLog.error("Authentication lookup failed", e);
           req.setAttribute("error", "ログイン処理中にサーバーエラーが発生しました。");
           req.getRequestDispatcher("/index.jsp").forward(req, res);
           return;
@@ -68,14 +68,12 @@ public class AuthServlet extends HttpServlet {
         try {
           AuditService.record(user.getId(), "LOGIN", "USER", String.valueOf(user.getId()), null, null);
         } catch (Throwable e) {
-          System.err.println("WARNING: Audit log creation failed during login. Continuing login process.");
-          e.printStackTrace(System.err);
+          SecurityLog.warn("Login audit recording failed", e);
         }
         res.sendRedirect(req.getContextPath() + "/app/dashboard");
         return;
       } catch (Throwable t) {
-        System.err.println("CRITICAL: Unhandled exception during login request processing.");
-        t.printStackTrace(System.err);
+        SecurityLog.error("Login request processing failed", t);
         req.setAttribute("error", "システムエラーが発生しました。");
         req.getRequestDispatcher("/index.jsp").forward(req, res);
         return;

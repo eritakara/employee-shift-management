@@ -6,12 +6,15 @@ import filter.SameOriginPolicy;
 import filter.TransportSecurityPolicy;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import model.User;
 import util.HtmlEscaper;
+import util.SecurityLog;
 
 public class SecurityHardeningTest {
   public static void main(String[] args) throws Exception {
@@ -33,6 +36,22 @@ public class SecurityHardeningTest {
     check(TransportSecurityPolicy.shouldUseHsts("production", false, "https"), "HSTS enabled behind production HTTPS proxy");
     check(!TransportSecurityPolicy.shouldUseHsts("production", false, "http"), "HSTS disabled for production HTTP request");
     check(!TransportSecurityPolicy.shouldUseHsts("development", true, "https"), "HSTS disabled outside production");
+
+    RuntimeException diagnosticError = new RuntimeException("sensitive-value-marker");
+    ByteArrayOutputStream productionLogBytes = new ByteArrayOutputStream();
+    SecurityLog.write("ERROR", "Authentication failed", diagnosticError, true,
+        new PrintStream(productionLogBytes, true, java.nio.charset.StandardCharsets.UTF_8));
+    String productionLog = productionLogBytes.toString(java.nio.charset.StandardCharsets.UTF_8);
+    check(productionLog.contains("Authentication failed") && productionLog.contains("RuntimeException"),
+        "production log keeps safe operation and error type");
+    check(!productionLog.contains("sensitive-value-marker") && !productionLog.contains("SecurityHardeningTest.java"),
+        "production log excludes exception message and stack trace");
+    ByteArrayOutputStream developmentLogBytes = new ByteArrayOutputStream();
+    SecurityLog.write("ERROR", "Authentication failed", diagnosticError, false,
+        new PrintStream(developmentLogBytes, true, java.nio.charset.StandardCharsets.UTF_8));
+    String developmentLog = developmentLogBytes.toString(java.nio.charset.StandardCharsets.UTF_8);
+    check(developmentLog.contains("sensitive-value-marker") && developmentLog.contains("SecurityHardeningTest.java"),
+        "development log keeps diagnostic exception details");
 
     RequestRateLimiter limiter = new RequestRateLimiter(2, 1_000, 2);
     limiter.record("first", 1_000);

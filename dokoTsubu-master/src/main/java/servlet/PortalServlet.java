@@ -15,6 +15,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import model.User;
+import util.SecurityLog;
 
 @WebServlet("/app/*")
 public class PortalServlet extends HttpServlet {
@@ -287,7 +288,7 @@ public class PortalServlet extends HttpServlet {
     } catch (IllegalArgumentException | SecurityException e) {
       req.getSession().setAttribute("error", e.getMessage());
     } catch (Exception e) {
-      getServletContext().log("Portal action failed", e);
+      SecurityLog.error("Portal action failed", e);
       req.getSession().setAttribute("error", "処理に失敗しました。入力内容を確認してください。");
     }
     String returnMonth = req.getParameter("returnMonth");

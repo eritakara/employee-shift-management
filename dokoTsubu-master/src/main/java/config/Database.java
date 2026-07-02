@@ -18,6 +18,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 import util.PasswordUtil;
+import util.SecurityLog;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -107,8 +108,7 @@ public final class Database {
       }
       System.out.println("Database initialization completed successfully.");
     } catch (Throwable e) {
-      System.err.println("CRITICAL ERROR: Database initialization failed!");
-      e.printStackTrace(System.err);
+      SecurityLog.error("Database initialization failed", e);
       jdbcUrl = null;
       jdbcUser = null;
       jdbcPassword = null;

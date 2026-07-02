@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import model.User;
 import util.PasswordUtil;
+import util.SecurityLog;
 
 public class UserDAO {
   public User authenticate(String email, String password) {
@@ -21,8 +22,7 @@ public class UserDAO {
         }
       }
     } catch (SQLException e) {
-      System.err.println("SQL Error during authentication: " + e.getMessage());
-      e.printStackTrace(System.err);
+      SecurityLog.error("User authentication query failed", e);
       throw new IllegalStateException("Login failed", e);
     }
     return null;
@@ -44,8 +44,7 @@ public class UserDAO {
       p.setLong(1, id);
       try (ResultSet rs = p.executeQuery()) { return rs.next() ? map(rs) : null; }
     } catch (SQLException e) {
-      System.err.println("SQL Error during findById: " + e.getMessage());
-      e.printStackTrace(System.err);
+      SecurityLog.error("User lookup query failed", e);
       throw new IllegalStateException("Could not load user", e);
     }
   }
@@ -56,8 +55,7 @@ public class UserDAO {
          PreparedStatement p = c.prepareStatement("UPDATE users SET locale=? WHERE id=?")) {
       p.setString(1, locale); p.setLong(2, id); p.executeUpdate();
     } catch (SQLException e) {
-      System.err.println("SQL Error during updateLocale: " + e.getMessage());
-      e.printStackTrace(System.err);
+      SecurityLog.error("User locale update failed", e);
       throw new IllegalStateException("Could not update locale", e);
     }
   }
@@ -67,8 +65,7 @@ public class UserDAO {
          PreparedStatement p = c.prepareStatement("UPDATE users SET password_hash=? WHERE id=?")) {
       p.setString(1, PasswordUtil.hash(password)); p.setLong(2, id); p.executeUpdate();
     } catch (SQLException e) {
-      System.err.println("SQL Error during updatePassword: " + e.getMessage());
-      e.printStackTrace(System.err);
+      SecurityLog.error("User password update failed", e);
       throw new IllegalStateException("Could not update password", e);
     }
   }

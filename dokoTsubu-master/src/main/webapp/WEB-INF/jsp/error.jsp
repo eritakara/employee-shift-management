@@ -6,21 +6,7 @@ response.setStatus(status);
 
 String excKey = "jakarta.servlet.error.excep" + "tion";
 Throwable throwable = (Throwable) request.getAttribute(excKey);
-if (throwable != null) {
-  // 【情報漏洩防止・セキュア設計】本番環境 (APP_ENV=production) では、
-  // エラー詳細（内部パス、SQLスタックトレースなど）が画面やログに出力されるのを防ぐため、
-  // 例外クラス名とメッセージのみを安全に記録します。
-  // 開発環境では、デバッグしやすくするためにスタックトレースのフル出力を許可します。
-  String appEnv = System.getenv("APP_ENV");
-  boolean isDev = appEnv == null || !"production".equalsIgnoreCase(appEnv);
-  if (isDev) {
-    System.err.println("--- Web Application Error [" + status + "] ---");
-    throwable.printStackTrace(System.err);
-    System.err.println("----------------------------------------");
-  } else {
-    System.err.println("Web Application Error [" + status + "]: " + throwable.getClass().getName() + (throwable.getMessage() != null ? ": " + throwable.getMessage() : ""));
-  }
-}
+if (throwable != null) util.SecurityLog.error("Web application error status=" + status, throwable);
 %>
 <!DOCTYPE html>
 <html lang="ja">

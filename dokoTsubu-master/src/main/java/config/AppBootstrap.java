@@ -3,6 +3,7 @@ package config;
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import jakarta.servlet.annotation.WebListener;
+import util.SecurityLog;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.concurrent.Executors;
@@ -22,9 +23,7 @@ public class AppBootstrap implements ServletContextListener {
       Database.initialize();
       event.getServletContext().log("AppBootstrap: Database initialized successfully.");
     } catch (Throwable t) {
-      System.err.println("CRITICAL ERROR: Database initialization failed during AppBootstrap context initialization!");
-      t.printStackTrace(System.err);
-      event.getServletContext().log("CRITICAL ERROR: AppBootstrap initialization failed", t);
+      SecurityLog.error("Application bootstrap initialization failed", t);
       throw t;
     }
 
@@ -38,11 +37,11 @@ public class AppBootstrap implements ServletContextListener {
     long initialDelay = Duration.between(now, next).toSeconds();
     scheduler.scheduleAtFixedRate(() -> {
       try { new ScheduledTasks().runDaily(); }
-      catch (RuntimeException e) { event.getServletContext().log("Daily task failed", e); }
+      catch (RuntimeException e) { SecurityLog.error("Daily scheduled task failed", e); }
     }, initialDelay, TimeUnit.DAYS.toSeconds(1), TimeUnit.SECONDS);
     scheduler.scheduleWithFixedDelay(() -> {
       try { new MailDeliveryService().deliverPending(); }
-      catch (RuntimeException e) { event.getServletContext().log("Mail delivery failed", e); }
+      catch (RuntimeException e) { SecurityLog.error("Scheduled mail delivery failed", e); }
     }, 10, 60, TimeUnit.SECONDS);
   }
 

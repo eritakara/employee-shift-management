@@ -44,7 +44,7 @@ final class DemoAttendanceSeeder {
     String token = value("shiftapp.demoAttendanceResetToken", "DEMO_ATTENDANCE_RESET_TOKEN", "");
     if (token.isBlank()) throw new IllegalStateException("DEMO_ATTENDANCE_RESET_TOKEN is required and must be unique for each intentional reset.");
     if (token.equals(setting(connection, MARKER_KEY))) {
-      System.out.println("Attendance demo reset skipped: token has already completed successfully (" + token + ").");
+      System.out.println("Attendance demo reset skipped: the configured reset token has already completed successfully.");
       return;
     }
     int year = scenarioYear();

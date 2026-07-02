@@ -410,11 +410,7 @@ public final class Database {
       String hrEmail = setting("shiftapp.initialHrEmail", "INITIAL_HR_EMAIL", "hr@example.com");
       String hrPassword = setting("shiftapp.initialHrPassword", "INITIAL_HR_PASSWORD", "Password1!");
 
-      // 【安全装置】本番環境かつ初期パスワードがデフォルト（Password1!）のままで起動しようとした場合、
-      // 不正アクセス防止のため、Tomcat の起動自体を強制的に停止（例外をスロー）します。
-      if (isProduction && "hr@example.com".equals(hrEmail) && "Password1!".equals(hrPassword)) {
-        throw new IllegalStateException("INITIAL_HR_EMAIL and INITIAL_HR_PASSWORD environment variables must be configured in production for security reasons.");
-      }
+      validateInitialHrCredentials(isProduction, hrEmail, hrPassword);
 
       System.out.println("Creating initial HR user: " + hrEmail);
       try {
@@ -553,6 +549,16 @@ public final class Database {
       }
     }
     seedMissingLeaveGrants(c);
+  }
+
+  static void validateInitialHrCredentials(boolean production, String email, String password) {
+    if (!production) return;
+    if (email == null || email.isBlank() || "hr@example.com".equalsIgnoreCase(email.trim())) {
+      throw new IllegalStateException("INITIAL_HR_EMAIL must be configured with a non-default value in production.");
+    }
+    if (password == null || password.isBlank() || "Password1!".equals(password)) {
+      throw new IllegalStateException("INITIAL_HR_PASSWORD must be configured with a non-default value in production.");
+    }
   }
 
   private static void seedMissingLeaveGrants(Connection c) throws SQLException {

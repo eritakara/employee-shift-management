@@ -22,9 +22,9 @@ public class LeaveService {
   private final SettingsService settings = new SettingsService();
 
   public List<Map<String, Object>> leaveRequests(User viewer) {
-    String ownOrScope = viewer.isHr() ? "" : viewer.isManager() ? " AND u.branch_id=?" : " AND l.user_id=?";
+    String ownOrScope = viewer.isHr() ? "" : viewer.isManager() ? " AND u.branch_id=? AND u.department_id=?" : " AND l.user_id=?";
     Object[] args = viewer.isHr() ? new Object[]{} : viewer.isManager()
-        ? new Object[]{viewer.getBranchId()} : new Object[]{viewer.getId()};
+        ? new Object[]{viewer.getBranchId(), viewer.getDepartmentId()} : new Object[]{viewer.getId()};
     List<Map<String, Object>> rows = Sql.query("SELECT l.*,u.name,u.employee_number,u.role applicant_role,u.branch_id,u.department_id FROM leave_requests l JOIN users u ON u.id=l.user_id WHERE 1=1"
         + ownOrScope + " ORDER BY l.created_at DESC", args);
     List<ApproverCandidate> all = loadAllCandidates();
@@ -41,9 +41,9 @@ public class LeaveService {
   }
 
   public List<Map<String, Object>> leaveHistory(User viewer) {
-    String filter = viewer.isHr() ? "" : viewer.isManager() ? " AND u.branch_id=?" : " AND h.user_id=?";
+    String filter = viewer.isHr() ? "" : viewer.isManager() ? " AND u.branch_id=? AND u.department_id=?" : " AND h.user_id=?";
     Object[] args = viewer.isHr() ? new Object[]{} : viewer.isManager()
-        ? new Object[]{viewer.getBranchId()} : new Object[]{viewer.getId()};
+        ? new Object[]{viewer.getBranchId(), viewer.getDepartmentId()} : new Object[]{viewer.getId()};
     return Sql.query("SELECT h.*,u.name,u.employee_number FROM leave_history h JOIN users u ON u.id=h.user_id WHERE 1=1" + filter + " ORDER BY h.event_date DESC,h.id DESC", args);
   }
 

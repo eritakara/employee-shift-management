@@ -34,9 +34,9 @@ public class ShiftService {
   }
 
   public List<Map<String, Object>> branchShifts(YearMonth month, long branchId) {
-    return Sql.query("SELECT s.id,s.work_date,s.work_type_code,wt.name_ja work_type,u.id user_id,u.name,u.employee_number,s.status,s.note "
+    return Sql.query("SELECT s.id,s.work_date,s.work_type_code,wt.name_ja work_type,u.id user_id,u.name,s.status "
         + "FROM shifts s JOIN users u ON u.id=s.user_id JOIN work_types wt ON wt.code=s.work_type_code "
-        + "WHERE s.work_date BETWEEN ? AND ? AND u.branch_id=? ORDER BY s.work_date,u.name",
+        + "WHERE s.work_date BETWEEN ? AND ? AND u.branch_id=? AND s.status='CONFIRMED' ORDER BY s.work_date,u.name",
         month.atDay(1), month.atEndOfMonth(), branchId);
   }
 
@@ -57,9 +57,9 @@ public class ShiftService {
   }
 
   public List<Map<String, Object>> dashboardShifts(User viewer, YearMonth month, long branchId) {
-    return Sql.query("SELECT s.id,s.work_date,s.work_type_code,wt.name_ja work_type,u.id user_id,u.name,u.employee_number,s.status,s.note "
+    return Sql.query("SELECT s.id,s.work_date,s.work_type_code,wt.name_ja work_type,u.id user_id,u.name,s.status "
         + "FROM shifts s JOIN users u ON u.id=s.user_id JOIN work_types wt ON wt.code=s.work_type_code "
-        + "WHERE s.work_date BETWEEN ? AND ? AND u.branch_id=? ORDER BY s.work_date,u.name",
+        + "WHERE s.work_date BETWEEN ? AND ? AND u.branch_id=? AND s.status='CONFIRMED' ORDER BY s.work_date,u.name",
         month.atDay(1), month.atEndOfMonth(), branchId);
   }
 

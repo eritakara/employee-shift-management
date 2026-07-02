@@ -7,6 +7,12 @@ import java.sql.Statement;
 
 public class ProductionInitializationTest {
   public static void main(String[] args) throws Exception {
+    expectCredentialFailure("admin@example.com", "Password1!", "default production HR password is rejected independently");
+    expectCredentialFailure("hr@example.com", "A-secure-production-password", "default production HR email is rejected independently");
+    expectCredentialFailure("admin@example.com", "", "blank production HR password is rejected");
+    expectCredentialFailure("", "A-secure-production-password", "blank production HR email is rejected");
+    Database.validateInitialHrCredentials(true, "admin@example.com", "A-secure-production-password");
+    Database.validateInitialHrCredentials(false, "hr@example.com", "Password1!");
     System.setProperty("shiftapp.dataDir", Files.createTempDirectory("shiftflow-production-init-").toString());
     System.setProperty("shiftapp.seedDemo", "false");
     Database.initialize();
@@ -17,6 +23,16 @@ public class ProductionInitializationTest {
       check(count(statement, "SELECT COUNT(*) FROM branches") == 0, "demo master data is not inserted");
     }
     System.out.println("ProductionInitializationTest: all checks passed");
+  }
+
+  private static void expectCredentialFailure(String email, String password, String label) {
+    try {
+      Database.validateInitialHrCredentials(true, email, password);
+    } catch (IllegalStateException expected) {
+      check(password == null || password.isEmpty() || !expected.getMessage().contains(password), label + " without credential disclosure");
+      return;
+    }
+    throw new AssertionError("Failed: " + label);
   }
 
   private static int count(Statement statement, String sql) throws Exception {

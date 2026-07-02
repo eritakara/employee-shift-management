@@ -128,6 +128,9 @@ public class UiStateCoverageTest {
         && shiftRoster.contains("rosterShift!=null&&\"CONFIRMED\".equals(rosterShiftStatus)")
         && shiftRoster.contains("data-shift-edit-cell"),
         "shift adjustment and confirmed-roster screens expose only their permitted editable cells");
+    check(shiftRoster.contains("rosterShowEmployeeNumber=!pageKey.equals(\"shifts/manage\")")
+        && shiftRoster.contains("data-employee=\"<%=e(rosterEmployeeLabel)%>\""),
+        "shift adjustment roster hides employee numbers from both the table and selected-cell editor");
     check(script.contains("const shiftEditor = document.querySelector('[data-shift-editor]')")
         && script.contains("cell.dataset.workTypeLabel"), "shift cell selection populates the editor");
     check(application.contains("<input type=\"hidden\" name=\"status\" data-shift-editor-status>")

@@ -25,6 +25,10 @@ public class UiStateCoverageTest {
         && application.contains("assets/app.js?v=20260703-2"), "updated app assets use the latest cache buster");
     check(css.contains(".loading-indicator"), "loading state has a common visual style");
     check(application.contains("class=\"empty\""), "application has a common empty state");
+    check(application.contains("if (\"DEMO_ATTENDANCE_RESET_TOKEN\".equals(value)) return \"デモ勤怠リセット確認キー\"")
+        && application.contains("return \"最後に実行されたデモ勤怠リセットの確認キー\"")
+        && application.contains("settingDescription(key,setting.get(\"description\"))"),
+        "demo attendance reset setting keeps its internal key while showing Japanese labels");
     check(application.contains("href=\"<%=ctx%>/app/masters/work-types\">勤務区分・休憩・必要人数</a>")
         && !application.contains("href=\"<%=ctx%>/app/masters/staffing\">必要人数</a>"),
         "work type, break, and staffing settings use one consolidated master-data tab");

@@ -49,6 +49,19 @@ public class LeavePolicyTest {
     ledger.restore(requestId, today.plusDays(1));
     Sql.update("UPDATE leave_requests SET status='CANCELLED' WHERE id=?", requestId);
     check(((BigDecimal) ledger.balance(employeeId, today).get("days_remaining")).compareTo(new BigDecimal("10.00")) == 0, "cancellation restores balance");
+
+    for (int cycle = 0; cycle < 3; cycle++) {
+      long oneHourId = Sql.insert("INSERT INTO leave_requests(user_id,leave_date,leave_unit,hours,reason) VALUES(?,?,'HOURLY',1,'one hour')",
+          employeeId, leaveDate.plusDays(2 + cycle));
+      ledger.consume(oneHourId);
+      Sql.update("UPDATE leave_requests SET status='APPROVED' WHERE id=?", oneHourId);
+      check(((BigDecimal) Sql.one("SELECT days_remaining FROM leave_grants WHERE user_id=?", employeeId).get("days_remaining"))
+          .compareTo(new BigDecimal("9.875")) == 0, "one-hour leave keeps exact three-decimal balance cycle " + cycle);
+      ledger.restore(oneHourId, today.plusDays(1));
+      Sql.update("UPDATE leave_requests SET status='CANCELLED' WHERE id=?", oneHourId);
+      check(((BigDecimal) ledger.balance(employeeId, today).get("days_remaining")).compareTo(new BigDecimal("10.000")) == 0,
+          "one-hour leave cancellation does not create a 10.01 rounding artifact cycle " + cycle);
+    }
     User employee = new UserDAO().authenticate("employee@example.com", "Password1!");
     new PortalService().requestLeave(employee, leaveDate.plusDays(20), "FULL", null, "");
     check("".equals(Sql.one("SELECT reason FROM leave_requests WHERE user_id=? AND leave_date=?", employeeId, leaveDate.plusDays(20)).get("reason")),

@@ -137,9 +137,12 @@ public class LeaveService {
     Map<String, Object> balance = leaveBalance(userId);
     BigDecimal days = (BigDecimal) balance.getOrDefault("days_remaining", BigDecimal.ZERO);
     int hoursPerDay = ((Number) balance.getOrDefault("hours_per_day", 8)).intValue();
-    double neededPerDay = "FULL".equals(unit) ? 1 : ("AM".equals(unit) || "PM".equals(unit)) ? .5 : (hours == null ? 0 : hours / (double) hoursPerDay);
-    double needed = neededPerDay * dates.size();
-    if (days.doubleValue() < needed) {
+    BigDecimal neededPerDay = "FULL".equals(unit) ? BigDecimal.ONE
+        : ("AM".equals(unit) || "PM".equals(unit)) ? new BigDecimal("0.5")
+        : BigDecimal.valueOf(hours == null ? 0 : hours)
+            .divide(BigDecimal.valueOf(hoursPerDay), 3, java.math.RoundingMode.HALF_UP);
+    BigDecimal needed = neededPerDay.multiply(BigDecimal.valueOf(dates.size()));
+    if (days.compareTo(needed) < 0) {
       throw new IllegalArgumentException("有効期限内の有休残数が不足しています。");
     }
     if ("HOURLY".equals(unit)) {

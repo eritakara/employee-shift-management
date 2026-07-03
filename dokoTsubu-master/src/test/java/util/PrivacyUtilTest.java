@@ -22,6 +22,10 @@ public class PrivacyUtilTest {
     assertEquals("Some random text with no emails.", 
         PrivacyUtil.maskEmailsInText("Some random text with no emails."));
 
+    assertEquals("10", LeaveDayFormat.format(new java.math.BigDecimal("10.000")));
+    assertEquals("10.5", LeaveDayFormat.format(new java.math.BigDecimal("10.500")));
+    assertEquals("10.01", LeaveDayFormat.format(new java.math.BigDecimal("10.010")));
+
     System.out.println("PrivacyUtilTest: all checks passed");
   }
 

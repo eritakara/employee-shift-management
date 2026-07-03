@@ -5,9 +5,7 @@
     return util.HtmlEscaper.escape(value);
   }
   private String days(Object value) {
-    if (value == null) return "0";
-    try { return new java.math.BigDecimal(String.valueOf(value)).stripTrailingZeros().toPlainString(); }
-    catch (NumberFormatException ex) { return e(value); }
+    return e(util.LeaveDayFormat.format(value));
   }
   private String shiftClass(Object code) {
     String value = String.valueOf(code);

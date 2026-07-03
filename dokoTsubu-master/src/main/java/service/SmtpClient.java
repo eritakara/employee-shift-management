@@ -18,6 +18,8 @@ import javax.net.ssl.SSLSocketFactory;
 
 public class SmtpClient {
   private static final int TIMEOUT_MS = 5_000;
+  private static final int MAX_RESPONSE_INPUT_LENGTH = 2_000;
+  private static final int MAX_SAFE_RESPONSE_LENGTH = 500;
 
   public void send(MailConfig config, String recipient, String subject, String body) throws IOException {
     Socket socket = null;
@@ -190,14 +192,122 @@ public class SmtpClient {
     String safeMessage() { return safeMessage; }
   }
 
-  private static String sanitizeResponse(String value) {
+  static String sanitizeResponse(String value) {
     if (value == null) return "unknown";
-    String sanitized = value.replaceAll("[\\r\\n\\p{Cntrl}]", " ")
-        .replaceAll("(?i)[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}", "[email]")
-        .replaceAll("(?i)https?://\\S+", "[url]")
-        .replaceAll("(?i)\\b(?:re_[A-Z0-9_=-]+|bearer\\s+\\S+)\\b", "[redacted]")
-        .replaceAll("(?i)\\b(?:token|password|api[_ -]?key)\\s*[=:]\\s*\\S+", "[redacted]")
-        .replaceAll("(?i)\\b[A-F0-9]{24,}\\b", "[redacted]");
-    return sanitized.substring(0, Math.min(sanitized.length(), 500));
+    int inputLength = Math.min(value.length(), MAX_RESPONSE_INPUT_LENGTH);
+    StringBuilder normalized = new StringBuilder(inputLength);
+    for (int i = 0; i < inputLength; i++) {
+      char ch = value.charAt(i);
+      normalized.append(Character.isISOControl(ch) ? ' ' : ch);
+    }
+
+    StringBuilder safe = new StringBuilder(Math.min(inputLength, MAX_SAFE_RESPONSE_LENGTH));
+    boolean redactNextToken = false;
+    int index = 0;
+    while (index < normalized.length() && safe.length() < MAX_SAFE_RESPONSE_LENGTH) {
+      if (Character.isWhitespace(normalized.charAt(index))) {
+        appendLimited(safe, ' ');
+        index++;
+        continue;
+      }
+
+      int tokenEnd = index + 1;
+      while (tokenEnd < normalized.length() && !Character.isWhitespace(normalized.charAt(tokenEnd))) {
+        tokenEnd++;
+      }
+      String token = normalized.substring(index, tokenEnd);
+      boolean bearer = equalsIgnoreCase(token, "bearer");
+      boolean sensitiveLabel = isSensitiveLabel(token);
+      boolean assignmentSeparator = token.equals("=") || token.equals(":");
+      if (redactNextToken || bearer || shouldRedactToken(token)) {
+        appendLimited(safe, "[redacted]");
+      } else {
+        appendLimited(safe, token);
+      }
+      redactNextToken = bearer || sensitiveLabel || (redactNextToken && assignmentSeparator);
+      index = tokenEnd;
+    }
+    return safe.toString();
+  }
+
+  private static boolean shouldRedactToken(String token) {
+    return containsEmailAddress(token)
+        || startsWithIgnoreCase(trimLeadingPunctuation(token), "http://")
+        || startsWithIgnoreCase(trimLeadingPunctuation(token), "https://")
+        || startsWithIgnoreCase(trimLeadingPunctuation(token), "re_")
+        || containsSecretAssignment(token)
+        || isLongHexToken(token);
+  }
+
+  private static boolean containsEmailAddress(String token) {
+    int at = token.indexOf('@');
+    return at > 0 && token.indexOf('.', at + 2) > at + 1;
+  }
+
+  private static boolean containsSecretAssignment(String token) {
+    String lower = token.toLowerCase(java.util.Locale.ROOT);
+    return hasAssignment(lower, "token")
+        || hasAssignment(lower, "password")
+        || hasAssignment(lower, "api_key")
+        || hasAssignment(lower, "api-key")
+        || hasAssignment(lower, "apikey");
+  }
+
+  private static boolean hasAssignment(String value, String name) {
+    int start = value.indexOf(name);
+    if (start < 0) return false;
+    int separator = start + name.length();
+    return separator < value.length()
+        && (value.charAt(separator) == '=' || value.charAt(separator) == ':');
+  }
+
+  private static boolean isSensitiveLabel(String token) {
+    String lower = trimPunctuation(token).toLowerCase(java.util.Locale.ROOT);
+    return lower.equals("token") || lower.equals("password")
+        || lower.equals("api_key") || lower.equals("api-key") || lower.equals("apikey");
+  }
+
+  private static boolean isLongHexToken(String token) {
+    String core = trimPunctuation(token);
+    if (core.length() < 24) return false;
+    for (int i = 0; i < core.length(); i++) {
+      char ch = core.charAt(i);
+      if (!((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F'))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static String trimLeadingPunctuation(String value) {
+    int start = 0;
+    while (start < value.length() && !Character.isLetterOrDigit(value.charAt(start))) start++;
+    return value.substring(start);
+  }
+
+  private static String trimPunctuation(String value) {
+    int start = 0;
+    int end = value.length();
+    while (start < end && !Character.isLetterOrDigit(value.charAt(start))) start++;
+    while (end > start && !Character.isLetterOrDigit(value.charAt(end - 1))) end--;
+    return value.substring(start, end);
+  }
+
+  private static boolean startsWithIgnoreCase(String value, String prefix) {
+    return value.length() >= prefix.length() && value.regionMatches(true, 0, prefix, 0, prefix.length());
+  }
+
+  private static boolean equalsIgnoreCase(String value, String expected) {
+    return value.length() == expected.length() && value.regionMatches(true, 0, expected, 0, expected.length());
+  }
+
+  private static void appendLimited(StringBuilder target, char value) {
+    if (target.length() < MAX_SAFE_RESPONSE_LENGTH) target.append(value);
+  }
+
+  private static void appendLimited(StringBuilder target, String value) {
+    int remaining = MAX_SAFE_RESPONSE_LENGTH - target.length();
+    if (remaining <= 0) return;
+    target.append(value, 0, Math.min(value.length(), remaining));
   }
 }

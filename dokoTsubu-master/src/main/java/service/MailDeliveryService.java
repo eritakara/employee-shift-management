@@ -44,12 +44,7 @@ public class MailDeliveryService {
       Sql.update("UPDATE notifications SET email_status='SENT' WHERE id=(SELECT MAX(id) FROM notifications WHERE user_id=(SELECT id FROM users WHERE email=?) AND title=?)", mail.get("recipient"), mail.get("subject"));
       return true;
     } catch (Exception e) {
-      String smtpDetails = "";
-      if (e instanceof SmtpClient.SmtpStageException smtpError) {
-        smtpDetails = ", stage=" + smtpError.stage();
-        if (smtpError.responseCode() != null) smtpDetails += ", smtpCode=" + smtpError.responseCode();
-        if (smtpError.responseMessage() != null) smtpDetails += ", smtpMessage=" + smtpError.responseMessage();
-      }
+      String smtpDetails = smtpLogDetails(e, isProduction());
       System.err.println("[MAIL] delivery failed: mailId=" + id + ", attempt=" + attempts
           + ", errorType=" + e.getClass().getSimpleName() + smtpDetails);
       boolean failed = attempts >= config.maxAttempts();
@@ -58,6 +53,20 @@ public class MailDeliveryService {
           failed ? "FAILED" : "RETRY", safeMessage(e), failed ? null : LocalDateTime.now().plusMinutes(delayMinutes), id);
       return false;
     }
+  }
+
+  static String smtpLogDetails(Exception error, boolean production) {
+    if (!(error instanceof SmtpClient.SmtpStageException smtpError)) return "";
+    String details = ", stage=" + smtpError.stage();
+    if (smtpError.responseCode() != null) details += ", smtpCode=" + smtpError.responseCode();
+    if (!production && smtpError.responseMessage() != null) {
+      details += ", smtpMessage=" + smtpError.responseMessage();
+    }
+    return details;
+  }
+
+  private static boolean isProduction() {
+    return "production".equalsIgnoreCase(System.getenv("APP_ENV"));
   }
 
   private String safeMessage(Exception e) {

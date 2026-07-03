@@ -49,6 +49,18 @@ public class MailDeliveryTest {
     check("..first\r\nsecond\r\n.\r\n".equals(SmtpClient.formatData(".first\nsecond\r\n")),
         "SMTP DATA uses dot escaping, CRLF, and a single terminator");
 
+    check("250 Message accepted".equals(SmtpClient.sanitizeResponse("250 Message accepted")),
+        "normal SMTP response remains readable");
+    String controlled = SmtpClient.sanitizeResponse("550 rejected\r\n\u0000owner@example.com token=secret-value");
+    check(controlled.indexOf('\r') < 0 && controlled.indexOf('\n') < 0 && controlled.indexOf('\u0000') < 0,
+        "SMTP response control characters are removed");
+    check(!controlled.contains("owner@example.com") && !controlled.contains("secret-value"),
+        "SMTP response credentials are redacted");
+    check(!SmtpClient.sanitizeResponse("550 password = another-secret").contains("another-secret"),
+        "spaced SMTP response credentials are redacted");
+    String longResponse = SmtpClient.sanitizeResponse("%".repeat(100_000));
+    check(longResponse.length() == 500, "long SMTP response is bounded safely");
+
     String secretToken = "0123456789abcdef0123456789abcdef";
     try (FakeSmtpServer smtp = new FakeSmtpServer(
         "550 You can only send testing emails to owner@example.com; token=" + secretToken)) {
@@ -63,6 +75,10 @@ public class MailDeliveryTest {
         check(e.responseMessage().contains("You can only send testing emails"), "safe SMTP response text is retained");
         check(!e.responseMessage().contains("owner@example.com"), "email in SMTP response is masked");
         check(!e.responseMessage().contains(secretToken), "token in SMTP response is masked");
+        check(!MailDeliveryService.smtpLogDetails(e, true).contains("smtpMessage="),
+            "production SMTP log omits response details");
+        check(MailDeliveryService.smtpLogDetails(e, false).contains("smtpMessage="),
+            "development SMTP log retains sanitized response details");
       }
     }
 

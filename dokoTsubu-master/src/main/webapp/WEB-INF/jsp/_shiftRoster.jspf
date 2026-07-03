@@ -8,7 +8,7 @@
    String rosterStatusLabel=rosterAllConfirmed?"確定済み":rosterMixedStatus?"一部未確定":"未確定";
    String[] rosterWeekdays={"月","火","水","木","金","土","日"};
    boolean rosterEditable=pageKey.equals("shifts/manage")||pageKey.equals("shifts/confirm");
-   boolean rosterShowEmployeeNumber=!pageKey.equals("shifts/manage");
+   boolean rosterShowEmployeeNumber=!List.of("shifts/manage","shifts/confirm").contains(pageKey);
    String rosterBranchName="";
    if(rosterBranches!=null&&rosterBranchId!=null) for(Map<String,Object> branch:rosterBranches) if(((Number)branch.get("id")).longValue()==rosterBranchId) rosterBranchName=String.valueOf(branch.get("name")); %>
 <section class="section shift-roster-section">

@@ -68,6 +68,10 @@ public class UiStateCoverageTest {
         && application.contains("<h2>全員確認後、月次一括確定する</h2>")
         && application.contains("<h2>詳細確認</h2>"),
         "attendance finalization is presented as a five-step flow");
+    check(application.contains("data-attendance-employee-select")
+        && application.contains("data-finalized=\"<%=employeeFinalized%>\"><%=e(person.get(\"name\"))%></option>")
+        && !application.contains("data-finalized=\"<%=employeeFinalized%>\"><%=e(person.get(\"employee_number\"))%>"),
+        "attendance employee and monthly finalization controls show names without employee numbers");
     check(application.indexOf("<h2>従業員別に確定する</h2>")
         < application.indexOf("<h2>全員確認後、月次一括確定する</h2>"),
         "employee finalization precedes monthly finalization");
@@ -125,6 +129,10 @@ public class UiStateCoverageTest {
         && script.contains("'変更を保存':'Save change'"), "shift adjustment wording supports English display");
     check(application.contains("shift-workflow-metrics") && application.contains("希望一覧を開く")
         && application.contains("提出希望日を確認"), "shift adjustment summarizes and collapses preferences");
+    check(!application.contains("<small><%=e(user.getEmployeeNumber())%></small>")
+        && !application.contains("summary.get(\"employee_number\")")
+        && !application.contains("detail.get(\"employee_number\")"),
+        "shift preference submission and review screens hide employee numbers");
     check(application.contains("提出期限を過ぎているため、希望シフトは提出できません。")
         && application.contains("data-submission-open=\"<%=submissionOpen%>\"")
         && application.contains("<%=submissionOpen?\"\":\"disabled\"%>"),
@@ -139,9 +147,9 @@ public class UiStateCoverageTest {
         && shiftRoster.contains("rosterShift!=null&&\"CONFIRMED\".equals(rosterShiftStatus)")
         && shiftRoster.contains("data-shift-edit-cell"),
         "shift adjustment and confirmed-roster screens expose only their permitted editable cells");
-    check(shiftRoster.contains("rosterShowEmployeeNumber=!pageKey.equals(\"shifts/manage\")")
+    check(shiftRoster.contains("rosterShowEmployeeNumber=!List.of(\"shifts/manage\",\"shifts/confirm\").contains(pageKey)")
         && shiftRoster.contains("data-employee=\"<%=e(rosterEmployeeLabel)%>\""),
-        "shift adjustment roster hides employee numbers from both the table and selected-cell editor");
+        "shift adjustment and confirmation rosters hide employee numbers from the table and selected-cell editor");
     check(script.contains("const shiftEditor = document.querySelector('[data-shift-editor]')")
         && script.contains("cell.dataset.workTypeLabel"), "shift cell selection populates the editor");
     check(application.contains("<input type=\"hidden\" name=\"status\" data-shift-editor-status>")

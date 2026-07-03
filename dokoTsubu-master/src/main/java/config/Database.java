@@ -66,6 +66,9 @@ public final class Database {
   public static synchronized void initialize() {
     if (jdbcUrl != null) return;
     logEnvironmentState();
+    validateDemoSeedConfiguration(
+        isProductionEnvironment(),
+        flag("shiftapp.demoSeed", "DEMO_SEED", false));
     try {
       String url = configuredJdbcUrl();
       if (url != null) {
@@ -549,6 +552,18 @@ public final class Database {
       }
     }
     seedMissingLeaveGrants(c);
+  }
+
+  static void validateDemoSeedConfiguration(boolean production, boolean demoSeed) {
+    if (production && demoSeed) {
+      throw new IllegalStateException("DEMO_SEED must be disabled in production.");
+    }
+  }
+
+  private static boolean isProductionEnvironment() {
+    return "true".equalsIgnoreCase(System.getenv("RENDER"))
+        || "production".equalsIgnoreCase(System.getenv("APP_ENV"))
+        || "true".equalsIgnoreCase(System.getenv("DB_REQUIRED"));
   }
 
   static void validateInitialHrCredentials(boolean production, String email, String password) {

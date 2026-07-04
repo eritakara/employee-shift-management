@@ -181,6 +181,7 @@ public class PortalServlet extends HttpServlet {
     req.setCharacterEncoding("UTF-8");
     User user = current(req);
     String returnPage = value(req, "returnPage", "dashboard");
+    String returnMonth = req.getParameter("returnMonth");
     try {
       String action = req.getParameter("action");
       switch (action == null ? "" : action) {
@@ -227,9 +228,20 @@ public class PortalServlet extends HttpServlet {
         case "cancelLeave" -> leaveService.cancelLeave(user, Long.parseLong(req.getParameter("id")));
         case "clock" -> attendanceService.clock(user, "in".equals(req.getParameter("direction")), req.getParameter("lat"), req.getParameter("lng"), value(req, "locationStatus", "UNKNOWN"));
         case "finalizeAttendance" -> attendanceService.finalizeAttendance(user, Long.parseLong(req.getParameter("id")), Boolean.parseBoolean(req.getParameter("finalized")));
-        case "finalizeAttendanceMonth" -> attendanceService.finalizeAttendanceMonth(user, parseMonth(req.getParameter("month")), Boolean.parseBoolean(req.getParameter("finalized")));
-        case "finalizeAttendanceEmployeeMonth" -> attendanceService.finalizeAttendanceEmployeeMonth(user, Long.parseLong(req.getParameter("userId")),
-            parseMonth(req.getParameter("month")), Boolean.parseBoolean(req.getParameter("finalized")));
+        case "finalizeAttendanceMonth" -> {
+          YearMonth attendanceMonth = parseMonth(req.getParameter("month"));
+          boolean finalized = Boolean.parseBoolean(req.getParameter("finalized"));
+          attendanceService.finalizeAttendanceMonth(user, attendanceMonth, finalized);
+          returnMonth = attendanceMonth.toString();
+          req.getSession().setAttribute("flash", String.format("%d年%02d月の勤怠を%sしました。",
+              attendanceMonth.getYear(), attendanceMonth.getMonthValue(), finalized ? "一括確定" : "確定解除"));
+        }
+        case "finalizeAttendanceEmployeeMonth" -> {
+          YearMonth attendanceMonth = parseMonth(req.getParameter("month"));
+          attendanceService.finalizeAttendanceEmployeeMonth(user, Long.parseLong(req.getParameter("userId")),
+              attendanceMonth, Boolean.parseBoolean(req.getParameter("finalized")));
+          returnMonth = attendanceMonth.toString();
+        }
         case "requestAttendanceAdjustment" -> attendanceService.requestAttendanceAdjustment(user, Long.parseLong(req.getParameter("attendanceId")),
             LocalDateTime.parse(req.getParameter("requestedIn")), LocalDateTime.parse(req.getParameter("requestedOut")), req.getParameter("reason"));
         case "decideAttendanceAdjustment" -> {
@@ -294,7 +306,6 @@ public class PortalServlet extends HttpServlet {
       SecurityLog.error("Portal action failed", e);
       req.getSession().setAttribute("error", "処理に失敗しました。入力内容を確認してください。");
     }
-    String returnMonth = req.getParameter("returnMonth");
     String monthQuery = returnMonth != null && returnMonth.matches("\\d{4}-\\d{2}") ? "?month=" + returnMonth : "";
     res.sendRedirect(req.getContextPath() + "/app/" + returnPage + monthQuery);
   }

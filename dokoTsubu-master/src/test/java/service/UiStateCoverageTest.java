@@ -223,6 +223,10 @@ public class UiStateCoverageTest {
         "invitation email result messages are user friendly");
     check(servlet.contains("getAttribute(\"flash\") == null && req.getSession().getAttribute(\"error\") == null"),
         "default save message is not added when an action reports an error");
+    check(servlet.contains("returnMonth = attendanceMonth.toString()")
+        && servlet.contains("finalized ? \"一括確定\" : \"確定解除\"")
+        && servlet.contains("\"?month=\" + returnMonth"),
+        "attendance month finalization redirects back to the processed month with a specific result message");
     check(servletUtil.contains("APP_BASE_URL is not configured")
         && servlet.contains("Invitation email configuration or delivery failed"),
         "missing production base URL fails with a safe diagnostic");

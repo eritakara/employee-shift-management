@@ -228,7 +228,6 @@ String ctx = request.getContextPath();
       <a class="nav-link <%= pageIs(pageKey,"employees") ? "active" : "" %>" href="<%=ctx%>/app/employees">♙ <%= en ? "Employees" : "従業員" %></a>
       <a class="nav-link <%= pageIs(pageKey,"masters") ? "active" : "" %>" href="<%=ctx%>/app/masters/branches">⚙ <%= en ? "Master data" : "マスタ管理" %></a>
       <a class="nav-link <%= pageKey.equals("exports") ? "active" : "" %>" href="<%=ctx%>/app/exports">⇩ <%= en ? "Exports" : "データ出力" %></a>
-      <a class="nav-link <%= pageKey.equals("mail-status") ? "active" : "" %>" href="<%=ctx%>/app/mail-status">✉ <%= en ? "Mail status" : "メール送信状況" %></a>
       <a class="nav-link <%= pageKey.equals("audit") ? "active" : "" %>" href="<%=ctx%>/app/audit">≡ <%= en ? "Audit log" : "操作履歴" %></a>
       <% } %>
     </nav>

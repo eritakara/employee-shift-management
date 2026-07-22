@@ -81,6 +81,8 @@ if ($LASTEXITCODE -ne 0) { throw "Approved requirements tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Concurrent load tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.InvitationWorkflowTest
 if ($LASTEXITCODE -ne 0) { throw "Invitation workflow tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.AccountTokenSecurityTest
+if ($LASTEXITCODE -ne 0) { throw "Account token security tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.AccessibilityTest
 if ($LASTEXITCODE -ne 0) { throw "Accessibility tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.UiStateCoverageTest
@@ -89,6 +91,8 @@ if ($LASTEXITCODE -ne 0) { throw "UI state coverage tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Shift auto fill tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" util.PrivacyUtilTest
 if ($LASTEXITCODE -ne 0) { throw "PrivacyUtil tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" util.PasswordUtilUpgradeTest
+if ($LASTEXITCODE -ne 0) { throw "Password hash upgrade tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.AttendanceAdjustmentApprovalRulesTest
 if ($LASTEXITCODE -ne 0) { throw "Attendance adjustment approval rules tests failed" }
 

@@ -57,6 +57,8 @@ public class NotificationReadStateTest {
 
     String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/app.jsp"));
     check(jsp.contains("/app/notifications?view=all"), "all notifications tab is rendered");
+    check(jsp.contains("未読のみ") && jsp.contains("すべて表示"), "notification filters have clear labels");
+    check(jsp.contains("app.css?v=20260723-1"), "notification styles bypass stale browser cache");
     check(jsp.contains("value=\"markNotificationRead\""), "details action marks one notification read");
     check(jsp.contains("未読の通知はありません。過去の通知は「すべて」から確認できます。"),
         "unread empty-state guidance is rendered");

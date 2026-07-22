@@ -200,7 +200,7 @@ String ctx = request.getContextPath();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= e(pageTitle) %> | シフト・勤怠管理</title>
-  <link rel="stylesheet" href="<%= ctx %>/assets/app.css?v=20260629-1">
+  <link rel="stylesheet" href="<%= ctx %>/assets/app.css?v=20260723-1">
 </head>
 <body>
 <a class="skip-link" href="#main-content"><%=en?"Skip to main content":"本文へ移動"%></a>
@@ -922,7 +922,7 @@ String ctx = request.getContextPath();
 
       <% } else if(pageKey.equals("notifications")){ %>
         <%String notificationView=String.valueOf(request.getAttribute("notificationView")); int unreadNotificationCount=((Number)request.getAttribute("unreadNotificationCount")).intValue(); boolean showAllNotifications="all".equals(notificationView);%>
-        <div class="notification-toolbar"><nav class="notification-tabs" aria-label="<%=en?"Notification filter":"通知の表示切り替え"%>"><a class="<%=showAllNotifications?"":"active"%>" href="<%=ctx%>/app/notifications"><%=en?"Unread":"未読"%> <span><%=unreadNotificationCount%></span></a><a class="<%=showAllNotifications?"active":""%>" href="<%=ctx%>/app/notifications?view=all"><%=en?"All":"すべて"%></a></nav><%if(unreadNotificationCount>0){%><form method="post"><input type="hidden" name="action" value="markNotificationsRead"><input type="hidden" name="returnPage" value="notifications"><button><%=en?"Mark all as read":"すべて既読にする"%></button></form><%}%></div>
+        <div class="notification-toolbar"><div class="notification-filter"><span class="notification-filter-label"><%=en?"Show":"表示する通知"%></span><nav class="notification-tabs" aria-label="<%=en?"Notification filter":"通知の表示切り替え"%>"><a class="<%=showAllNotifications?"":"active"%>" href="<%=ctx%>/app/notifications" <%=showAllNotifications?"":"aria-current=\"page\""%>><%=en?"Unread only":"未読のみ"%><span class="notification-count"><%=unreadNotificationCount%></span></a><a class="<%=showAllNotifications?"active":""%>" href="<%=ctx%>/app/notifications?view=all" <%=showAllNotifications?"aria-current=\"page\"":""%>><%=en?"Show all":"すべて表示"%></a></nav></div><%if(unreadNotificationCount>0){%><form method="post"><input type="hidden" name="action" value="markNotificationsRead"><input type="hidden" name="returnPage" value="notifications"><button><%=en?"Mark all as read":"すべて既読にする"%></button></form><%}%></div>
         <section class="section"><%for(Map<String,Object> row:rows){boolean notificationRead=Boolean.TRUE.equals(row.get("is_read"));%><article class="notification <%=notificationRead?"read":"unread"%>"><div><div class="notification-title"><h3><%=e(row.get("title"))%></h3><%if(notificationRead){%><span><%=en?"Read":"既読"%></span><%}%></div><p><%=e(row.get("message"))%></p></div><div><small><%=e(util.DateUtil.formatUtcToJst(row.get("created_at")))%></small><%if(row.get("target_url")!=null){%><form method="post" class="notification-detail-form"><input type="hidden" name="action" value="markNotificationRead"><input type="hidden" name="returnPage" value="notifications"><input type="hidden" name="id" value="<%=row.get("id")%>"><button class="link-button"><%=en?"Details":"詳細"%></button></form><%}%></div></article><%}%><%if(rows.isEmpty()){%><div class="empty"><%=showAllNotifications?(en?"No notifications.":"通知はありません。"):(en?"There are no unread notifications. Past notifications are available under All.":"未読の通知はありません。過去の通知は「すべて」から確認できます。")%></div><%}%></section>
 
       <% } else if(pageKey.equals("mail-status")){ %>

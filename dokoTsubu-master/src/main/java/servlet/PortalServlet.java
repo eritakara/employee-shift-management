@@ -132,7 +132,10 @@ public class PortalServlet extends HttpServlet {
       if ("attendance/clock".equals(page)) req.setAttribute("clockSummary", attendanceService.attendanceClockSummary(user));
       if ("attendance/manage".equals(page)) req.setAttribute("people", employeeService.findEmployees(user));
     } else if ("notifications".equals(page)) {
-      req.setAttribute("rows", notificationService.notifications(user));
+      boolean showAllNotifications = "all".equals(req.getParameter("view"));
+      req.setAttribute("notificationView", showAllNotifications ? "all" : "unread");
+      req.setAttribute("unreadNotificationCount", notificationService.unreadCount(user));
+      req.setAttribute("rows", notificationService.notifications(user, showAllNotifications));
     } else if ("mail-status".equals(page)) {
       if (user.isHr()) req.setAttribute("mailRows", notificationService.mailOutbox(user));
     } else if ("employees".equals(page) || "employees/edit".equals(page)) {
@@ -182,6 +185,8 @@ public class PortalServlet extends HttpServlet {
     User user = current(req);
     String returnPage = value(req, "returnPage", "dashboard");
     String returnMonth = req.getParameter("returnMonth");
+    String notificationTarget = null;
+    boolean showSavedFlash = true;
     try {
       String action = req.getParameter("action");
       switch (action == null ? "" : action) {
@@ -249,7 +254,14 @@ public class PortalServlet extends HttpServlet {
           String rejectionReason = req.getParameter("rejectionReason");
           attendanceService.decideAttendanceAdjustment(user, Long.parseLong(req.getParameter("id")), approve, rejectionReason);
         }
-        case "markNotificationsRead" -> notificationService.markNotificationsRead(user);
+        case "markNotificationsRead" -> {
+          notificationService.markNotificationsRead(user);
+          showSavedFlash = false;
+        }
+        case "markNotificationRead" -> {
+          notificationTarget = notificationService.markNotificationRead(user, Long.parseLong(req.getParameter("id")));
+          showSavedFlash = false;
+        }
         case "retryMail" -> {
           if (!user.isHr()) throw new SecurityException("人事担当者のみ操作できます。");
           notificationService.retryMail(user, Long.parseLong(req.getParameter("id")));
@@ -297,7 +309,7 @@ public class PortalServlet extends HttpServlet {
             Boolean.parseBoolean(req.getParameter("active")));
         default -> throw new IllegalArgumentException("操作が指定されていません。");
       }
-      if (req.getSession().getAttribute("flash") == null && req.getSession().getAttribute("error") == null) {
+      if (showSavedFlash && req.getSession().getAttribute("flash") == null && req.getSession().getAttribute("error") == null) {
         req.getSession().setAttribute("flash", "保存しました。");
       }
     } catch (IllegalArgumentException | SecurityException e) {
@@ -305,6 +317,10 @@ public class PortalServlet extends HttpServlet {
     } catch (Exception e) {
       SecurityLog.error("Portal action failed", e);
       req.getSession().setAttribute("error", "処理に失敗しました。入力内容を確認してください。");
+    }
+    if (notificationTarget != null) {
+      res.sendRedirect(req.getContextPath() + notificationTarget);
+      return;
     }
     String monthQuery = returnMonth != null && returnMonth.matches("\\d{4}-\\d{2}") ? "?month=" + returnMonth : "";
     res.sendRedirect(req.getContextPath() + "/app/" + returnPage + monthQuery);

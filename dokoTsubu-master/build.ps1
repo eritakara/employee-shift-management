@@ -14,10 +14,13 @@ $war = Join-Path $project "target\ROOT.war"
 $libDir = Join-Path $project "src\main\webapp\WEB-INF\lib"
 New-Item -ItemType Directory -Force $libDir | Out-Null
 
-$pgJar = Join-Path $libDir "postgresql-42.7.3.jar"
+$pgJar = Join-Path $libDir "postgresql-42.7.12.jar"
+Get-ChildItem $libDir -Filter "postgresql-*.jar" |
+  Where-Object { $_.FullName -ne $pgJar } |
+  Remove-Item -Force
 if (-not (Test-Path $pgJar)) {
   Write-Warning "Downloading PostgreSQL JDBC Driver..."
-  Invoke-WebRequest -Uri "https://jdbc.postgresql.org/download/postgresql-42.7.3.jar" -OutFile $pgJar
+  Invoke-WebRequest -Uri "https://jdbc.postgresql.org/download/postgresql-42.7.12.jar" -OutFile $pgJar
 }
 
 $hikariJar = Join-Path $libDir "HikariCP-5.1.0.jar"

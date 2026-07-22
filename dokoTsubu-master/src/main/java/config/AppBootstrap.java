@@ -18,6 +18,7 @@ public class AppBootstrap implements ServletContextListener {
 
   @Override
   public void contextInitialized(ServletContextEvent event) {
+    long bootstrapStarted = System.nanoTime();
     try {
       event.getServletContext().log("AppBootstrap: Initializing database...");
       Database.initialize();
@@ -43,6 +44,8 @@ public class AppBootstrap implements ServletContextListener {
       try { new MailDeliveryService().deliverPending(); }
       catch (RuntimeException e) { SecurityLog.error("Scheduled mail delivery failed", e); }
     }, 10, 60, TimeUnit.SECONDS);
+    long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - bootstrapStarted);
+    event.getServletContext().log("Startup timing: application.bootstrap=" + elapsedMillis + " ms");
   }
 
   @Override

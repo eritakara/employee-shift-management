@@ -7,7 +7,17 @@ import model.User;
 
 public class NotificationService {
   public List<Map<String, Object>> notifications(User user) {
-    return Sql.query("SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC", user.getId());
+    return notifications(user, true);
+  }
+
+  public List<Map<String, Object>> notifications(User user, boolean includeRead) {
+    return Sql.query("SELECT * FROM notifications WHERE user_id=?"
+        + (includeRead ? "" : " AND is_read=FALSE") + " ORDER BY created_at DESC", user.getId());
+  }
+
+  public int unreadCount(User user) {
+    return ((Number) Sql.one("SELECT COUNT(*) unread_count FROM notifications WHERE user_id=? AND is_read=FALSE",
+        user.getId()).get("unread_count")).intValue();
   }
 
   public List<Map<String, Object>> mailOutbox(User user) {
@@ -22,7 +32,19 @@ public class NotificationService {
   }
 
   public void markNotificationsRead(User user) {
-    Sql.update("UPDATE notifications SET is_read=TRUE WHERE user_id=?", user.getId());
+    Sql.update("UPDATE notifications SET is_read=TRUE WHERE user_id=? AND is_read=FALSE", user.getId());
+  }
+
+  public String markNotificationRead(User user, long notificationId) {
+    Map<String, Object> notification = Sql.one(
+        "SELECT target_url FROM notifications WHERE id=? AND user_id=?", notificationId, user.getId());
+    if (notification.isEmpty()) throw new IllegalArgumentException("通知が見つかりません。");
+    String target = notification.get("target_url") == null ? null : String.valueOf(notification.get("target_url"));
+    if (target == null || !target.startsWith("/app/")) {
+      throw new IllegalArgumentException("この通知には詳細画面がありません。");
+    }
+    Sql.update("UPDATE notifications SET is_read=TRUE WHERE id=? AND user_id=?", notificationId, user.getId());
+    return target;
   }
 
   public void notify(long userId, String type, String title, String message, String url) {

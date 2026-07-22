@@ -53,6 +53,8 @@ if ($LASTEXITCODE -ne 0) { throw "Shift preference workflow tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Shift auto-assignment performance tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.NotificationRoutingTest
 if ($LASTEXITCODE -ne 0) { throw "Notification routing tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.NotificationReadStateTest
+if ($LASTEXITCODE -ne 0) { throw "Notification read-state tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.SecurityHardeningTest
 if ($LASTEXITCODE -ne 0) { throw "Security hardening tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.SensitiveDataLeakTest
@@ -89,6 +91,8 @@ if ($LASTEXITCODE -ne 0) { throw "UI state coverage tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Shift auto fill tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" util.PrivacyUtilTest
 if ($LASTEXITCODE -ne 0) { throw "PrivacyUtil tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" util.PasswordUtilUpgradeTest
+if ($LASTEXITCODE -ne 0) { throw "Password hash upgrade tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.AttendanceAdjustmentApprovalRulesTest
 if ($LASTEXITCODE -ne 0) { throw "Attendance adjustment approval rules tests failed" }
 

@@ -526,7 +526,7 @@ function translatePage() {
     '打刻時に端末の位置情報を記録します。場所による打刻制限はありません。':'Your device location is recorded when clocking. Location does not restrict clocking.',
     '出勤':'Clock in','退勤':'Clock out','打刻修正を申請':'Request correction','対象勤怠':'Attendance record','修正後の出勤':'Corrected clock-in','修正後の退勤':'Corrected clock-out',
     '勤怠実績':'Attendance Records','自分の月間勤怠を確認':'View your monthly attendance','自店舗スタッフの月間勤怠を確認':'View branch staff\'s monthly attendance','全従業員の月間勤怠を確認':'View all employees\' monthly attendance','勤務':'Shift','遅刻':'Late','早退':'Early','残業':'Overtime','位置情報':'Location','確定':'Finalize','解除':'Reopen','勤怠データはありません。':'No attendance records.',
-    'すべて既読にする':'Mark all as read','通知はありません。':'No notifications.','詳細':'Details',
+    'すべて既読にする':'Mark all as read','通知はありません。':'No notifications.','未読':'Unread','すべて':'All','既読':'Read','未読の通知はありません。過去の通知は「すべて」から確認できます。':'There are no unread notifications. Past notifications are available under All.','詳細':'Details',
     '従業員を登録':'Add employee','メールアドレス':'Email','入社日':'Hire date','営業所':'Branch','部署':'Department','雇用形態':'Employment type','役割':'Role','登録して招待':'Register and invite','招待メールを再送信':'Resend invitation email',
     '資格を登録':'Add qualification','資格名':'Qualification','有効期限':'Expiry date','登録':'Add','代理者':'Delegate','開始日':'Start date','終了日':'End date','設定':'Set',
     '項目を追加':'Add item','名称':'Name','追加':'Add','コード':'Code','日本語名':'Japanese name','英語名':'English name','開始':'Start','終了':'End','休憩':'Break','必要人数':'Required staff',

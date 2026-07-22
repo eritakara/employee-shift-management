@@ -16,16 +16,26 @@ public class UserDAO {
         + "WHERE LOWER(u.email)=LOWER(?) AND u.active=TRUE";
     try (Connection c = Database.getConnection(); PreparedStatement p = c.prepareStatement(sql)) {
       p.setString(1, email == null ? "" : email.trim());
+      User authenticated;
+      String storedHash;
       try (ResultSet rs = p.executeQuery()) {
-        if (rs.next() && PasswordUtil.verify(password, rs.getString("password_hash"))) {
-          return map(rs);
+        if (!rs.next()) return null;
+        storedHash = rs.getString("password_hash");
+        if (!PasswordUtil.verify(password, storedHash)) return null;
+        authenticated = map(rs);
+      }
+      if (PasswordUtil.needsRehash(storedHash)) {
+        try (PreparedStatement update = c.prepareStatement("UPDATE users SET password_hash=? WHERE id=?")) {
+          update.setString(1, PasswordUtil.hash(password));
+          update.setLong(2, authenticated.getId());
+          update.executeUpdate();
         }
       }
+      return authenticated;
     } catch (SQLException e) {
       SecurityLog.error("User authentication query failed", e);
       throw new IllegalStateException("Login failed", e);
     }
-    return null;
   }
 
   public User findById(long id) {

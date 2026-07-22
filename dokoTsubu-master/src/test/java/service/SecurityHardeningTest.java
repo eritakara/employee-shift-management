@@ -82,6 +82,9 @@ public class SecurityHardeningTest {
     check(webXml.contains("<http-only>true</http-only>"), "session cookie HttpOnly configured");
     String contextXml = Files.readString(Path.of("src/main/webapp/META-INF/context.xml"));
     check(contextXml.contains("sameSiteCookies=\"lax\""), "session cookie SameSite Lax configured");
+    String dockerfile = Files.readString(Path.of("../Dockerfile"));
+    check(dockerfile.contains("RemoteIpValve") && dockerfile.contains("protocolHeader=\\\"x-forwarded-proto\\\""),
+        "reverse proxy HTTPS is propagated for Secure session cookies");
     System.out.println("SecurityHardeningTest: all checks passed");
   }
 

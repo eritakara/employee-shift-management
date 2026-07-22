@@ -104,6 +104,10 @@ docker run --rm -p 10000:10000 shiftflow
 
 ## 6. 本番環境での注意事項とトラブルシューティング
 
+### セッションCookieの確認
+
+本番環境では、Tomcat の `RemoteIpValve` が Render の `X-Forwarded-Proto` を処理し、HTTPS リクエストとして認識させます。セッションCookieは `HttpOnly`、`Secure`、`SameSite=Lax`、`Path=/` になっていることをブラウザの開発者ツールで確認してください。ローカルのHTTP環境では `Secure` が付かないことがありますが、本番HTTPSでは必須です。
+
 ### 6.0 ヘルスチェックと起動時間の確認
 
 Render の Health Check Path には `/health` を指定します。このエンドポイントはデータベースへ接続せず、アプリケーションの起動完了後に `200 OK` と `ok` を返します。

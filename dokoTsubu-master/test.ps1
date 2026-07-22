@@ -79,6 +79,8 @@ if ($LASTEXITCODE -ne 0) { throw "Approved requirements tests failed" }
 if ($LASTEXITCODE -ne 0) { throw "Concurrent load tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.InvitationWorkflowTest
 if ($LASTEXITCODE -ne 0) { throw "Invitation workflow tests failed" }
+& (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.AccountTokenSecurityTest
+if ($LASTEXITCODE -ne 0) { throw "Account token security tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.AccessibilityTest
 if ($LASTEXITCODE -ne 0) { throw "Accessibility tests failed" }
 & (Join-Path $JavaHome "bin\java.exe") -cp "$(Join-Path $PSScriptRoot 'build\classes');$testClasses;$libs" service.UiStateCoverageTest

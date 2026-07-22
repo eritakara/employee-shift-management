@@ -104,9 +104,11 @@ docker run --rm -p 10000:10000 shiftflow
 
 ## 6. 本番環境での注意事項とトラブルシューティング
 
-### セッションCookieの確認
+### ログイン状態を守るCookieの確認
 
-本番環境では、Tomcat の `RemoteIpValve` が Render の `X-Forwarded-Proto` を処理し、HTTPS リクエストとして認識させます。セッションCookieは `HttpOnly`、`Secure`、`SameSite=Lax`、`Path=/` になっていることをブラウザの開発者ツールで確認してください。ローカルのHTTP環境では `Secure` が付かないことがありますが、本番HTTPSでは必須です。
+本番環境では、ログイン状態を安全に保つため、セッションCookie（ブラウザがログイン状態を覚えるための情報）を保護しています。Renderへ公開した後、ブラウザの開発者ツールで、Cookieに `HttpOnly`、`Secure`、`SameSite=Lax`、`Path=/` が設定されていることを確認してください。これらは、Cookieの盗み見や他サイトからの不正利用を起こりにくくする設定です。
+
+パソコン上のローカル環境はHTTPで動かすため、`Secure` が表示されない場合があります。本番のRender環境はHTTPSであるため、`Secure` が表示されていることが必要です。
 
 ### 6.0 ヘルスチェックと起動時間の確認
 

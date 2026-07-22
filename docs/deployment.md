@@ -104,6 +104,12 @@ docker run --rm -p 10000:10000 shiftflow
 
 ## 6. 本番環境での注意事項とトラブルシューティング
 
+### 6.0 ヘルスチェックと起動時間の確認
+
+Render の Health Check Path には `/health` を指定します。このエンドポイントはデータベースへ接続せず、アプリケーションの起動完了後に `200 OK` と `ok` を返します。
+
+起動時には Render のログへ `Startup timing:` で始まる計測結果が出力されます。`database.connection`、`database.schema`、`database.base-seed`、`database.total`、`application.bootstrap` を比較することで、接続・スキーマ確認・初期データ確認・起動全体のどこに時間がかかっているか判別できます。
+
 ### 6.1 Render Freeプランによる起動遅延について
 
 Render の無料プランを使用する構成では、しばらくアクセスがない場合、アプリが自動的に休止状態になることがあります。

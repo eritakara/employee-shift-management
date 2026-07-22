@@ -65,6 +65,7 @@ public final class Database {
 
   public static synchronized void initialize() {
     if (jdbcUrl != null) return;
+    long initializationStarted = System.nanoTime();
     logEnvironmentState();
     validateDemoSeedConfiguration(
         isProductionEnvironment(),
@@ -85,32 +86,50 @@ public final class Database {
 
       validateAndLogConnectionConfig(jdbcUrl, jdbcUser);
       
+      long stageStarted = System.nanoTime();
       loadJdbcDriver();
+      logStartupTiming("database.driver", stageStarted);
       
       System.out.println("Connecting to configured database (connection details redacted)...");
+      stageStarted = System.nanoTime();
       try (Connection connection = getConnection()) {
+        logStartupTiming("database.connection", stageStarted);
         System.out.println("Database connection established successfully.");
         
         System.out.println("Starting table creation (schema)...");
+        stageStarted = System.nanoTime();
         createSchema(connection);
+        logStartupTiming("database.schema", stageStarted);
         System.out.println("Table creation (schema) completed successfully.");
         
         if (flag("shiftapp.seedDemo", "BASE_SEED", true)) {
           System.out.println("Starting master data and initial admin (HR) creation...");
+          stageStarted = System.nanoTime();
           seed(connection);
+          logStartupTiming("database.base-seed", stageStarted);
           System.out.println("Master data and initial admin (HR) creation completed successfully.");
+        } else {
+          System.out.println("Startup timing: database.base-seed=skipped");
         }
 
+        stageStarted = System.nanoTime();
         DemoAttendanceSeeder.runIfEnabled(connection);
+        logStartupTiming("database.demo-attendance", stageStarted);
 
         // 一時的なHRパスワード再設定処理（環境変数での指示がある場合）
+        stageStarted = System.nanoTime();
         resetHrPasswordIfNeeded(connection);
+        logStartupTiming("database.password-reset", stageStarted);
 
         // 「早番」「遅番」勤務区分のクリーンアップおよび移行処理
+        stageStarted = System.nanoTime();
         cleanupEarlyLateWorkTypes(connection);
+        logStartupTiming("database.work-type-cleanup", stageStarted);
       }
+      logStartupTiming("database.total", initializationStarted);
       System.out.println("Database initialization completed successfully.");
     } catch (Throwable e) {
+      logStartupTiming("database.failed", initializationStarted);
       SecurityLog.error("Database initialization failed", e);
       jdbcUrl = null;
       jdbcUser = null;
@@ -118,6 +137,12 @@ public final class Database {
       if (e instanceof RuntimeException) throw (RuntimeException) e;
       throw new IllegalStateException("Failed to initialize database", e);
     }
+  }
+
+  private static void logStartupTiming(String stage, long startedAtNanos) {
+    long elapsedMillis = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(
+        System.nanoTime() - startedAtNanos);
+    System.out.println("Startup timing: " + stage + "=" + elapsedMillis + " ms");
   }
 
   private static synchronized void initDataSource() {
